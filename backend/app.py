@@ -26,7 +26,6 @@ from .pipeline import SessionPipeline
 from .refine import final_model, transcribe_recording
 from .retention import should_discard, worth_keeping
 from .store import SessionStore, default_data_dir
-from .summarizer import Summary, generate_summary
 from .transcriber import WhisperTranscriber, get_model
 from .vocabulary import clean as clean_terms
 from .vocabulary import configured_terms, hotwords
@@ -50,7 +49,6 @@ RESUME_WAIT_SEC = 120.0
 # state
 sessions: Dict[str, Session] = {}
 pipelines: Dict[str, SessionPipeline] = {}
-summaries: Dict[str, Summary] = {}
 transcript_subscribers: Dict[str, List[WebSocket]] = {}
 # set once a capture handler is completely done, so a resumed capture can wait for it
 capture_done: Dict[str, asyncio.Event] = {}
@@ -66,7 +64,6 @@ async def lifespan(_app: FastAPI):
     global store
     store = SessionStore(DB_PATH)
     pipelines.clear()
-    summaries.clear()
     sessions.clear()
     sessions.update(store.load_sessions())
     # nothing is capturing yet, so anything left mid-flight died with the last process
@@ -148,19 +145,6 @@ def get_transcript(session_id: str):
         "full_text": " ".join(s.text for s in segments),
         "segment_count": len(segments),
     }
-
-
-@app.post("/api/sessions/{session_id}/summarize")
-async def summarize_session(session_id: str):
-    if session_id not in pipelines and session_id not in sessions:
-        raise HTTPException(status_code=404, detail="session not found")
-    text = " ".join(s.text for s in _segments_for(session_id))
-    if not text.strip():
-        raise HTTPException(status_code=400, detail="transcript is empty")
-    summary = await generate_summary(text, session_id)
-    summaries[session_id] = summary
-    store.save_summary(summary)
-    return summary.to_dict()
 
 
 _SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -272,14 +256,6 @@ def get_notes(session_id: str):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="session not found")
     return {"notes": [{"at_sec": n.at_sec, "text": n.text} for n in store.load_notes(session_id)]}
-
-
-@app.get("/api/sessions/{session_id}/summary")
-def get_summary(session_id: str):
-    summary = summaries.get(session_id) or store.load_summary(session_id)
-    if summary is None:
-        raise HTTPException(status_code=404, detail="summary not found — call POST /summarize first")
-    return summary.to_dict()
 
 
 @app.websocket("/ws/transcript/{session_id}")
@@ -452,8 +428,8 @@ async def ws_audio(websocket: WebSocket):
             vocabularies.pop(session_id, None)
         done.set()
 
-    # tell the client the final pass is done, so it knows the transcript is complete and
-    # summarising is now safe. The socket may already be gone, which is fine.
+    # tell the client the final pass is done, so it knows the transcript is complete.
+    # The socket may already be gone, which is fine.
     try:
         await websocket.send_json(
             {

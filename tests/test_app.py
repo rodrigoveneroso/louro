@@ -55,7 +55,6 @@ def client(monkeypatch, tmp_path, built):
     monkeypatch.setattr(app_module, "RECORDINGS_DIR", tmp_path)
     monkeypatch.setattr(app_module, "sessions", {})
     monkeypatch.setattr(app_module, "pipelines", {})
-    monkeypatch.setattr(app_module, "summaries", {})
     monkeypatch.setattr(app_module, "capture_done", {})
     monkeypatch.setattr(app_module, "resumed", set())
     monkeypatch.setattr(app_module, "vocabularies", {})
@@ -213,18 +212,6 @@ def test_hanging_up_without_stop_does_not_leak_the_working_file(client, webm, tm
 def test_unknown_session_returns_404(client):
     assert client.get("/api/sessions/nope").status_code == 404
     assert client.get("/api/sessions/nope/transcript").status_code == 404
-
-
-def test_summarize_rejects_an_empty_transcript(client, webm, monkeypatch):
-    def silent(language=None):
-        return lambda audio: []
-
-    monkeypatch.setattr(app_module, "_make_transcribe_fn", silent)
-    session_id = stream(client, webm)
-
-    response = client.post(f"/api/sessions/{session_id}/summarize")
-
-    assert response.status_code == 400
 
 
 def test_live_subscriber_receives_captions_during_the_session(client, webm, monkeypatch):

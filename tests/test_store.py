@@ -11,9 +11,8 @@ import threading
 import pytest
 
 from backend.incremental import Segment
-from backend.models import Session
+from backend.models import Note, Session
 from backend.store import SessionStore
-from backend.summarizer import Summary
 
 
 @pytest.fixture
@@ -113,48 +112,20 @@ def test_adding_no_segments_is_harmless(store):
     assert store.load_segments("s1") == []
 
 
-def test_summary_round_trips(store):
-    store.save_session(make_session("s1"))
-    summary = Summary(
-        session_id="s1",
-        content="## Decisions\n- ship it",
-        model="claude-sonnet-4",
-        input_tokens=120,
-        output_tokens=45,
-        status="done",
-    )
-
-    store.save_summary(summary)
-
-    assert store.load_summary("s1").to_dict() == summary.to_dict()
-
-
-def test_regenerating_a_summary_replaces_the_old_one(store):
-    store.save_session(make_session("s1"))
-    store.save_summary(Summary(session_id="s1", content="first pass", status="done"))
-    store.save_summary(Summary(session_id="s1", content="second pass", status="done"))
-
-    assert store.load_summary("s1").content == "second pass"
-
-
-def test_missing_summary_reads_as_none(store):
-    assert store.load_summary("s1") is None
-
-
 def test_everything_survives_reopening_the_database(tmp_path):
     """The actual point: restarting the backend must not lose a meeting."""
     path = tmp_path / "ghostmeet.db"
     first = SessionStore(path)
     first.save_session(make_session("s1"))
     first.add_segments("s1", [Segment(text="we decided to ship", start=0.0, end=2.0)])
-    first.save_summary(Summary(session_id="s1", content="shipped", status="done"))
+    first.add_note("s1", Note(at_sec=1.0, text="shipped"))
     first.close()
 
     reopened = SessionStore(path)
     try:
         assert "s1" in reopened.load_sessions()
         assert [s.text for s in reopened.load_segments("s1")] == ["we decided to ship"]
-        assert reopened.load_summary("s1").content == "shipped"
+        assert [n.text for n in reopened.load_notes("s1")] == ["shipped"]
     finally:
         reopened.close()
 
@@ -225,24 +196,22 @@ def test_a_database_from_before_meeting_titles_gains_the_columns(tmp_path):
         store.close()
 
 
-def test_deleting_a_session_removes_its_transcript_and_summary(store):
+def test_deleting_a_session_removes_its_transcript_and_notes(store):
     store.save_session(make_session("gone"))
     store.save_session(make_session("kept"))
     store.add_segments("gone", [Segment(text="a", start=0.0, end=1.0)])
     store.add_segments("kept", [Segment(text="b", start=0.0, end=1.0)])
-    store.save_summary(Summary(session_id="gone", content="x", status="done"))
+    store.add_note("gone", Note(at_sec=0.5, text="x"))
 
     store.delete_session("gone")
 
     assert set(store.load_sessions()) == {"kept"}
     assert store.load_segments("gone") == []
-    assert store.load_summary("gone") is None
+    assert store.load_notes("gone") == []
     assert len(store.load_segments("kept")) == 1
 
 
 def test_notes_come_back_in_time_order_and_go_with_their_session(store):
-    from backend.models import Note
-
     store.save_session(make_session("n"))
     store.add_note("n", Note(at_sec=90.0, text="decision: ship friday"))
     store.add_note("n", Note(at_sec=12.5))

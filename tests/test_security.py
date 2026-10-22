@@ -53,7 +53,7 @@ def test_a_website_origin_is_not_allowed(client):
 
 def test_preflight_from_a_website_origin_is_refused(client):
     response = client.options(
-        "/api/sessions/x/summarize",
+        "/api/sessions/x/notes",
         headers={
             "Origin": "https://evil.example",
             "Access-Control-Request-Method": "POST",
@@ -67,7 +67,7 @@ def test_preflight_from_the_extension_is_accepted(client):
     origin = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
     response = client.options(
-        "/api/sessions/x/summarize",
+        "/api/sessions/x/notes",
         headers={"Origin": origin, "Access-Control-Request-Method": "POST"},
     )
 
@@ -81,3 +81,28 @@ def test_a_local_dashboard_origin_is_allowed(client):
     )
 
     assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:8877"
+
+
+def test_the_backend_never_calls_out():
+    """Local-only is the whole point: no module of the backend may open a connection.
+
+    A cloud summary used to live here; with it gone, nothing needs an HTTP client, and a
+    new one appearing should be a deliberate decision, not an accident.
+    """
+    import ast
+    from pathlib import Path
+
+    clients = {"httpx", "requests", "aiohttp", "urllib.request", "http.client", "socket"}
+    backend = Path(__file__).resolve().parent.parent / "backend"
+    found = []
+    for path in backend.glob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            names = []
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names = [node.module]
+            hits = [n for n in names if n in clients or n.split(".")[0] in clients]
+            found += [f"{path.name}: {n}" for n in hits]
+
+    assert found == []

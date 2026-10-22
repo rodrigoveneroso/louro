@@ -61,7 +61,7 @@ function clearTranscript() {
 
 function note(text) {
   const div = document.createElement('div');
-  div.className = 'summary-loading';
+  div.className = 'note';
   div.textContent = text;
   transcriptEl.appendChild(div);
   scrollToBottom();

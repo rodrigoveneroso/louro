@@ -1,4 +1,4 @@
-"""Transcripts and summaries must outlive the backend process.
+"""Transcripts and notes must outlive the backend process.
 
 Entering the TestClient context runs the app's startup, so leaving and re-entering it
 is a genuine restart: in-memory state is dropped and everything has to come back from
@@ -106,45 +106,19 @@ def test_segments_are_stored_with_their_speaker_slot(wired, webm):
     assert segments[0]["end"] > segments[0]["start"]
 
 
-def test_a_meeting_can_be_summarised_after_a_restart(wired, webm, monkeypatch):
-    """This is the flow the OpenClaw skill promises and could not deliver."""
+def test_notes_survive_a_restart(wired, webm):
     with TestClient(app_module.app) as client:
-        stream(client, webm, "persisted")
-
-    captured = {}
-
-    async def fake_summary(text, session_id, *args, **kwargs):
-        from backend.summarizer import Summary
-
-        captured["text"] = text
-        return Summary(session_id=session_id, content="- ship on friday", status="done")
-
-    monkeypatch.setattr(app_module, "generate_summary", fake_summary)
+        with client.websocket_connect("/ws/audio?session=persisted") as ws:
+            ws.receive_json()
+            client.post("/api/sessions/persisted/notes", json={"text": "ship on friday"})
+            ws.send_bytes(webm)
+            ws.send_text("stop")
+            ws.receive_json()
 
     with TestClient(app_module.app) as client:
-        response = client.post("/api/sessions/persisted/summarize")
+        notes = client.get("/api/sessions/persisted/notes").json()["notes"]
 
-    assert response.status_code == 200
-    assert "ship on friday" in captured["text"]
-
-
-def test_summary_survives_a_restart(wired, webm, monkeypatch):
-    async def fake_summary(text, session_id, *args, **kwargs):
-        from backend.summarizer import Summary
-
-        return Summary(session_id=session_id, content="decisions: ship", status="done")
-
-    monkeypatch.setattr(app_module, "generate_summary", fake_summary)
-
-    with TestClient(app_module.app) as client:
-        stream(client, webm, "persisted")
-        client.post("/api/sessions/persisted/summarize")
-
-    with TestClient(app_module.app) as client:
-        body = client.get("/api/sessions/persisted/summary").json()
-
-    assert body["content"] == "decisions: ship"
-    assert body["status"] == "done"
+    assert [n["text"] for n in notes] == ["ship on friday"]
 
 
 def test_segments_are_written_during_the_meeting_not_only_at_the_end(wired, webm, monkeypatch):
@@ -167,7 +141,7 @@ def test_segments_are_written_during_the_meeting_not_only_at_the_end(wired, webm
 def test_unknown_session_is_still_a_404_after_a_restart(wired):
     with TestClient(app_module.app) as client:
         assert client.get("/api/sessions/never-existed/transcript").status_code == 404
-        assert client.get("/api/sessions/never-existed/summary").status_code == 404
+        assert client.get("/api/sessions/never-existed/notes").status_code == 404
 
 
 def test_a_live_session_is_served_from_memory_not_the_database(wired, webm, monkeypatch):

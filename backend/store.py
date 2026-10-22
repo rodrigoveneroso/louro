@@ -1,4 +1,4 @@
-"""SQLite persistence for sessions, transcripts and summaries.
+"""SQLite persistence for sessions, transcripts and notes.
 
 Segments are written as they are committed rather than at the end, so a crash part way
 through a long meeting loses at most the transcript of the newest window instead of the
@@ -12,11 +12,10 @@ import os
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Sequence
 
 from .incremental import Segment
 from .models import Note, Session
-from .summarizer import Summary
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +57,6 @@ CREATE TABLE IF NOT EXISTS notes (
 
 CREATE INDEX IF NOT EXISTS idx_notes_session ON notes(session_id, at_sec);
 
-CREATE TABLE IF NOT EXISTS summaries (
-    session_id    TEXT PRIMARY KEY,
-    content       TEXT,
-    model         TEXT,
-    input_tokens  INTEGER NOT NULL DEFAULT 0,
-    output_tokens INTEGER NOT NULL DEFAULT 0,
-    status        TEXT,
-    error         TEXT
-);
 """
 
 
@@ -162,33 +152,6 @@ class SessionStore:
             )
             self._conn.commit()
 
-    def save_summary(self, summary: Summary) -> None:
-        with self._lock:
-            self._conn.execute(
-                """
-                INSERT INTO summaries (session_id, content, model, input_tokens,
-                                       output_tokens, status, error)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(session_id) DO UPDATE SET
-                    content=excluded.content,
-                    model=excluded.model,
-                    input_tokens=excluded.input_tokens,
-                    output_tokens=excluded.output_tokens,
-                    status=excluded.status,
-                    error=excluded.error
-                """,
-                (
-                    summary.session_id,
-                    summary.content,
-                    summary.model,
-                    summary.input_tokens,
-                    summary.output_tokens,
-                    summary.status,
-                    summary.error,
-                ),
-            )
-            self._conn.commit()
-
     def load_sessions(self) -> Dict[str, Session]:
         with self._lock:
             rows = self._conn.execute(
@@ -211,23 +174,6 @@ class SessionStore:
             )
             for row in rows
         ]
-
-    def load_summary(self, session_id: str) -> Optional[Summary]:
-        with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM summaries WHERE session_id = ?", (session_id,)
-            ).fetchone()
-        if row is None:
-            return None
-        return Summary(
-            session_id=row["session_id"],
-            content=row["content"] or "",
-            model=row["model"] or "",
-            input_tokens=row["input_tokens"],
-            output_tokens=row["output_tokens"],
-            status=row["status"] or "",
-            error=row["error"],
-        )
 
     def replace_segments(self, session_id: str, segments: Sequence[Segment]) -> None:
         """Swap a session's whole transcript for another, in one transaction: a reader
@@ -265,7 +211,7 @@ class SessionStore:
     def delete_session(self, session_id: str) -> None:
         """Remove a session and everything stored for it."""
         with self._lock:
-            for table in ("segments", "notes", "summaries", "sessions"):
+            for table in ("segments", "notes", "sessions"):
                 self._conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
             self._conn.commit()
 
