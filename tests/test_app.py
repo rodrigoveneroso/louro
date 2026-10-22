@@ -55,6 +55,8 @@ def client(monkeypatch, tmp_path, built):
     monkeypatch.setattr(app_module, "sessions", {})
     monkeypatch.setattr(app_module, "pipelines", {})
     monkeypatch.setattr(app_module, "summaries", {})
+    monkeypatch.setattr(app_module, "capture_done", {})
+    monkeypatch.setattr(app_module, "resumed", set())
     with TestClient(app_module.app) as c:
         yield c
 
@@ -284,5 +286,53 @@ def test_speaker_events_are_appended_as_json_lines(client, tmp_path):
 
 
 def test_speaker_events_reject_a_path_like_session_id(client):
-    assert client.post("/api/sessions/..%2Fx/speaker-events", json={"events": []}).status_code in (400, 404)
-    assert client.post("/api/sessions/ok/speaker-events", json={"events": "nope"}).status_code == 400
+    traversal = client.post("/api/sessions/..%2Fx/speaker-events", json={"events": []})
+    not_a_list = client.post("/api/sessions/ok/speaker-events", json={"events": "nope"})
+
+    assert traversal.status_code in (400, 404)
+    assert not_a_list.status_code == 400
+
+
+def _epoch_ms(iso: str, plus_sec: float = 0.0) -> int:
+    import datetime as dt
+
+    return int((dt.datetime.fromisoformat(iso).timestamp() + plus_sec) * 1000)
+
+
+def test_a_resumed_capture_continues_the_same_session(client, webm):
+    """A dropped connection used to start the meeting over and lose what came before."""
+    stream(client, webm, query="?session=r")
+    started_at = client.get("/api/sessions/r").json()["started_at"]
+
+    stream(client, webm, query=f"?session=r&resume={_epoch_ms(started_at, 60)}")
+
+    session = client.get("/api/sessions/r").json()
+    segments = client.get("/api/sessions/r/transcript").json()["segments"]
+    assert session["audio_bytes"] == 2 * len(webm)
+    assert session["started_at"] == started_at
+    assert segments[0]["start"] < 1
+    assert segments[-1]["start"] >= 60  # on the session clock, not from zero again
+    assert session["transcript_segments"] == len(segments)
+
+
+def test_a_resume_never_goes_back_before_the_existing_transcript(client, webm):
+    stream(client, webm, query="?session=r2")
+    started_at = client.get("/api/sessions/r2").json()["started_at"]
+
+    stream(client, webm, query=f"?session=r2&resume={_epoch_ms(started_at, -3600)}")
+
+    starts = [s["start"] for s in client.get("/api/sessions/r2/transcript").json()["segments"]]
+    assert starts == sorted(starts)
+
+
+def test_resuming_an_unknown_session_starts_it(client, webm):
+    stream(client, webm, query="?session=fresh&resume=1700000000000")
+
+    assert client.get("/api/sessions/fresh").json()["audio_bytes"] == len(webm)
+
+
+def test_a_bad_resume_value_is_a_normal_start(client, webm):
+    stream(client, webm, query="?session=plain")
+    stream(client, webm, query="?session=plain&resume=soon")
+
+    assert client.get("/api/sessions/plain").json()["audio_bytes"] == len(webm)

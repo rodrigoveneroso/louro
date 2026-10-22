@@ -1,6 +1,7 @@
 """ghostmeet backend — audio capture + incremental STT."""
 from __future__ import annotations
 
+import asyncio
 import datetime as dt
 import json
 import logging
@@ -37,12 +38,18 @@ WHISPER_DEVICE = os.environ.get("GHOSTMEET_DEVICE", "auto")
 WHISPER_COMPUTE = os.environ.get("GHOSTMEET_COMPUTE_TYPE", "float32")
 WHISPER_LANGUAGE = os.environ.get("GHOSTMEET_LANGUAGE") or None
 CHUNK_INTERVAL = float(os.environ.get("GHOSTMEET_CHUNK_INTERVAL", "10"))
+# how long a resumed capture waits for the dropped one to finish its final pass
+RESUME_WAIT_SEC = 120.0
 
 # state
 sessions: Dict[str, Session] = {}
 pipelines: Dict[str, SessionPipeline] = {}
 summaries: Dict[str, Summary] = {}
 transcript_subscribers: Dict[str, List[WebSocket]] = {}
+# set once a capture handler is completely done, so a resumed capture can wait for it
+capture_done: Dict[str, asyncio.Event] = {}
+# sessions continued after a dropped connection: their transcript spans several pipelines
+resumed: set[str] = set()
 store: SessionStore | None = None
 
 
@@ -111,7 +118,7 @@ def get_session(session_id: str):
 
 def _segments_for(session_id: str) -> List[Segment]:
     """Live sessions answer from the pipeline producing them, finished ones from disk."""
-    if session_id in pipelines:
+    if session_id in pipelines and session_id not in resumed:
         return pipelines[session_id].transcriber.transcript
     return store.load_segments(session_id)
 
@@ -190,13 +197,20 @@ async def ws_transcript(websocket: WebSocket, session_id: str):
             subscribers.remove(websocket)
 
 
-async def _broadcast_segments(session_id: str, segments: List[Segment]) -> None:
+async def _broadcast_segments(session_id: str, offset: float, segments: List[Segment]) -> None:
+    # A resumed capture starts a new recording, timed from zero. Moving its segments to
+    # the session clock keeps one timeline across reconnections (and the speaker log,
+    # which uses wall time, lined up with it).
+    for segment in segments:
+        segment.start += offset
+        segment.end += offset
+
     # persist first: captions are nice to have, a lost transcript is not recoverable
     store.add_segments(session_id, segments)
 
     session = sessions.get(session_id)
     if session is not None and session_id in pipelines:
-        session.transcript_segments = len(pipelines[session_id].transcriber.transcript)
+        session.transcript_segments = len(_segments_for(session_id))
         store.save_session(session)
 
     subscribers = transcript_subscribers.get(session_id, [])
@@ -219,30 +233,51 @@ async def ws_audio(websocket: WebSocket):
         "%Y%m%d-%H%M%S"
     )
     language = websocket.query_params.get("lang") or WHISPER_LANGUAGE
+    resume_ms = _resume_param(websocket.query_params.get("resume"))
+    previous = sessions.get(session_id)
 
-    if session_id in pipelines and sessions.get(session_id, None) is not None:
-        if sessions[session_id].status == "streaming":
-            logger.warning("Rejected duplicate capture for active session %s", session_id)
-            await websocket.close(code=4409, reason="session already capturing")
-            return
+    if resume_ms is not None and previous is not None:
+        # The extension lost its connection and came back with a new recorder. Let the
+        # old handler finish its final pass first, so the two never share the session.
+        previous_done = capture_done.get(session_id)
+        if previous_done is not None:
+            try:
+                await asyncio.wait_for(previous_done.wait(), timeout=RESUME_WAIT_SEC)
+            except asyncio.TimeoutError:
+                await websocket.close(code=4409, reason="previous capture still finishing")
+                return
+    elif session_id in pipelines and previous is not None and previous.status == "streaming":
+        logger.warning("Rejected duplicate capture for active session %s", session_id)
+        await websocket.close(code=4409, reason="session already capturing")
+        return
 
     pcm_path = RECORDINGS_DIR / f"{session_id}.pcm"
     # a re-used id starts fresh: appending to a previous recording corrupts both files
     pcm_path.unlink(missing_ok=True)
 
-    session = Session(
-        session_id=session_id,
-        language=language,
-    )
+    offset = 0.0
+    if resume_ms is not None and previous is not None:
+        session = previous
+        offset = _resume_offset(session, resume_ms)
+        session.status, session.stopped_at, session.error = "streaming", None, None
+        resumed.add(session_id)
+        logger.info("Resuming session %s at %.1fs", session_id, offset)
+    else:
+        session = Session(
+            session_id=session_id,
+            language=language,
+        )
+        resumed.discard(session_id)
     sessions[session_id] = session
     store.save_session(session)
+    done = capture_done[session_id] = asyncio.Event()
 
     pcm = PcmStore(pcm_path)
     decoder = StreamingWebmDecoder(pcm)
     pipeline = SessionPipeline(
         decoder=decoder,
         transcriber=IncrementalTranscriber(pcm, _make_transcribe_fn(language)),
-        on_segments=partial(_broadcast_segments, session_id),
+        on_segments=partial(_broadcast_segments, session_id, offset),
         interval_sec=CHUNK_INTERVAL,
     )
     pipelines[session_id] = pipeline
@@ -276,11 +311,12 @@ async def ws_audio(websocket: WebSocket):
             session.status = "stopped"
 
         session.stopped_at = dt.datetime.now().isoformat(timespec="seconds")
-        session.transcript_segments = len(pipeline.transcriber.transcript)
-        session.duration_sec = round(pcm.duration, 2)
+        segments = _segments_for(session_id)
+        session.transcript_segments = len(segments)
+        session.duration_sec = round(offset + pcm.duration, 2)
         store.save_session(session)
         try:
-            export_session(session, pipeline.transcriber.transcript)
+            export_session(session, segments)
         except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
             logger.exception("Could not export transcript for %s", session_id)
     finally:
@@ -291,6 +327,7 @@ async def ws_audio(websocket: WebSocket):
         pcm.close()
         # audio is never kept: only the transcript is persisted, the PCM is just a working file
         pcm_path.unlink(missing_ok=True)
+        done.set()
 
     # tell the client the final pass is done, so it knows the transcript is complete and
     # summarising is now safe. The socket may already be gone, which is fine.
@@ -315,6 +352,29 @@ async def ws_audio(websocket: WebSocket):
         session.duration_sec,
         session.transcript_segments,
     )
+
+
+def _resume_param(raw: str | None) -> float | None:
+    """`resume=<epoch ms>`: when the client's new recorder started."""
+    if not raw:
+        return None
+    try:
+        value = float(raw)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def _resume_offset(session: Session, resume_ms: float) -> float:
+    """Seconds into the session where the resumed recording begins.
+
+    Wall time since the session started, so the gap while disconnected stays a gap.
+    Never earlier than what is already transcribed, in case the two clocks disagree.
+    """
+    started = dt.datetime.fromisoformat(session.started_at).timestamp()
+    existing = store.load_segments(session.session_id)
+    last_end = max((s.end for s in existing), default=0.0)
+    return max(resume_ms / 1000.0 - started, last_end, 0.0)
 
 
 def default_host() -> str:
