@@ -1,6 +1,7 @@
 /**
  * Verifies the toolbar popup in a real browser: it speaks Portuguese, offers only the
- * action that fits, follows a capture while it records and reports how it ended.
+ * action that fits, follows a capture while it records, marks moments and takes notes,
+ * and reports how the capture ended.
  *
  *   1. npm install playwright ws && npx playwright install chromium
  *   2. node tests/extension/verify-popup.mjs     (port 8877 must be free: ./stop.sh)
@@ -126,6 +127,7 @@ try {
   check((await text('#startBtn')) === '▶ Iniciar gravação', 'its button is translated');
   check((await visible('#startBtn')) && !(await visible('#stopBtn')), 'only Start is offered');
   check(!(await visible('#panelBtn')), 'the live transcript is not pushed on anyone');
+  check(!(await visible('#markBtn')), 'there is nothing to mark yet');
 
   console.log('\nrecording');
   await worker.evaluate(`chrome.offscreen.createDocument({
@@ -160,6 +162,21 @@ try {
     return /trechos transcritos/.test(line) ? line : null;
   });
   check(Boolean(detail), `and what has been transcribed (${detail})`);
+
+  console.log('\nmarks and notes');
+  await popup.click('#markBtn');
+  const marked = await until(async () => /^📌 Momento marcado em 00:\d\d$/.test(await text('#noteStatus')));
+  check(Boolean(marked), `a moment can be marked (${await text('#noteStatus')})`);
+  await popup.fill('#noteInput', 'decidir na sexta');
+  await popup.press('#noteInput', 'Enter');
+  const noted = await until(async () => /^📝 Nota salva em 00:\d\d$/.test(await text('#noteStatus')));
+  check(Boolean(noted), `and a note taken (${await text('#noteStatus')})`);
+  check((await popup.inputValue('#noteInput')) === '', 'the note field is cleared for the next one');
+  const notes = (await api(`/api/sessions/${SESSION}/notes`))?.notes || [];
+  check(
+    notes.length === 2 && notes[0].text === '' && notes[1].text === 'decidir na sexta',
+    'both reached the session, in order',
+  );
 
   console.log('\nstopping');
   await sleep(3000);

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 from .incremental import Segment
-from .models import Session
+from .models import Note, Session
 from .summarizer import Summary
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,15 @@ CREATE TABLE IF NOT EXISTS segments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_segments_session ON segments(session_id, id);
+
+CREATE TABLE IF NOT EXISTS notes (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    at_sec     REAL NOT NULL,
+    text       TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_notes_session ON notes(session_id, at_sec);
 
 CREATE TABLE IF NOT EXISTS summaries (
     session_id    TEXT PRIMARY KEY,
@@ -220,10 +229,26 @@ class SessionStore:
             error=row["error"],
         )
 
+    def add_note(self, session_id: str, note: Note) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO notes (session_id, at_sec, text) VALUES (?, ?, ?)",
+                (session_id, note.at_sec, note.text),
+            )
+            self._conn.commit()
+
+    def load_notes(self, session_id: str) -> List[Note]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT at_sec, text FROM notes WHERE session_id = ? ORDER BY at_sec, id",
+                (session_id,),
+            ).fetchall()
+        return [Note(at_sec=row["at_sec"], text=row["text"]) for row in rows]
+
     def delete_session(self, session_id: str) -> None:
         """Remove a session and everything stored for it."""
         with self._lock:
-            for table in ("segments", "summaries", "sessions"):
+            for table in ("segments", "notes", "summaries", "sessions"):
                 self._conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
             self._conn.commit()
 

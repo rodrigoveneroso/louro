@@ -212,6 +212,35 @@ async function stopCapture() {
   return { ok: true, sessionId };
 }
 
+/** Mark the current moment of the capture, with `text` as a note when given. */
+async function addNote(text = '') {
+  const running = await activeCapture();
+  if (!running) return { ok: false };
+  try {
+    const resp = await fetch(
+      `http://${BACKEND}/api/sessions/${encodeURIComponent(running.sessionId)}/notes`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ at: Date.now(), text }),
+      },
+    );
+    if (!resp.ok) return { ok: false };
+    const { at_sec: atSec } = await resp.json();
+    return { ok: true, atSec };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// The shortcut marks without opening anything; the icon confirms it for a moment.
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'mark-moment') return;
+  const { ok } = await addNote();
+  await chrome.action.setBadgeText({ text: ok ? '✓' : '!' }).catch(() => {});
+  setTimeout(async () => showRecording(Boolean(await activeCapture())), 1500);
+});
+
 /** The recorder is done: keep the outcome for the popup and release everything. */
 async function onCaptureFinished(result = {}) {
   const { finishingSessionId, activeSessionId } = await chrome.storage.local.get([
@@ -242,6 +271,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse(await startCapture());
     } else if (message.action === 'stop_capture') {
       sendResponse(await stopCapture());
+    } else if (message.action === 'add_note') {
+      sendResponse(await addNote(message.text));
     } else if (message.action === 'mic_granted') {
       sendResponse(await onMicGranted());
     } else if (message.action === 'popup_opened') {

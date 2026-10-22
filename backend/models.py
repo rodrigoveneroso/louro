@@ -40,3 +40,14 @@ class Session:
             "title": self.title,
             "meeting_code": self.meeting_code,
         }
+
+
+@dataclass
+class Note:
+    """Something you marked or wrote down during the meeting, timed on the session clock.
+
+    An empty text is a bare mark: "this moment matters".
+    """
+
+    at_sec: float
+    text: str = ""

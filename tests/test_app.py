@@ -428,3 +428,35 @@ def test_participants_must_be_a_short_list(client, webm):
 
     assert reply.status_code == 400
 
+
+def test_a_mark_lands_on_the_session_clock_and_in_the_export(client, webm, tmp_path):
+    with client.websocket_connect("/ws/audio?session=marked") as ws:
+        ws.receive_json()
+        started_at = client.get("/api/sessions/marked").json()["started_at"]
+        mark = client.post("/api/sessions/marked/notes", json={"at": _epoch_ms(started_at, 0.2)})
+        note = client.post(
+            "/api/sessions/marked/notes",
+            json={"at": _epoch_ms(started_at, 5), "text": "  decide on\nfriday "},
+        )
+        ws.send_bytes(webm)
+        ws.send_text("stop")
+        ws.receive_json()
+
+    assert mark.json() == {"at_sec": 0.2, "text": ""}
+    listed = client.get("/api/sessions/marked/notes").json()["notes"]
+    assert [n["text"] for n in listed] == ["", "decide on friday"]
+    assert note.json() == {"at_sec": 5.0, "text": "decide on friday"}
+    text = next((tmp_path / "export").glob("*marked.md")).read_text()
+    lines = text.splitlines()
+    assert "[00:00] 📌 Momento marcado" in lines
+    assert lines[-1] == "[00:05] 📝 Nota: decide on friday"  # after the last segment
+
+
+def test_notes_are_validated(client, webm):
+    stream(client, webm, query="?session=noted")
+
+    assert client.post("/api/sessions/nope/notes", json={}).status_code == 404
+    assert client.post("/api/sessions/noted/notes", json={"text": 5}).status_code == 400
+    assert client.post("/api/sessions/noted/notes", json={"text": "x" * 1001}).status_code == 400
+    assert client.post("/api/sessions/noted/notes", json={"at": "soon"}).status_code == 400
+

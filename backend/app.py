@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .decoder import StreamingWebmDecoder
 from .exporter import export_session, remove_export
 from .incremental import IncrementalTranscriber, Segment
-from .models import Session
+from .models import Note, Session
 from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
 from .retention import should_discard, worth_keeping
@@ -230,6 +230,41 @@ def _apply_vocabulary(vocabulary: dict) -> None:
         )
 
 
+_MAX_NOTE = 1000
+
+
+@app.post("/api/sessions/{session_id}/notes")
+async def add_note(session_id: str, request: Request):
+    """Mark the current moment of a meeting, optionally with a note.
+
+    `at` is the moment in epoch milliseconds (default: now), so a mark lands where you
+    pressed it even if the request takes a while.
+    """
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="expected an object")
+    text, at = body.get("text", ""), body.get("at")
+    if not isinstance(text, str) or len(text) > _MAX_NOTE:
+        raise HTTPException(status_code=400, detail="text must be a string of at most 1000")
+    if at is not None and not isinstance(at, (int, float)):
+        raise HTTPException(status_code=400, detail="at must be epoch milliseconds")
+    moment = at / 1000.0 if at is not None else dt.datetime.now().timestamp()
+    started = dt.datetime.fromisoformat(session.started_at).timestamp()
+    note = Note(at_sec=round(max(0.0, moment - started), 2), text=" ".join(text.split()))
+    store.add_note(session_id, note)
+    return {"at_sec": note.at_sec, "text": note.text}
+
+
+@app.get("/api/sessions/{session_id}/notes")
+def get_notes(session_id: str):
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="session not found")
+    return {"notes": [{"at_sec": n.at_sec, "text": n.text} for n in store.load_notes(session_id)]}
+
+
 @app.get("/api/sessions/{session_id}/summary")
 def get_summary(session_id: str):
     summary = summaries.get(session_id) or store.load_summary(session_id)
@@ -425,6 +460,7 @@ def _export(session: Session, segments: List[Segment]) -> None:
             session,
             segments,
             speaker_events=RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl",
+            notes=store.load_notes(session.session_id),
         )
     except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
         logger.exception("Could not export transcript for %s", session.session_id)

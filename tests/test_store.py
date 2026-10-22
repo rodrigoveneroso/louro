@@ -238,3 +238,19 @@ def test_deleting_a_session_removes_its_transcript_and_summary(store):
     assert store.load_segments("gone") == []
     assert store.load_summary("gone") is None
     assert len(store.load_segments("kept")) == 1
+
+
+def test_notes_come_back_in_time_order_and_go_with_their_session(store):
+    from backend.models import Note
+
+    store.save_session(make_session("n"))
+    store.add_note("n", Note(at_sec=90.0, text="decision: ship friday"))
+    store.add_note("n", Note(at_sec=12.5))
+    store.add_note("other", Note(at_sec=1.0, text="not mine"))
+
+    assert [(n.at_sec, n.text) for n in store.load_notes("n")] == [
+        (12.5, ""),
+        (90.0, "decision: ship friday"),
+    ]
+    store.delete_session("n")
+    assert store.load_notes("n") == []

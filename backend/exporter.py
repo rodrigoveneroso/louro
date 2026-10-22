@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Sequence
 
 from .incremental import Segment
-from .models import Session
+from .models import Note, Session
 from .retention import worth_keeping
 from .speakers import attribute, load_events
 
@@ -52,6 +52,7 @@ def export_session(
     segments: Sequence[Segment],
     target: Path | None = None,
     speaker_events: Path | None = None,
+    notes: Sequence[Note] = (),
 ) -> Path | None:
     """Write one session as markdown. With `speaker_events` (the Google Meet log), lines
     get the name of whoever was speaking when the meeting UI showed it clearly."""
@@ -83,11 +84,22 @@ def export_session(
         "## Transcrição",
         "",
     ]
+    # notes go between the lines, at the moment they were taken
+    pending = sorted(notes, key=lambda note: note.at_sec)
     for segment, speaker in zip(segments, speakers, strict=True):
+        while pending and pending[0].at_sec <= segment.start:
+            lines.append(_note_line(pending.pop(0)))
         who = f"{speaker}: " if speaker else ""
         lines.append(f"[{_stamp(segment.start)}] {who}{segment.text.strip()}")
+    lines += [_note_line(note) for note in pending]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def _note_line(note: Note) -> str:
+    if note.text:
+        return f"[{_stamp(note.at_sec)}] 📝 Nota: {note.text}"
+    return f"[{_stamp(note.at_sec)}] 📌 Momento marcado"
 
 
 def export_all() -> int:
@@ -101,7 +113,8 @@ def export_all() -> int:
         if not worth_keeping(session, segments):
             continue
         events = recordings / f"{session.session_id}.speakers.jsonl"
-        if export_session(session, segments, speaker_events=events):
+        notes = store.load_notes(session.session_id)
+        if export_session(session, segments, speaker_events=events, notes=notes):
             count += 1
     store.close()
     return count

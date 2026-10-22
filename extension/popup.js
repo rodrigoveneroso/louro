@@ -13,6 +13,10 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const panelBtn = document.getElementById('panelBtn');
 const errorEl = document.getElementById('error');
+const notesEl = document.getElementById('notes');
+const markBtn = document.getElementById('markBtn');
+const noteInput = document.getElementById('noteInput');
+const noteStatus = document.getElementById('noteStatus');
 const autoEl = document.getElementById('autoCapture');
 
 let segments = null; // of the capture shown, fetched from the backend now and then
@@ -40,6 +44,7 @@ async function render() {
   startBtn.hidden = recording || finishing;
   stopBtn.hidden = !recording;
   panelBtn.hidden = !recording;
+  notesEl.hidden = !recording;
 
   if (recording) {
     card.className = 'card recording';
@@ -55,7 +60,9 @@ async function render() {
     card.className = 'card finishing';
     headline.textContent = t('popupFinishing');
     const recorded = (state.captureStoppedAt - state.captureStartedAt) / 1000;
-    detail.textContent = Number.isFinite(recorded) ? t('popupFinishingDetail', formatClock(recorded)) : '';
+    detail.textContent = Number.isFinite(recorded)
+      ? t('popupFinishingDetail', formatClock(recorded))
+      : '';
   } else {
     card.className = 'card idle';
     renderLast(state.lastCapture);
@@ -71,7 +78,8 @@ function renderLast(last) {
     detail.textContent = t('popupDiscardedDetail', formatClock(last.durationSec || 0));
   } else if (last.status === 'stopped') {
     headline.textContent = t('popupDone');
-    detail.textContent = t('popupDoneDetail', formatClock(last.durationSec || 0), last.segments ?? 0);
+    const length = formatClock(last.durationSec || 0);
+    detail.textContent = t('popupDoneDetail', length, last.segments ?? 0);
   } else if (last.status === 'backend_lost') {
     headline.textContent = t('popupLostBackend');
     detail.textContent = '';
@@ -122,6 +130,31 @@ stopBtn.addEventListener('click', () => send('stop_capture'));
 panelBtn.addEventListener('click', async () => {
   const window = await chrome.windows.getCurrent();
   await chrome.sidePanel.open({ windowId: window.id }).catch(() => {});
+});
+
+// --- marks and notes ---
+
+async function addNote(text) {
+  const reply = await chrome.runtime.sendMessage({ action: 'add_note', text }).catch(() => null);
+  if (reply?.ok) {
+    const at = formatClock(reply.atSec);
+    noteStatus.textContent = t(text ? 'popupNoted' : 'popupMarked', at);
+  } else {
+    noteStatus.textContent = t('popupNoteFailed');
+  }
+}
+
+markBtn.addEventListener('click', () => addNote(''));
+noteInput.addEventListener('keydown', async (event) => {
+  if (event.key !== 'Enter' || !noteInput.value.trim()) return;
+  const text = noteInput.value;
+  noteInput.value = '';
+  await addNote(text);
+});
+
+chrome.commands.getAll().then((commands) => {
+  const shortcut = commands.find((c) => c.name === 'mark-moment')?.shortcut;
+  document.getElementById('shortcut').textContent = shortcut ? t('popupShortcut', shortcut) : '';
 });
 
 // --- capture follows the call ---

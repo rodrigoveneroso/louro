@@ -227,5 +227,41 @@
   },
   "micLater": {
     "message": "✅ Permitido. Ele será usado a partir da próxima gravação."
+  },
+  "popupMark": {
+    "message": "📌 Marcar este momento"
+  },
+  "popupNotePlaceholder": {
+    "message": "Anotar algo e apertar Enter"
+  },
+  "popupMarked": {
+    "message": "📌 Momento marcado em $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupNoted": {
+    "message": "📝 Nota salva em $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupNoteFailed": {
+    "message": "Não deu para salvar: o backend do ghostmeet está rodando?"
+  },
+  "popupShortcut": {
+    "message": "Atalho para marcar sem abrir este menu: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "commandMark": {
+    "message": "Marcar este momento da reunião"
   }
 }
