@@ -93,3 +93,13 @@ def test_export_without_a_log_keeps_plain_lines(tmp_path):
 
     assert "[00:01] olá" in text
     assert "falantes:" not in text
+
+
+def test_export_puts_the_meeting_name_in_the_title(tmp_path):
+    session = Session(session_id="s", started_at=STARTED, duration_sec=10,
+                      title="Weekly sync", meeting_code="abc-defg-hij")
+
+    text = export_session(session, [Segment("olá", 1.0, 2.0)], target=tmp_path).read_text()
+
+    assert text.startswith("# Weekly sync (05/01/2026 10:00)")
+    assert "- meet: abc-defg-hij" in text

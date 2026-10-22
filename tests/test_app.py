@@ -371,3 +371,23 @@ def test_a_long_enough_capture_is_kept_and_exported(client, webm, monkeypatch, t
 
     assert client.get("/api/sessions/kept").json()["status"] == "stopped"
     assert list((tmp_path / "export").glob("*kept.md"))
+
+
+def test_the_meeting_page_can_name_the_session(client, webm):
+    stream(client, webm, query="?session=named")
+
+    reply = client.post(
+        "/api/sessions/named/meeting", json={"title": "  Weekly sync ", "code": "abc-defg-hij"}
+    )
+
+    assert reply.json() == {"title": "Weekly sync", "meeting_code": "abc-defg-hij"}
+    assert client.get("/api/sessions/named").json()["title"] == "Weekly sync"
+
+
+def test_meeting_info_is_validated(client, webm):
+    stream(client, webm, query="?session=checked")
+
+    assert client.post("/api/sessions/nope/meeting", json={"title": "x"}).status_code == 404
+    assert client.post("/api/sessions/checked/meeting", json=["x"]).status_code == 400
+    too_long = client.post("/api/sessions/checked/meeting", json={"title": "x" * 201})
+    assert too_long.status_code == 400

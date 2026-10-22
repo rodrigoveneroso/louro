@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     transcript_segments INTEGER NOT NULL DEFAULT 0,
     language            TEXT,
     duration_sec        REAL NOT NULL DEFAULT 0,
-    error               TEXT
+    error               TEXT,
+    title               TEXT,
+    meeting_code        TEXT
 );
 
 CREATE TABLE IF NOT EXISTS segments (
@@ -59,6 +61,10 @@ CREATE TABLE IF NOT EXISTS summaries (
 """
 
 
+# columns added after the first release: databases created before them gain them on open
+_ADDED_COLUMNS = {"sessions": [("title", "TEXT"), ("meeting_code", "TEXT")]}
+
+
 def default_data_dir() -> Path:
     """Where the database and per-session files live: GHOSTMEET_DATA_DIR, else
     `recordings/` next to the backend package."""
@@ -81,7 +87,15 @@ class SessionStore:
         self._lock = threading.Lock()
         with self._lock:
             self._conn.executescript(_SCHEMA)
+            self._add_missing_columns()
             self._conn.commit()
+
+    def _add_missing_columns(self) -> None:
+        for table, columns in _ADDED_COLUMNS.items():
+            existing = {row["name"] for row in self._conn.execute(f"PRAGMA table_info({table})")}
+            for name, kind in columns:
+                if name not in existing:
+                    self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
 
     def save_session(self, session: Session) -> None:
         with self._lock:
@@ -89,8 +103,8 @@ class SessionStore:
                 """
                 INSERT INTO sessions (session_id, chunks, audio_bytes, started_at,
                                       stopped_at, status, file, transcript_segments,
-                                      language, duration_sec, error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                      language, duration_sec, error, title, meeting_code)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     chunks=excluded.chunks,
                     audio_bytes=excluded.audio_bytes,
@@ -101,7 +115,9 @@ class SessionStore:
                     transcript_segments=excluded.transcript_segments,
                     language=excluded.language,
                     duration_sec=excluded.duration_sec,
-                    error=excluded.error
+                    error=excluded.error,
+                    title=excluded.title,
+                    meeting_code=excluded.meeting_code
                 """,
                 (
                     session.session_id,
@@ -115,6 +131,8 @@ class SessionStore:
                     session.language,
                     session.duration_sec,
                     session.error,
+                    session.title,
+                    session.meeting_code,
                 ),
             )
             self._conn.commit()
@@ -227,4 +245,6 @@ def _row_to_session(row: sqlite3.Row) -> Session:
         language=row["language"],
         duration_sec=row["duration_sec"],
         error=row["error"],
+        title=row["title"],
+        meeting_code=row["meeting_code"],
     )

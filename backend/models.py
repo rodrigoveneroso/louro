@@ -21,6 +21,8 @@ class Session:
     language: str | None = None
     duration_sec: float = 0.0
     error: str | None = None
+    title: str | None = None  # the meeting's name, when the meeting page shows one
+    meeting_code: str | None = None  # e.g. the Google Meet code in the URL
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -35,4 +37,6 @@ class Session:
             "language": self.language,
             "duration_sec": self.duration_sec,
             "error": self.error,
+            "title": self.title,
+            "meeting_code": self.meeting_code,
         }

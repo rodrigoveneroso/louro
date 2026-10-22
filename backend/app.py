@@ -175,6 +175,29 @@ async def add_speaker_events(session_id: str, request: Request):
     return {"stored": len(events)}
 
 
+_MAX_MEETING_FIELD = 200
+
+
+@app.post("/api/sessions/{session_id}/meeting")
+async def set_meeting_info(session_id: str, request: Request):
+    """Name and code of the meeting being captured, as the meeting page shows them."""
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="expected an object")
+    for field, attr in (("title", "title"), ("code", "meeting_code")):
+        value = body.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, str) or len(value) > _MAX_MEETING_FIELD:
+            raise HTTPException(status_code=400, detail=f"{field} must be a short string")
+        setattr(session, attr, value.strip() or None)
+    store.save_session(session)
+    return {"title": session.title, "meeting_code": session.meeting_code}
+
+
 @app.get("/api/sessions/{session_id}/summary")
 def get_summary(session_id: str):
     summary = summaries.get(session_id) or store.load_summary(session_id)

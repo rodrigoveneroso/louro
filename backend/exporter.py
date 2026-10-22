@@ -67,13 +67,15 @@ def export_session(
     path = export_path(session, target)
     when = f"{started:%d/%m/%Y %H:%M}"
     lines = [
-        f"# Reunião {when}",
+        f"# {session.title} ({when})" if session.title else f"# Reunião {when}",
         "",
         f"- sessão: {session.session_id}",
         f"- duração: {_stamp(session.duration_sec)}",
         f"- idioma: {session.language or 'auto'}",
         f"- status: {session.status}",
     ]
+    if session.meeting_code:
+        lines.append(f"- meet: {session.meeting_code}")
     if events:
         lines.append("- falantes: estimados pelo indicador de áudio do Google Meet (aproximado)")
     lines += [

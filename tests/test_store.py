@@ -32,6 +32,8 @@ def make_session(session_id="20260731-090000", **overrides) -> Session:
     session.transcript_segments = 3
     session.language = "ko"
     session.duration_sec = 128.5
+    session.title = "Weekly sync"
+    session.meeting_code = "abc-defg-hij"
     for key, value in overrides.items():
         setattr(session, key, value)
     return session
@@ -197,6 +199,30 @@ def test_data_dir_can_be_moved_out_of_the_checkout(monkeypatch, tmp_path):
 
     monkeypatch.delenv("GHOSTMEET_DATA_DIR")
     assert default_data_dir().name == "recordings"
+
+
+def test_a_database_from_before_meeting_titles_gains_the_columns(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE sessions (session_id TEXT PRIMARY KEY, chunks INTEGER NOT NULL DEFAULT 0,"
+        " audio_bytes INTEGER NOT NULL DEFAULT 0, started_at TEXT, stopped_at TEXT, status TEXT,"
+        " file TEXT, transcript_segments INTEGER NOT NULL DEFAULT 0, language TEXT,"
+        " duration_sec REAL NOT NULL DEFAULT 0, error TEXT)"
+    )
+    conn.execute("INSERT INTO sessions (session_id, status) VALUES ('old', 'stopped')")
+    conn.commit()
+    conn.close()
+
+    store = SessionStore(path)
+    try:
+        assert store.load_sessions()["old"].title is None
+        store.save_session(make_session("new"))
+        assert store.load_sessions()["new"].title == "Weekly sync"
+    finally:
+        store.close()
 
 
 def test_deleting_a_session_removes_its_transcript_and_summary(store):
