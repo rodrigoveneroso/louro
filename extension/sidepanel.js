@@ -1,3 +1,4 @@
+import { t, translatePage } from './i18n.js';
 import { formatClock } from './shared.js';
 
 const BACKEND_URL = '127.0.0.1:8877';
@@ -43,7 +44,7 @@ function addSegment(seg, { highlight = true } = {}) {
   scrollToBottom();
 
   segmentCount++;
-  segmentCountEl.textContent = `${segmentCount} segment${segmentCount !== 1 ? 's' : ''}`;
+  segmentCountEl.textContent = t('panelSegments', segmentCount);
 }
 
 function scrollToBottom() {
@@ -54,7 +55,7 @@ function scrollToBottom() {
 function clearTranscript() {
   transcriptEl.innerHTML = '';
   segmentCount = 0;
-  segmentCountEl.textContent = '0 segments';
+  segmentCountEl.textContent = t('panelSegments', 0);
   emptyStateEl.classList.remove('hidden');
 }
 
@@ -103,7 +104,7 @@ async function loadHistory(sessionId) {
 async function connectTranscript(sessionId, { keep = false } = {}) {
   if (ws) ws.close();
 
-  setStatus('connecting', 'connecting...');
+  setStatus('connecting', t('panelConnecting'));
   // on a reconnect the captions and the clock so far are kept
   if (!keep) {
     startTime = null;
@@ -114,7 +115,7 @@ async function connectTranscript(sessionId, { keep = false } = {}) {
   ws = new WebSocket(`ws://${BACKEND_URL}/ws/transcript/${sessionId}`);
 
   ws.onopen = () => {
-    setStatus('connected', `live — ${sessionId}`);
+    setStatus('connected', `${t('panelLive')} — ${sessionId}`);
     if (!durationTimer) startDurationTimer();
   };
 
@@ -130,12 +131,12 @@ async function connectTranscript(sessionId, { keep = false } = {}) {
   };
 
   ws.onclose = () => {
-    setStatus('disconnected', 'disconnected');
+    setStatus('disconnected', t('panelDisconnected'));
     stopDurationTimer();
   };
 
   ws.onerror = () => {
-    setStatus('disconnected', 'connection error');
+    setStatus('disconnected', t('panelConnectionError'));
     stopDurationTimer();
   };
 }
@@ -151,28 +152,24 @@ function disconnect() {
 function onBackendMessage(data) {
   if (data.type === 'complete') {
     const { segment_count: count, duration_sec: duration } = data;
-    setStatus('disconnected', 'finished');
+    setStatus('disconnected', t('panelFinished'));
     if (data.status === 'discarded') {
-      note(`🗑️ Not kept: ${formatClock(duration)} with ${count} segments is too short to be a meeting`);
+      note(t('noteDiscarded', formatClock(duration), count));
     } else {
-      note(`✅ Transcription complete — ${count} segments, ${formatClock(duration)}`);
+      note(t('noteComplete', count, formatClock(duration)));
     }
     stopDurationTimer();
   } else if (data.type === 'mic') {
-    note(
-      data.ok
-        ? '🎤 Your microphone is included'
-        : '⚠️ Recording the meeting tab only: your own voice is not included',
-    );
+    note(t(data.ok ? 'noteMicOn' : 'noteMicOff'));
   } else if (data.type === 'reconnecting') {
-    setStatus('connecting', 'backend lost, reconnecting...');
+    setStatus('connecting', t('panelReconnecting'));
   } else if (data.type === 'reconnected' && data.session_id) {
     // the backend may have restarted, which also dropped the live caption socket
-    note('🔄 Reconnected, the recording continues');
+    note(t('noteReconnected'));
     connectTranscript(data.session_id, { keep: true });
   } else if (data.type === 'capture_error') {
-    setStatus('disconnected', 'stopped');
-    note(`❌ ${data.error}`);
+    setStatus('disconnected', t('panelStopped'));
+    note(t('noteBackendLost'));
     stopDurationTimer();
   }
 }
@@ -194,6 +191,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 // --- on load: reattach to whatever is running ---
+
+translatePage();
+segmentCountEl.textContent = t('panelSegments', 0);
 
 chrome.storage.local.get('activeSessionId').then(({ activeSessionId }) => {
   if (activeSessionId) connectTranscript(activeSessionId);

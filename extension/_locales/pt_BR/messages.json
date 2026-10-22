@@ -1,0 +1,231 @@
+{
+  "extDescription": {
+    "message": "Legendas ao vivo e transcrição local das suas reuniões, direto no navegador"
+  },
+  "popupIdle": {
+    "message": "Pronto para gravar esta aba"
+  },
+  "popupStart": {
+    "message": "▶ Iniciar gravação"
+  },
+  "popupStop": {
+    "message": "■ Parar gravação"
+  },
+  "popupOpenTranscript": {
+    "message": "Ver transcrição ao vivo"
+  },
+  "popupRecording": {
+    "message": "Gravando há $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupSegments": {
+    "message": "$P1$ trechos transcritos",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupMicOn": {
+    "message": "seu microfone incluído"
+  },
+  "popupMicOff": {
+    "message": "só o áudio da aba"
+  },
+  "popupFinishing": {
+    "message": "Finalizando a transcrição…"
+  },
+  "popupFinishingDetail": {
+    "message": "$P1$ gravados",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupDone": {
+    "message": "✅ Transcrição concluída"
+  },
+  "popupDoneDetail": {
+    "message": "$P1$ · $P2$ trechos",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "popupDiscarded": {
+    "message": "🗑️ Gravação descartada"
+  },
+  "popupDiscardedDetail": {
+    "message": "$P1$ é curto demais ou não teve fala",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupLostBackend": {
+    "message": "⚠️ A gravação parou: o backend ficou fora do ar"
+  },
+  "popupAuto": {
+    "message": "Iniciar e parar junto com a chamada (Google Meet)"
+  },
+  "popupAutoHint": {
+    "message": "Com isto marcado, abra este menu uma vez em cada aba de reunião: o Chrome só deixa gravar uma aba depois de um clique na extensão."
+  },
+  "errorAlreadyCapturing": {
+    "message": "Já existe uma gravação em andamento"
+  },
+  "errorNoTab": {
+    "message": "Não há uma aba ativa para gravar"
+  },
+  "errorCannotCapture": {
+    "message": "Não foi possível gravar esta aba: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorBackendDown": {
+    "message": "O backend do ghostmeet não respondeu em $P1$. Ele está rodando? (./start.sh)",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorRecorder": {
+    "message": "O gravador não conseguiu iniciar: $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "errorNoResponse": {
+    "message": "A extensão não respondeu. Recarregue-a em chrome://extensions"
+  },
+  "badgeTitle": {
+    "message": "ghostmeet"
+  },
+  "badgeRecording": {
+    "message": "ghostmeet: gravando"
+  },
+  "badgeAskClick": {
+    "message": "ghostmeet: clique para gravar esta chamada"
+  },
+  "panelTitle": {
+    "message": "ghostmeet — legenda ao vivo"
+  },
+  "panelEmpty": {
+    "message": "🎧 Comece uma gravação para ver a legenda ao vivo"
+  },
+  "panelEmptyHint": {
+    "message": "Clique no ícone da extensão → Iniciar gravação"
+  },
+  "panelDisconnected": {
+    "message": "desconectado"
+  },
+  "panelConnecting": {
+    "message": "conectando…"
+  },
+  "panelLive": {
+    "message": "ao vivo"
+  },
+  "panelFinished": {
+    "message": "finalizado"
+  },
+  "panelStopped": {
+    "message": "parado"
+  },
+  "panelConnectionError": {
+    "message": "erro de conexão"
+  },
+  "panelReconnecting": {
+    "message": "backend perdido, reconectando…"
+  },
+  "panelSegments": {
+    "message": "$P1$ trechos",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "noteComplete": {
+    "message": "✅ Transcrição concluída: $P1$ trechos, $P2$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "noteDiscarded": {
+    "message": "🗑️ Não guardada: $P1$ com $P2$ trechos é curto demais para ser uma reunião",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "noteMicOn": {
+    "message": "🎤 Seu microfone está incluído"
+  },
+  "noteMicOff": {
+    "message": "⚠️ Gravando só a aba da reunião: sua voz não está incluída"
+  },
+  "noteReconnected": {
+    "message": "🔄 Reconectado, a gravação continua"
+  },
+  "noteBackendLost": {
+    "message": "❌ O backend ficou fora do ar por muito tempo e a gravação parou"
+  },
+  "micTitle": {
+    "message": "ghostmeet — microfone"
+  },
+  "micHeading": {
+    "message": "👻 Inclua sua voz na transcrição"
+  },
+  "micExplain": {
+    "message": "A aba da reunião só traz o áudio dos outros participantes. Para transcrever o que você fala também, o ghostmeet precisa do seu microfone. O áudio não sai deste computador."
+  },
+  "micHeadphones": {
+    "message": "Com fone de ouvido, os outros não são captados de novo pela sua caixa de som."
+  },
+  "micAllow": {
+    "message": "Permitir microfone"
+  },
+  "micSkip": {
+    "message": "Agora não"
+  },
+  "micNever": {
+    "message": "Não perguntar de novo"
+  },
+  "micWaiting": {
+    "message": "Aguardando a permissão do navegador…"
+  },
+  "micBlocked": {
+    "message": "O microfone foi bloqueado. Libere-o para esta extensão nas configurações do navegador e tente de novo."
+  },
+  "micAttached": {
+    "message": "✅ Seu microfone já está na gravação. Pode fechar esta aba."
+  },
+  "micLater": {
+    "message": "✅ Permitido. Ele será usado a partir da próxima gravação."
+  }
+}

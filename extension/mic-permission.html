@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR" data-i18n-title="micTitle">
 <head>
   <meta charset="UTF-8">
-  <title>ghostmeet — microphone</title>
+  <title>ghostmeet</title>
   <style>
     body { font-family: -apple-system, system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0;
            display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
@@ -17,13 +17,12 @@
 </head>
 <body>
   <main>
-    <h1>👻 Include your voice in the transcript</h1>
-    <p>The meeting tab only carries the other participants. To transcribe what you say too,
-      ghostmeet needs your microphone. Audio stays on this machine.</p>
-    <p>Wearing headphones avoids the others being picked up twice through your speakers.</p>
-    <button id="allow">Allow microphone</button>
-    <button id="skip">Not now</button>
-    <button id="never">Never ask again</button>
+    <h1 data-i18n="micHeading"></h1>
+    <p data-i18n="micExplain"></p>
+    <p data-i18n="micHeadphones"></p>
+    <button id="allow" data-i18n="micAllow"></button>
+    <button id="skip" data-i18n="micSkip"></button>
+    <button id="never" data-i18n="micNever"></button>
     <div id="status"></div>
   </main>
   <script type="module" src="mic-permission.js"></script>
