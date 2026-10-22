@@ -1,7 +1,7 @@
 /**
- * Verifies, in a real browser against a real backend, the two things a unit test cannot:
- * that the microphone reaches the recording, and that a capture survives the backend
- * being restarted in the middle of a meeting.
+ * Verifies, in a real browser against a real backend, what a unit test cannot: that the
+ * echo suppression runs as an AudioWorklet, that the microphone reaches the recording,
+ * and that a capture survives the backend being restarted in the middle of a meeting.
  *
  *   1. npm install playwright ws && npx playwright install chromium
  *   2. node tests/extension/verify-mic-and-reconnect.mjs
@@ -156,7 +156,55 @@ try {
   });
   offscreen = await openOffscreen(context);
 
-  console.log('microphone');
+  console.log('echo suppression');
+  // Rendered offline in the offscreen document, through the same worklet the recording
+  // uses: the meeting is a tone pulsing like syllables, its echo reaches the microphone
+  // 60 ms later at a third of its level, and from 4 s on you speak over it.
+  const echo = await offscreen.evaluate(`(async () => {
+    const rate = 48000;
+    const ctx = new OfflineAudioContext(2, rate * 6, rate);
+    await ctx.audioWorklet.addModule('echo-gate-worklet.js');
+    const gate = new AudioWorkletNode(ctx, 'echo-gate', {
+      numberOfInputs: 2, numberOfOutputs: 1, outputChannelCount: [1] });
+
+    const meeting = ctx.createOscillator(); meeting.frequency.value = 300;
+    const syllables = ctx.createGain(); syllables.gain.value = 0.1;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 4;
+    const depth = ctx.createGain(); depth.gain.value = 0.1;
+    lfo.connect(depth).connect(syllables.gain);
+    meeting.connect(syllables);
+
+    const mic = ctx.createGain();
+    const delay = ctx.createDelay(1); delay.delayTime.value = 0.06;
+    const coupling = ctx.createGain(); coupling.gain.value = 0.3;
+    syllables.connect(delay).connect(coupling).connect(mic);
+    const voice = ctx.createOscillator(); voice.frequency.value = 520;
+    const voiceLevel = ctx.createGain(); voiceLevel.gain.value = 0;
+    voiceLevel.gain.setValueAtTime(0.15, 4);
+    voice.connect(voiceLevel).connect(mic);
+
+    // channel 0: what the gate lets through; channel 1: the raw microphone
+    const merger = ctx.createChannelMerger(2);
+    mic.connect(gate, 0, 0);
+    syllables.connect(gate, 0, 1);
+    gate.connect(merger, 0, 0);
+    mic.connect(merger, 0, 1);
+    merger.connect(ctx.destination);
+    [meeting, lfo, voice].forEach((o) => o.start());
+
+    const out = await ctx.startRendering();
+    const rms = (ch, a, b) => {
+      const d = out.getChannelData(ch); let s = 0;
+      for (let i = a * rate; i < b * rate; i++) s += d[i] * d[i];
+      return Math.sqrt(s / ((b - a) * rate));
+    };
+    const db = (x) => 20 * Math.log10(Math.max(x, 1e-9));
+    return { echo: db(rms(0, 2, 4) / rms(1, 2, 4)), voice: db(rms(0, 4.5, 6) / rms(1, 4.5, 6)) };
+  })()`);
+  check(echo?.echo < -20, `the meeting's echo is taken out of the microphone (${echo?.echo?.toFixed(1)} dB)`);
+  check(echo?.voice > -3, `your voice over it gets through (${echo?.voice?.toFixed(1)} dB)`);
+
+  console.log('\nmicrophone');
   const mic = await offscreen.evaluate(`(async () => {
     const mod = await import('./offscreen.js');
     // stands in for the meeting tab: a stream that is pure silence

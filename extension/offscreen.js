@@ -14,7 +14,9 @@ let stream = null; // what is recorded: the tab, plus the microphone when allowe
 let inputs = []; // every captured MediaStream, stopped together
 let audioContext = null;
 let mix = null; // MediaStreamAudioDestinationNode the inputs are mixed into
+let tabSource = null;
 let micStream = null;
+let echoGate = null; // AudioWorkletNode taking the meeting's echo out of the microphone
 let target = null; // { sessionId, language, backend } while a capture is running
 let stopping = false;
 let attempts = 0;
@@ -49,9 +51,9 @@ export async function mixInputs(tabStream, { playback = true } = {}) {
   inputs.push(tabStream);
   audioContext = new AudioContext();
   mix = audioContext.createMediaStreamDestination();
-  const tab = audioContext.createMediaStreamSource(tabStream);
-  if (playback) tab.connect(audioContext.destination);
-  tab.connect(mix);
+  tabSource = audioContext.createMediaStreamSource(tabStream);
+  if (playback) tabSource.connect(audioContext.destination);
+  tabSource.connect(mix);
   const mic = await attachMic();
   return { stream: mix.stream, mic };
 }
@@ -74,8 +76,36 @@ export async function attachMic() {
     return false;
   }
   inputs.push(micStream);
-  audioContext.createMediaStreamSource(micStream).connect(mix);
+  const mic = audioContext.createMediaStreamSource(micStream);
+  echoGate = await createEchoGate();
+  if (echoGate) {
+    mic.connect(echoGate, 0, 0);
+    tabSource.connect(echoGate, 0, 1); // the reference: what the speakers are playing
+    echoGate.connect(mix);
+  } else {
+    mic.connect(mix); // without the worklet, the browser's own echo cancellation only
+  }
   return true;
+}
+
+/**
+ * Without headphones the microphone hears the meeting again through the speakers. The
+ * browser's echo cancellation is on, but nothing guarantees it covers what this page
+ * plays back, so the microphone also goes through EchoGate (see echo-gate.js).
+ */
+async function createEchoGate() {
+  try {
+    await audioContext.audioWorklet.addModule('echo-gate-worklet.js');
+    const node = new AudioWorkletNode(audioContext, 'echo-gate', {
+      numberOfInputs: 2,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    });
+    return node;
+  } catch (error) {
+    console.warn('echo suppression unavailable:', error);
+    return null;
+  }
 }
 
 function withTimeout(promise, ms) {
@@ -291,6 +321,8 @@ function releaseCapture() {
   }
   micStream = null;
   mix = null;
+  tabSource = null;
+  echoGate = null;
   if (audioContext) {
     audioContext.close().catch(() => {});
     audioContext = null;
