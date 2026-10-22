@@ -1,7 +1,8 @@
 /**
  * Verifies the extension's recording path in a real browser against a real backend.
  *
- *   1. python -m backend                  (in another shell)
+ *   1. GHOSTMEET_MIN_DURATION_SEC=0 python -m backend   (in another shell; the test records
+ *      a tone, and a capture without speech is otherwise discarded when it stops)
  *   2. npm install playwright && npx playwright install chromium
  *   3. node tests/extension/verify-capture.mjs
  *

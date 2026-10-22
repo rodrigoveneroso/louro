@@ -202,6 +202,13 @@ class SessionStore:
             error=row["error"],
         )
 
+    def delete_session(self, session_id: str) -> None:
+        """Remove a session and everything stored for it."""
+        with self._lock:
+            for table in ("segments", "summaries", "sessions"):
+                self._conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
+            self._conn.commit()
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

@@ -197,3 +197,18 @@ def test_data_dir_can_be_moved_out_of_the_checkout(monkeypatch, tmp_path):
 
     monkeypatch.delenv("GHOSTMEET_DATA_DIR")
     assert default_data_dir().name == "recordings"
+
+
+def test_deleting_a_session_removes_its_transcript_and_summary(store):
+    store.save_session(make_session("gone"))
+    store.save_session(make_session("kept"))
+    store.add_segments("gone", [Segment(text="a", start=0.0, end=1.0)])
+    store.add_segments("kept", [Segment(text="b", start=0.0, end=1.0)])
+    store.save_summary(Summary(session_id="gone", content="x", status="done"))
+
+    store.delete_session("gone")
+
+    assert set(store.load_sessions()) == {"kept"}
+    assert store.load_segments("gone") == []
+    assert store.load_summary("gone") is None
+    assert len(store.load_segments("kept")) == 1

@@ -13,6 +13,7 @@ from typing import Sequence
 
 from .incremental import Segment
 from .models import Session
+from .retention import worth_keeping
 from .speakers import attribute, load_events
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,21 @@ def _stamp(seconds: float) -> str:
     hours, rest = divmod(total, 3600)
     minutes, secs = divmod(rest, 60)
     return f"{hours:d}:{minutes:02d}:{secs:02d}" if hours else f"{minutes:02d}:{secs:02d}"
+
+
+def export_path(session: Session, target: Path | None = None) -> Path | None:
+    target = target or export_dir()
+    if target is None:
+        return None
+    started = dt.datetime.fromisoformat(session.started_at)
+    return target / f"{started:%Y-%m-%d_%H%M}_{session.session_id}.md"
+
+
+def remove_export(session: Session, target: Path | None = None) -> None:
+    """Delete a session's markdown copy, e.g. one written before it was discarded."""
+    path = export_path(session, target)
+    if path is not None:
+        path.unlink(missing_ok=True)
 
 
 def export_session(
@@ -48,9 +64,10 @@ def export_session(
     speakers = attribute(segments, events, session.started_at) if events else [None] * len(segments)
 
     started = dt.datetime.fromisoformat(session.started_at)
-    path = target / f"{started:%Y-%m-%d_%H%M}_{session.session_id}.md"
+    path = export_path(session, target)
+    when = f"{started:%d/%m/%Y %H:%M}"
     lines = [
-        f"# Reunião {started:%d/%m/%Y %H:%M}",
+        f"# Reunião {when}",
         "",
         f"- sessão: {session.session_id}",
         f"- duração: {_stamp(session.duration_sec)}",
@@ -78,8 +95,11 @@ def export_all() -> int:
     store = SessionStore(recordings / "ghostmeet.db")
     count = 0
     for session in store.load_sessions().values():
+        segments = store.load_segments(session.session_id)
+        if not worth_keeping(session, segments):
+            continue
         events = recordings / f"{session.session_id}.speakers.jsonl"
-        if export_session(session, store.load_segments(session.session_id), speaker_events=events):
+        if export_session(session, segments, speaker_events=events):
             count += 1
     store.close()
     return count

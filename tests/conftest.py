@@ -21,6 +21,9 @@ def isolate_storage(monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "RECORDINGS_DIR", recordings)
     monkeypatch.setattr(app_module, "DB_PATH", recordings / "ghostmeet.db")
     monkeypatch.setenv("GHOSTMEET_EXPORT_DIR", str(tmp_path / "export"))
+    # the stub recordings are a couple of seconds long, so keep everything; tests about
+    # dropping short captures set their own minimum
+    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "0")
     yield
     assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS
     assert app_module.DB_PATH != _REAL_DB

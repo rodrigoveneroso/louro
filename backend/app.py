@@ -16,11 +16,12 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 
 from .decoder import StreamingWebmDecoder
-from .exporter import export_session
+from .exporter import export_session, remove_export
 from .incremental import IncrementalTranscriber, Segment
 from .models import Session
 from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
+from .retention import should_discard, worth_keeping
 from .store import SessionStore, default_data_dir
 from .summarizer import Summary, generate_summary
 from .transcriber import WhisperTranscriber, get_model
@@ -285,6 +286,7 @@ async def ws_audio(websocket: WebSocket):
 
     await websocket.send_json({"session_id": session_id})
 
+    stopped_by_client = False
     try:
         try:
             while True:
@@ -295,6 +297,7 @@ async def ws_audio(websocket: WebSocket):
                     session.audio_bytes += len(chunk)
                     pipeline.feed(chunk)  # returns immediately
                 elif message.get("text") == "stop":
+                    stopped_by_client = True
                     break
                 elif message.get("type") == "websocket.disconnect":
                     break
@@ -314,15 +317,12 @@ async def ws_audio(websocket: WebSocket):
         segments = _segments_for(session_id)
         session.transcript_segments = len(segments)
         session.duration_sec = round(offset + pcm.duration, 2)
-        store.save_session(session)
-        try:
-            export_session(
-                session,
-                segments,
-                speaker_events=RECORDINGS_DIR / f"{session_id}.speakers.jsonl",
-            )
-        except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
-            logger.exception("Could not export transcript for %s", session_id)
+        if should_discard(session, segments, stopped_by_client):
+            _discard(session)
+        else:
+            store.save_session(session)
+            if worth_keeping(session, segments):
+                _export(session, segments)
     finally:
         # Always release the handle and reclaim the working file, even if the client
         # vanished or a pass blew up mid-session. Order matters: the decoder writes into
@@ -356,6 +356,37 @@ async def ws_audio(websocket: WebSocket):
         session.duration_sec,
         session.transcript_segments,
     )
+
+
+def _export(session: Session, segments: List[Segment]) -> None:
+    try:
+        export_session(
+            session,
+            segments,
+            speaker_events=RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl",
+        )
+    except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
+        logger.exception("Could not export transcript for %s", session.session_id)
+
+
+def _discard(session: Session) -> None:
+    """Forget a capture too short or too quiet to be a meeting, files included."""
+    logger.info(
+        "Discarding session %s: %.0fs, %d segments",
+        session.session_id,
+        session.duration_sec,
+        session.transcript_segments,
+    )
+    session.status = "discarded"
+    store.delete_session(session.session_id)
+    sessions.pop(session.session_id, None)
+    pipelines.pop(session.session_id, None)
+    resumed.discard(session.session_id)
+    (RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl").unlink(missing_ok=True)
+    try:
+        remove_export(session)
+    except OSError:
+        logger.exception("Could not remove the export of %s", session.session_id)
 
 
 def _resume_param(raw: str | None) -> float | None:

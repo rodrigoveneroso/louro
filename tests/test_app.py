@@ -336,3 +336,38 @@ def test_a_bad_resume_value_is_a_normal_start(client, webm):
     stream(client, webm, query="?session=plain&resume=soon")
 
     assert client.get("/api/sessions/plain").json()["audio_bytes"] == len(webm)
+
+
+def test_a_capture_too_short_to_be_a_meeting_is_discarded(client, webm, monkeypatch, tmp_path):
+    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "30")
+    (tmp_path / "short.speakers.jsonl").write_text("{}\n")
+
+    with client.websocket_connect("/ws/audio?session=short") as ws:
+        ws.receive_json()
+        ws.send_bytes(webm)
+        ws.send_text("stop")
+        done = ws.receive_json()
+
+    assert done["status"] == "discarded"
+    assert client.get("/api/sessions/short").status_code == 404
+    assert "short" not in client.get("/api/sessions").json()["sessions"]
+    assert not (tmp_path / "short.speakers.jsonl").exists()
+    assert not list((tmp_path / "export").glob("*short*"))
+
+
+def test_a_silent_capture_is_discarded_whatever_its_length(client, webm, monkeypatch):
+    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "1")
+    monkeypatch.setattr(app_module, "_make_transcribe_fn", lambda language=None: lambda audio: [])
+
+    stream(client, webm, query="?session=quiet")
+
+    assert client.get("/api/sessions/quiet").status_code == 404
+
+
+def test_a_long_enough_capture_is_kept_and_exported(client, webm, monkeypatch, tmp_path):
+    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "1")
+
+    stream(client, webm, query="?session=kept")
+
+    assert client.get("/api/sessions/kept").json()["status"] == "stopped"
+    assert list((tmp_path / "export").glob("*kept.md"))

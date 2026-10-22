@@ -152,7 +152,11 @@ function onBackendMessage(data) {
   if (data.type === 'complete') {
     const { segment_count: count, duration_sec: duration } = data;
     setStatus('disconnected', 'finished');
-    note(`✅ Transcription complete — ${count} segments, ${formatClock(duration)}`);
+    if (data.status === 'discarded') {
+      note(`🗑️ Not kept: ${formatClock(duration)} with ${count} segments is too short to be a meeting`);
+    } else {
+      note(`✅ Transcription complete — ${count} segments, ${formatClock(duration)}`);
+    }
     stopDurationTimer();
   } else if (data.type === 'mic') {
     note(

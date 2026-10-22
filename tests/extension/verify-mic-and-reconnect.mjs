@@ -54,6 +54,7 @@ async function startBackend() {
       GHOSTMEET_PORT: String(PORT),
       GHOSTMEET_DATA_DIR: dataDir,
       GHOSTMEET_EXPORT_DIR: '',
+      GHOSTMEET_MIN_DURATION_SEC: '0', // a beep is not speech: keep it anyway
       GHOSTMEET_MODEL: process.env.GHOSTMEET_MODEL || 'base',
     },
   });
