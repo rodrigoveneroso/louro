@@ -187,3 +187,13 @@ def test_reopening_an_existing_database_does_not_wipe_it(tmp_path):
         assert set(second.load_sessions()) == {"s1", "s2"}
     finally:
         second.close()
+
+
+def test_data_dir_can_be_moved_out_of_the_checkout(monkeypatch, tmp_path):
+    from backend.store import default_data_dir
+
+    monkeypatch.setenv("GHOSTMEET_DATA_DIR", str(tmp_path / "data"))
+    assert default_data_dir() == tmp_path / "data"
+
+    monkeypatch.delenv("GHOSTMEET_DATA_DIR")
+    assert default_data_dir().name == "recordings"

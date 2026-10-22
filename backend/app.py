@@ -8,7 +8,6 @@ import os
 import re
 from contextlib import asynccontextmanager
 from functools import partial
-from pathlib import Path
 from typing import Dict, List
 
 import uvicorn
@@ -21,15 +20,14 @@ from .incremental import IncrementalTranscriber, Segment
 from .models import Session
 from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
-from .store import SessionStore
+from .store import SessionStore, default_data_dir
 from .summarizer import Summary, generate_summary
 from .transcriber import WhisperTranscriber, get_model
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-ROOT = Path(__file__).resolve().parent.parent
-RECORDINGS_DIR = ROOT / "recordings"
+RECORDINGS_DIR = default_data_dir()
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
 DB_PATH = RECORDINGS_DIR / "ghostmeet.db"
 

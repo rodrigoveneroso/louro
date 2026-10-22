@@ -8,6 +8,7 @@ audio that arrived since the last pass. The audio itself is already on disk (Pcm
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import threading
 from pathlib import Path
@@ -56,6 +57,15 @@ CREATE TABLE IF NOT EXISTS summaries (
     error         TEXT
 );
 """
+
+
+def default_data_dir() -> Path:
+    """Where the database and per-session files live: GHOSTMEET_DATA_DIR, else
+    `recordings/` next to the backend package."""
+    configured = os.environ.get("GHOSTMEET_DATA_DIR", "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return Path(__file__).resolve().parent.parent / "recordings"
 
 
 class SessionStore:

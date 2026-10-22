@@ -55,9 +55,9 @@ def export_session(session: Session, segments: Sequence[Segment], target: Path |
 
 
 def export_all() -> int:
-    from .store import SessionStore
+    from .store import SessionStore, default_data_dir
 
-    store = SessionStore(Path(__file__).resolve().parent.parent / "recordings" / "ghostmeet.db")
+    store = SessionStore(default_data_dir() / "ghostmeet.db")
     count = 0
     for session in store.load_sessions().values():
         if export_session(session, store.load_segments(session.session_id)):
