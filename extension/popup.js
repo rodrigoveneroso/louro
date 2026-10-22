@@ -66,7 +66,27 @@ async function render() {
   } else {
     card.className = 'card idle';
     renderLast(state.lastCapture);
+    const last = state.lastCapture;
+    if (last?.refining && (await sessionStatus(last.sessionId)) === 'refining') {
+      detail.textContent += ` · ${t('popupRefining')}`;
+    }
   }
+}
+
+let statusOf = { id: null, at: 0, value: null };
+
+/** The backend's status for a session, asked at most every few seconds. */
+async function sessionStatus(sessionId) {
+  if (sessionId !== statusOf.id || Date.now() - statusOf.at > SEGMENTS_EVERY_MS) {
+    statusOf = { id: sessionId, at: Date.now(), value: null };
+    try {
+      const resp = await fetch(`http://${BACKEND}/api/sessions/${encodeURIComponent(sessionId)}`);
+      statusOf.value = resp.ok ? (await resp.json()).status : null;
+    } catch {
+      statusOf.value = null;
+    }
+  }
+  return statusOf.value;
 }
 
 function renderLast(last) {

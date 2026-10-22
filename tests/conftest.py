@@ -27,6 +27,7 @@ def isolate_storage(monkeypatch, tmp_path):
     # a developer's own vocabulary must not leak into the tests
     monkeypatch.delenv("GHOSTMEET_VOCABULARY", raising=False)
     monkeypatch.delenv("GHOSTMEET_VOCABULARY_FILE", raising=False)
+    monkeypatch.delenv("GHOSTMEET_FINAL_MODEL", raising=False)
     monkeypatch.delenv("GHOSTMEET_ON_EXPORT", raising=False)
     yield
     assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS

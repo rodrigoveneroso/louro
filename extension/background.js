@@ -253,6 +253,7 @@ async function onCaptureFinished(result = {}) {
       status: result.status || 'unconfirmed',
       durationSec: result.duration_sec ?? null,
       segments: result.segment_count ?? null,
+      refining: Boolean(result.refining), // a second pass is still improving it
       at: Date.now(),
     },
   });

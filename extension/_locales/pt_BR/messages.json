@@ -263,5 +263,8 @@
   },
   "commandMark": {
     "message": "Marcar este momento da reunião"
+  },
+  "popupRefining": {
+    "message": "melhorando a transcrição com o modelo maior…"
   }
 }

@@ -23,6 +23,7 @@ from .incremental import IncrementalTranscriber, Segment
 from .models import Note, Session
 from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
+from .refine import final_model, transcribe_recording
 from .retention import should_discard, worth_keeping
 from .store import SessionStore, default_data_dir
 from .summarizer import Summary, generate_summary
@@ -90,6 +91,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _make_final_transcribe_fn(language: str | None) -> WhisperTranscriber:
+    """The transcriber of the second pass after the meeting (see refine.py)."""
+    model = get_model(final_model(), WHISPER_DEVICE, WHISPER_COMPUTE)
+    return WhisperTranscriber(model, language=language)
 
 
 def _make_transcribe_fn(language: str | None) -> WhisperTranscriber:
@@ -383,6 +390,7 @@ async def ws_audio(websocket: WebSocket):
     await websocket.send_json({"session_id": session_id})
 
     stopped_by_client = False
+    refining = False
     try:
         try:
             while True:
@@ -416,18 +424,32 @@ async def ws_audio(websocket: WebSocket):
         if should_discard(session, segments, stopped_by_client):
             _discard(session)
         else:
+            # A resumed session's earlier stretches are no longer on disk, so only a
+            # capture recorded in one go can be transcribed again as a whole.
+            refining = (
+                final_model() is not None
+                and stopped_by_client
+                and session_id not in resumed
+                and worth_keeping(session, segments)
+            )
+            if refining:
+                session.status = "refining"
             store.save_session(session)
             if worth_keeping(session, segments):
-                _on_export(session, _export(session, segments))
+                path = _export(session, segments)
+                if not refining:
+                    _on_export(session, path)
     finally:
         # Always release the handle and reclaim the working file, even if the client
         # vanished or a pass blew up mid-session. Order matters: the decoder writes into
         # the PCM store from its own thread, so it has to be stopped first.
         decoder.close()
         pcm.close()
-        # audio is never kept: only the transcript is persisted, the PCM is just a working file
-        pcm_path.unlink(missing_ok=True)
-        vocabularies.pop(session_id, None)
+        # Audio is never kept: the PCM is only a working file, removed now or, when a
+        # second pass is due, as soon as that pass has read it.
+        if not refining:
+            pcm_path.unlink(missing_ok=True)
+            vocabularies.pop(session_id, None)
         done.set()
 
     # tell the client the final pass is done, so it knows the transcript is complete and
@@ -440,11 +462,15 @@ async def ws_audio(websocket: WebSocket):
                 "status": session.status,
                 "segment_count": session.transcript_segments,
                 "duration_sec": session.duration_sec,
+                "refining": refining,
             }
         )
     except Exception:  # noqa: BLE001 - client hung up first
         logger.debug("Could not send completion notice for %s", session_id)
 
+    if refining:
+        # after the notice: the live transcript is complete and usable meanwhile
+        _background(_refine(session, pcm_path, language))
 
     logger.info(
         "Session %s complete: %d chunks, %d bytes, %.0fs audio, %d segments",
@@ -471,6 +497,52 @@ def _export(session: Session, segments: List[Segment]) -> Path | None:
 
 def _on_export(session: Session, path: Path | None) -> None:
     run_on_export(session, path, log_dir=RECORDINGS_DIR)
+
+
+# tasks running after their capture handler returned; kept so they are not collected
+_tasks: set[asyncio.Task] = set()
+
+
+def _background(coroutine) -> None:
+    task = asyncio.get_running_loop().create_task(coroutine)
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+
+
+async def _refine(session: Session, pcm_path: Path, language: str | None) -> None:
+    """Transcribe the whole meeting again with the final model, then forget the audio."""
+    session_id = session.session_id
+    started = dt.datetime.now()
+    try:
+        transcribe = _make_final_transcribe_fn(language)
+        vocabulary = vocabularies.get(session_id)
+        if vocabulary is not None:
+            vocabulary["transcribe"] = transcribe
+            _apply_vocabulary(vocabulary)
+        loop = asyncio.get_running_loop()
+        segments = await loop.run_in_executor(None, transcribe_recording, pcm_path, transcribe)
+        if segments:
+            store.replace_segments(session_id, segments)
+            logger.info(
+                "Refined %s with %s in %.0fs: %d segments",
+                session_id,
+                final_model(),
+                (dt.datetime.now() - started).total_seconds(),
+                len(segments),
+            )
+    except Exception:  # noqa: BLE001 - the live transcript stays, which is fine
+        logger.exception("Second pass failed for %s, keeping the live transcript", session_id)
+    finally:
+        pcm_path.unlink(missing_ok=True)
+        vocabularies.pop(session_id, None)
+        # the live pipeline's transcript is the old one now: read the stored one instead
+        pipelines.pop(session_id, None)
+
+    segments = store.load_segments(session_id)
+    session.status = "stopped"
+    session.transcript_segments = len(segments)
+    store.save_session(session)
+    _on_export(session, _export(session, segments))
 
 
 def _discard(session: Session) -> None:

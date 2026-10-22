@@ -498,3 +498,63 @@ def test_a_discarded_capture_runs_no_command(client, webm, monkeypatch, tmp_path
 
     assert not out.exists()
 
+
+class Refined(StubWhisper):
+    def __call__(self, audio):
+        self.samples_seen += len(audio)
+        return [RawSeg(0.0, 0.5, "refined text")]
+
+
+def test_a_second_pass_replaces_the_live_transcript(client, webm, monkeypatch, tmp_path):
+    finals: list[Refined] = []
+
+    def final_transcriber(language=None):
+        finals.append(Refined(language=language))
+        return finals[-1]
+
+    monkeypatch.setenv("GHOSTMEET_FINAL_MODEL", "large-v3")
+    monkeypatch.setattr(app_module, "_make_final_transcribe_fn", final_transcriber)
+
+    with client.websocket_connect("/ws/audio?session=better") as ws:
+        ws.receive_json()
+        ws.send_bytes(webm)
+        ws.send_text("stop")
+        done = ws.receive_json()
+
+    assert done["refining"] is True
+    _wait_for(lambda: client.get("/api/sessions/better").json()["status"] == "stopped")
+    session = client.get("/api/sessions/better").json()
+    texts = {s["text"] for s in client.get("/api/sessions/better/transcript").json()["segments"]}
+    assert texts == {"refined text"}
+    assert session["transcript_segments"] >= 1
+    assert finals[0].samples_seen > 0  # it read the recording
+    assert not (tmp_path / "better.pcm").exists()  # and then the audio was gone
+    assert "refined text" in next((tmp_path / "export").glob("*better.md")).read_text()
+
+
+def test_a_failed_second_pass_keeps_the_live_transcript(client, webm, monkeypatch, tmp_path):
+    class Broken(StubWhisper):
+        def __call__(self, audio):
+            raise RuntimeError("out of memory")
+
+    monkeypatch.setenv("GHOSTMEET_FINAL_MODEL", "large-v3")
+    monkeypatch.setattr(app_module, "_make_final_transcribe_fn", lambda language=None: Broken())
+
+    stream(client, webm, query="?session=kept-live")
+
+    _wait_for(lambda: client.get("/api/sessions/kept-live").json()["status"] == "stopped")
+    segments = client.get("/api/sessions/kept-live/transcript").json()["segments"]
+    texts = {s["text"] for s in segments}
+    assert texts == {"transcribed text"}
+    assert not (tmp_path / "kept-live.pcm").exists()
+
+
+def test_without_a_final_model_there_is_no_second_pass(client, webm, tmp_path):
+    with client.websocket_connect("/ws/audio?session=once") as ws:
+        ws.receive_json()
+        ws.send_bytes(webm)
+        ws.send_text("stop")
+        done = ws.receive_json()
+
+    assert done["refining"] is False
+    assert not (tmp_path / "once.pcm").exists()

@@ -229,6 +229,23 @@ class SessionStore:
             error=row["error"],
         )
 
+    def replace_segments(self, session_id: str, segments: Sequence[Segment]) -> None:
+        """Swap a session's whole transcript for another, in one transaction: a reader
+        sees either the old one or the new one, never a mix or nothing."""
+        with self._lock:
+            with self._conn:
+                self._conn.execute("DELETE FROM segments WHERE session_id = ?", (session_id,))
+                self._conn.executemany(
+                    """
+                    INSERT INTO segments (session_id, text, start_sec, end_sec, speaker, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    [
+                        (session_id, s.text, s.start, s.end, s.speaker, s.timestamp)
+                        for s in segments
+                    ],
+                )
+
     def add_note(self, session_id: str, note: Note) -> None:
         with self._lock:
             self._conn.execute(
