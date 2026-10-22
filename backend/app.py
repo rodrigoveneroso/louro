@@ -9,6 +9,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 from functools import partial
+from pathlib import Path
 from typing import Dict, List
 
 import uvicorn
@@ -17,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .decoder import StreamingWebmDecoder
 from .exporter import export_session, remove_export
+from .hooks import run_on_export
 from .incremental import IncrementalTranscriber, Segment
 from .models import Note, Session
 from .pcm_store import PcmStore
@@ -416,7 +418,7 @@ async def ws_audio(websocket: WebSocket):
         else:
             store.save_session(session)
             if worth_keeping(session, segments):
-                _export(session, segments)
+                _on_export(session, _export(session, segments))
     finally:
         # Always release the handle and reclaim the working file, even if the client
         # vanished or a pass blew up mid-session. Order matters: the decoder writes into
@@ -454,9 +456,9 @@ async def ws_audio(websocket: WebSocket):
     )
 
 
-def _export(session: Session, segments: List[Segment]) -> None:
+def _export(session: Session, segments: List[Segment]) -> Path | None:
     try:
-        export_session(
+        return export_session(
             session,
             segments,
             speaker_events=RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl",
@@ -464,6 +466,11 @@ def _export(session: Session, segments: List[Segment]) -> None:
         )
     except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
         logger.exception("Could not export transcript for %s", session.session_id)
+        return None
+
+
+def _on_export(session: Session, path: Path | None) -> None:
+    run_on_export(session, path, log_dir=RECORDINGS_DIR)
 
 
 def _discard(session: Session) -> None:

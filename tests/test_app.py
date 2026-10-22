@@ -460,3 +460,41 @@ def test_notes_are_validated(client, webm):
     assert client.post("/api/sessions/noted/notes", json={"text": "x" * 1001}).status_code == 400
     assert client.post("/api/sessions/noted/notes", json={"at": "soon"}).status_code == 400
 
+
+def _wait_for(probe, seconds=5.0):
+    for _ in range(int(seconds / 0.05)):
+        value = probe()
+        if value:
+            return value
+        time.sleep(0.05)
+    return probe()
+
+
+def test_your_command_runs_once_the_transcript_is_written(client, webm, monkeypatch, tmp_path):
+    out = tmp_path / "hook.txt"
+    monkeypatch.setenv(
+        "GHOSTMEET_ON_EXPORT",
+        'printf "%s|%s|%s" "$GHOSTMEET_SESSION_ID" "$GHOSTMEET_TITLE" "$GHOSTMEET_TRANSCRIPT"'
+        f" > {out}",
+    )
+
+    stream(client, webm, query="?session=hooked")
+
+    session_id, title, transcript = _wait_for(lambda: out.exists() and out.read_text()).split("|")
+    assert (session_id, title) == ("hooked", "")
+    assert transcript.endswith("hooked.md") and (tmp_path / "export").samefile(
+        app_module.Path(transcript).parent
+    )
+    assert "--- hooked:" in (tmp_path / "on-export.log").read_text()
+
+
+def test_a_discarded_capture_runs_no_command(client, webm, monkeypatch, tmp_path):
+    out = tmp_path / "hook.txt"
+    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "30")
+    monkeypatch.setenv("GHOSTMEET_ON_EXPORT", f"touch {out}")
+
+    stream(client, webm, query="?session=junk")
+    time.sleep(0.3)
+
+    assert not out.exists()
+
