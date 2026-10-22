@@ -70,7 +70,8 @@ function note(text) {
 // --- duration timer ---
 
 function startDurationTimer() {
-  startTime = Date.now();
+  // a reconnect resumes the clock of the capture instead of restarting it
+  if (startTime === null) startTime = Date.now();
   durationTimer = setInterval(() => {
     durationEl.textContent = formatClock((Date.now() - startTime) / 1000);
   }, 1000);
@@ -99,18 +100,22 @@ async function loadHistory(sessionId) {
 
 // --- WebSocket connection ---
 
-async function connectTranscript(sessionId) {
+async function connectTranscript(sessionId, { keep = false } = {}) {
   if (ws) ws.close();
 
   setStatus('connecting', 'connecting...');
-  clearTranscript();
-  await loadHistory(sessionId);
+  // on a reconnect the captions and the clock so far are kept
+  if (!keep) {
+    startTime = null;
+    clearTranscript();
+    await loadHistory(sessionId);
+  }
 
   ws = new WebSocket(`ws://${BACKEND_URL}/ws/transcript/${sessionId}`);
 
   ws.onopen = () => {
     setStatus('connected', `live — ${sessionId}`);
-    startDurationTimer();
+    if (!durationTimer) startDurationTimer();
   };
 
   ws.onmessage = (event) => {
@@ -143,6 +148,25 @@ function disconnect() {
   stopDurationTimer();
 }
 
+function onBackendMessage(data) {
+  if (data.type === 'complete') {
+    const { segment_count: count, duration_sec: duration } = data;
+    setStatus('disconnected', 'finished');
+    note(`✅ Transcription complete — ${count} segments, ${formatClock(duration)}`);
+    stopDurationTimer();
+  } else if (data.type === 'reconnecting') {
+    setStatus('connecting', 'backend lost, reconnecting...');
+  } else if (data.type === 'reconnected' && data.session_id) {
+    // the backend may have restarted, which also dropped the live caption socket
+    note('🔄 Reconnected, the recording continues');
+    connectTranscript(data.session_id, { keep: true });
+  } else if (data.type === 'capture_error') {
+    setStatus('disconnected', 'stopped');
+    note(`❌ ${data.error}`);
+    stopDurationTimer();
+  }
+}
+
 // --- messages from the popup, background and offscreen document ---
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -152,11 +176,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     connectTranscript(message.sessionId);
   } else if (message.action === 'transcript_stop') {
     disconnect();
-  } else if (message.action === 'backend_message' && message.data?.type === 'complete') {
-    const { segment_count: count, duration_sec: duration } = message.data;
-    setStatus('disconnected', 'finished');
-    note(`✅ Transcription complete — ${count} segments, ${formatClock(duration)}`);
-    stopDurationTimer();
+  } else if (message.action === 'backend_message') {
+    onBackendMessage(message.data || {});
   }
   sendResponse({ ok: true });
   return true;

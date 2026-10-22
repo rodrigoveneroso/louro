@@ -7,10 +7,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  ChunkQueue,
   audioSocketUrl,
   escapeHtml,
   formatClock,
   newSessionId,
+  reconnectDelay,
   renderSummary,
 } from '../../extension/shared.js';
 
@@ -75,4 +77,25 @@ test('summary rendering turns headings and bullets into markup', () => {
 
 test('summary rendering keeps a plain paragraph intact', () => {
   assert.equal(renderSummary('just a line'), 'just a line');
+});
+
+test('a resumed capture tells the backend when its recorder started', () => {
+  const url = audioSocketUrl('127.0.0.1:8877', 's1', null, 1700000000123.4);
+  assert.equal(url, 'ws://127.0.0.1:8877/ws/audio?session=s1&resume=1700000000123');
+});
+
+test('reconnect delay doubles and is capped', () => {
+  assert.deepEqual([0, 1, 2, 3, 10].map(reconnectDelay), [500, 1000, 2000, 4000, 10000]);
+});
+
+test('chunk queue keeps order and refuses past its limit', () => {
+  const queue = new ChunkQueue(2);
+  assert.equal(queue.push('a'), true);
+  assert.equal(queue.push('b'), true);
+  assert.equal(queue.push('c'), false);
+
+  const sent = [];
+  queue.drain((chunk) => sent.push(chunk));
+  assert.deepEqual(sent, ['a', 'b']);
+  assert.equal(queue.size, 0);
 });
