@@ -131,7 +131,10 @@ function openSocket(resumeAt) {
     );
     ws.addEventListener(
       'error',
-      () => reject(new Error(`cannot reach the ghostmeet backend at ${target?.backend}`)),
+      () => {
+        const error = new Error(`cannot reach the ghostmeet backend at ${target?.backend}`);
+        reject(Object.assign(error, { code: 'backend_unreachable' }));
+      },
       { once: true },
     );
   });
@@ -193,7 +196,7 @@ function onSocketClosed(ws) {
   if (stopping) {
     // The backend finalises a session whose socket closes, so there is nothing left to
     // resume: the few seconds of tail still queued have no header to be decoded with.
-    finish();
+    finish({ status: 'unconfirmed' });
     return;
   }
   // Unexpected drop (backend restarted, crashed, or the socket broke). Keep recording
@@ -206,8 +209,8 @@ function onSocketClosed(ws) {
 function scheduleReconnect() {
   if (reconnectTimer || !target) return;
   if (attempts >= MAX_RECONNECT_ATTEMPTS) {
-    notifyPanel({ type: 'capture_error', error: 'lost the ghostmeet backend, recording stopped' });
-    finish();
+    notifyPanel({ type: 'capture_error', code: 'backend_lost' });
+    finish({ status: 'backend_lost' });
     return;
   }
   const delay = reconnectDelay(attempts++);
@@ -235,16 +238,19 @@ function onBackendMessage(event) {
   notifyPanel(data);
 
   // the backend sends this once the final transcription pass is done
-  if (data.type === 'complete' && stopping) finish();
+  if (data.type === 'complete' && stopping) finish(data);
 }
 
 function notifyPanel(data) {
   chrome.runtime.sendMessage({ target: 'panel', action: 'backend_message', data }).catch(() => {});
 }
 
-function finish() {
+/** `result` is the backend's completion notice, when there was one. */
+function finish(result) {
   releaseCapture();
-  chrome.runtime.sendMessage({ target: 'background', action: 'capture_finished' }).catch(() => {});
+  chrome.runtime
+    .sendMessage({ target: 'background', action: 'capture_finished', result })
+    .catch(() => {});
 }
 
 export function stopRecording() {
@@ -253,7 +259,7 @@ export function stopRecording() {
   if (!target) return;
   stopping = true;
   if (!socket) {
-    finish(); // waiting for a backend that is not there: nothing can be delivered
+    finish({ status: 'backend_lost' }); // nothing can be delivered without a backend
   } else if (recorder && recorder.state !== 'inactive') {
     recorder.stop();
   }
@@ -308,14 +314,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       } else if (message.action === 'attach_mic') {
         sendResponse({ ok: true, mic: await attachMic() });
       } else if (message.action === 'stop') {
+        // whether a capture was running, so the caller knows a final pass will follow
+        const stopping = Boolean(target);
         stopRecording();
-        sendResponse({ ok: true });
+        sendResponse({ ok: true, stopping });
       } else {
         sendResponse({ ok: false, error: `unknown action ${message.action}` });
       }
     } catch (error) {
       releaseCapture();
-      sendResponse({ ok: false, error: error.message });
+      sendResponse({ ok: false, error: error.message, code: error.code || 'recorder' });
     }
   })();
 

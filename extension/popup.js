@@ -1,40 +1,130 @@
-const statusEl = document.getElementById('status');
+// The toolbar popup: shows what the capture is doing and offers the one action that fits.
+import { t, translatePage } from './i18n.js';
+import { formatClock } from './shared.js';
 
-function show(text) {
-  statusEl.textContent = text;
+const BACKEND = '127.0.0.1:8877';
+const TICK_MS = 1000;
+const SEGMENTS_EVERY_MS = 3000;
+
+const card = document.getElementById('card');
+const headline = document.getElementById('headline');
+const detail = document.getElementById('detail');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const panelBtn = document.getElementById('panelBtn');
+const errorEl = document.getElementById('error');
+const autoEl = document.getElementById('autoCapture');
+
+let segments = null; // of the capture shown, fetched from the backend now and then
+let segmentsFor = null;
+let segmentsAt = 0;
+
+translatePage();
+
+// --- state ---
+
+const STATE_KEYS = [
+  'activeSessionId',
+  'captureStartedAt',
+  'captureStoppedAt',
+  'captureMic',
+  'finishingSessionId',
+  'lastCapture',
+];
+
+async function render() {
+  const state = await chrome.storage.local.get(STATE_KEYS);
+  const recording = Boolean(state.activeSessionId);
+  const finishing = !recording && Boolean(state.finishingSessionId);
+
+  startBtn.hidden = recording || finishing;
+  stopBtn.hidden = !recording;
+  panelBtn.hidden = !recording;
+
+  if (recording) {
+    card.className = 'card recording';
+    headline.textContent = t('popupRecording', formatClock(elapsed(state.captureStartedAt)));
+    const count = await segmentCount(state.activeSessionId);
+    detail.textContent = [
+      count === null ? null : t('popupSegments', count),
+      t(state.captureMic ? 'popupMicOn' : 'popupMicOff'),
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  } else if (finishing) {
+    card.className = 'card finishing';
+    headline.textContent = t('popupFinishing');
+    const recorded = (state.captureStoppedAt - state.captureStartedAt) / 1000;
+    detail.textContent = Number.isFinite(recorded) ? t('popupFinishingDetail', formatClock(recorded)) : '';
+  } else {
+    card.className = 'card idle';
+    renderLast(state.lastCapture);
+  }
 }
+
+function renderLast(last) {
+  if (!last) {
+    headline.textContent = t('popupIdle');
+    detail.textContent = '';
+  } else if (last.status === 'discarded') {
+    headline.textContent = t('popupDiscarded');
+    detail.textContent = t('popupDiscardedDetail', formatClock(last.durationSec || 0));
+  } else if (last.status === 'stopped') {
+    headline.textContent = t('popupDone');
+    detail.textContent = t('popupDoneDetail', formatClock(last.durationSec || 0), last.segments ?? 0);
+  } else if (last.status === 'backend_lost') {
+    headline.textContent = t('popupLostBackend');
+    detail.textContent = '';
+  } else {
+    headline.textContent = t('popupIdle');
+    detail.textContent = '';
+  }
+}
+
+function elapsed(since) {
+  return since ? (Date.now() - since) / 1000 : 0;
+}
+
+/** Segments transcribed so far, refreshed every few seconds rather than every tick. */
+async function segmentCount(sessionId) {
+  if (sessionId !== segmentsFor || Date.now() - segmentsAt > SEGMENTS_EVERY_MS) {
+    segmentsFor = sessionId;
+    segmentsAt = Date.now();
+    try {
+      const resp = await fetch(`http://${BACKEND}/api/sessions/${encodeURIComponent(sessionId)}`);
+      segments = resp.ok ? (await resp.json()).transcript_segments : null;
+    } catch {
+      segments = null; // backend away: the reconnect logic is on it, just show less
+    }
+  }
+  return segments;
+}
+
+function showError(text) {
+  errorEl.textContent = text || '';
+  errorEl.hidden = !text;
+}
+
+// --- actions ---
 
 async function send(action) {
-  const response = await chrome.runtime.sendMessage({ action });
-  if (!response) {
-    show('no response from the extension background');
-    return;
-  }
-
-  if (!response.ok) {
-    show(`⚠ ${response.error}`);
-    return;
-  }
-
-  if (action === 'start_capture') {
-    await showRecording(response.sessionId);
-  } else if (action === 'stop_capture') {
-    show('■ stopped — finishing transcription...');
-  }
+  showError('');
+  const response = await chrome.runtime.sendMessage({ action }).catch(() => null);
+  if (!response) showError(t('errorNoResponse'));
+  else if (!response.ok) showError(response.error);
+  await render();
 }
 
-async function showRecording(sessionId) {
-  show(`● recording — ${sessionId}`);
-  chrome.runtime.sendMessage({ target: 'panel', action: 'transcript_start', sessionId }).catch(() => {});
-  if (chrome.sidePanel) {
-    const window = await chrome.windows.getCurrent();
-    chrome.sidePanel.open({ windowId: window.id }).catch(() => {});
-  }
-}
+startBtn.addEventListener('click', () => send('start_capture'));
+stopBtn.addEventListener('click', () => send('stop_capture'));
+
+// The live transcript stays out of the way unless asked for.
+panelBtn.addEventListener('click', async () => {
+  const window = await chrome.windows.getCurrent();
+  await chrome.sidePanel.open({ windowId: window.id }).catch(() => {});
+});
 
 // --- capture follows the call ---
-
-const autoEl = document.getElementById('autoCapture');
 
 chrome.storage.local.get('autoCapture').then(({ autoCapture = false }) => {
   autoEl.checked = autoCapture;
@@ -53,11 +143,13 @@ async function offerCapture() {
   const reply = await chrome.runtime
     .sendMessage({ action: 'popup_opened', tabId: tab.id })
     .catch(() => null);
-  if (reply?.started) await showRecording(reply.sessionId);
-  else if (reply && !reply.ok) show(`⚠ ${reply.error}`);
+  if (reply && !reply.ok) showError(reply.error);
+  await render();
 }
 
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && STATE_KEYS.some((key) => key in changes)) render();
+});
+setInterval(render, TICK_MS);
+render();
 offerCapture();
-
-document.getElementById('startBtn').addEventListener('click', () => send('start_capture'));
-document.getElementById('stopBtn').addEventListener('click', () => send('stop_capture'));
