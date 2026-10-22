@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 from typing import Sequence
 
+from .cleanup import clean
 from .incremental import Segment
 from .models import Note, Session
 from .retention import worth_keeping
@@ -57,6 +58,7 @@ def export_session(
     """Write one session as markdown. With `speaker_events` (the Google Meet log), lines
     get the name of whoever was speaking when the meeting UI showed it clearly."""
     target = target or export_dir()
+    segments = clean(segments)
     if target is None or not segments:
         return None
     target.mkdir(parents=True, exist_ok=True)
