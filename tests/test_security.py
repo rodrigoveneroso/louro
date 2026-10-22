@@ -106,3 +106,61 @@ def test_the_backend_never_calls_out():
             found += [f"{path.name}: {n}" for n in hits]
 
     assert found == []
+
+
+# --- what a web page the user visits could otherwise do ------------------------------
+# CORS only governs HTTP reads. Browsers let any page open a WebSocket to 127.0.0.1 and
+# send "simple" POSTs to it, and DNS rebinding makes a hostile domain resolve to it.
+
+EVIL = "https://evil.example"
+EXTENSION = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+
+
+def _rejected(client, url, origin):
+    from starlette.websockets import WebSocketDisconnect
+
+    try:
+        with client.websocket_connect(url, headers={"Origin": origin}) as ws:
+            ws.receive_json()
+    except WebSocketDisconnect as closed:
+        return closed.code
+    return None
+
+
+def test_a_web_page_cannot_listen_to_a_live_transcript(client):
+    assert _rejected(client, "/ws/transcript/any", EVIL) == 4403
+
+
+def test_a_web_page_cannot_stream_audio_into_a_session(client):
+    assert _rejected(client, "/ws/audio?session=planted", EVIL) == 4403
+    assert "planted" not in client.get("/api/sessions").json()["sessions"]
+
+
+def test_the_extension_still_connects(client):
+    with client.websocket_connect("/ws/audio?session=fine", headers={"Origin": EXTENSION}) as ws:
+        assert ws.receive_json()["session_id"] == "fine"
+        ws.send_text("stop")
+        ws.receive_json()
+
+
+def test_a_session_id_cannot_point_outside_the_data_folder(client, tmp_path):
+    assert _rejected(client, "/ws/audio?session=../../escaped", EXTENSION) == 4400
+    assert not list(tmp_path.parent.glob("escaped*"))
+
+
+def test_a_post_must_be_json_so_the_browser_has_to_ask_first(client):
+    """A text/plain POST skips the CORS preflight, and used to be parsed anyway."""
+    response = client.post(
+        "/api/sessions/x/notes",
+        content=b'{"text": "planted"}',
+        headers={"Content-Type": "text/plain"},
+    )
+
+    assert response.status_code == 415
+
+
+def test_a_request_for_another_host_is_refused(client):
+    """DNS rebinding: a hostile domain that resolves to 127.0.0.1 reads as same-origin."""
+    response = client.get("/api/sessions", headers={"Host": "evil.example"})
+
+    assert response.status_code == 400

@@ -29,6 +29,8 @@ def isolate_storage(monkeypatch, tmp_path):
     monkeypatch.delenv("GHOSTMEET_VOCABULARY_FILE", raising=False)
     monkeypatch.delenv("GHOSTMEET_FINAL_MODEL", raising=False)
     monkeypatch.delenv("GHOSTMEET_ON_EXPORT", raising=False)
+    # Starlette's TestClient calls itself "testserver"
+    monkeypatch.setattr(app_module, "ALLOWED_HOSTS", app_module.ALLOWED_HOSTS | {"testserver"})
     # tests never load a real Whisper model
     monkeypatch.setenv("GHOSTMEET_PRELOAD", "0")
     yield
