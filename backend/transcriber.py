@@ -34,7 +34,7 @@ def _load_whisper(model_size: str, device: str, compute_type: str):
 def get_model(
     model_size: str = "base",
     device: str = "auto",
-    compute_type: str = "float32",
+    compute_type: str = "auto",
     factory: Optional[ModelFactory] = None,
 ):
     """Return the shared model for this configuration, loading it at most once."""
@@ -44,6 +44,12 @@ def get_model(
             build = factory or _load_whisper
             _models[key] = build(model_size, device=device, compute_type=compute_type)
         return _models[key]
+
+
+def is_loaded(model_size: str, device: str = "auto", compute_type: str = "auto") -> bool:
+    """Whether this configuration is already in memory, without loading it."""
+    with _lock:
+        return (model_size, device, compute_type) in _models
 
 
 def reset_model_cache() -> None:

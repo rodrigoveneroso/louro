@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import threading
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -26,7 +27,7 @@ from .pipeline import SessionPipeline
 from .refine import final_model, transcribe_recording
 from .retention import should_discard, worth_keeping
 from .store import SessionStore, default_data_dir
-from .transcriber import WhisperTranscriber, get_model
+from .transcriber import WhisperTranscriber, get_model, is_loaded
 from .vocabulary import clean as clean_terms
 from .vocabulary import configured_terms, hotwords
 
@@ -40,7 +41,9 @@ DB_PATH = RECORDINGS_DIR / "ghostmeet.db"
 # config from env
 WHISPER_MODEL = os.environ.get("GHOSTMEET_MODEL", "base")
 WHISPER_DEVICE = os.environ.get("GHOSTMEET_DEVICE", "auto")
-WHISPER_COMPUTE = os.environ.get("GHOSTMEET_COMPUTE_TYPE", "float32")
+# "auto" lets CTranslate2 pick the fastest type the hardware supports: int8 on a CPU,
+# twice as fast as float32 there with the same accuracy
+WHISPER_COMPUTE = os.environ.get("GHOSTMEET_COMPUTE_TYPE", "auto")
 WHISPER_LANGUAGE = os.environ.get("GHOSTMEET_LANGUAGE") or None
 CHUNK_INTERVAL = float(os.environ.get("GHOSTMEET_CHUNK_INTERVAL", "10"))
 # how long a resumed capture waits for the dropped one to finish its final pass
@@ -71,6 +74,9 @@ async def lifespan(_app: FastAPI):
         if session.status in ("streaming", "transcribing"):
             session.status = "interrupted"
     logger.info("Loaded %d session(s) from %s", len(sessions), DB_PATH)
+    if os.environ.get("GHOSTMEET_PRELOAD", "1") != "0":
+        # load Whisper now, off the event loop, so the first capture does not wait for it
+        threading.Thread(target=_preload_model, name="preload", daemon=True).start()
     try:
         yield
     finally:
@@ -88,6 +94,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _preload_model() -> None:
+    try:
+        get_model(WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE)
+    except Exception:  # noqa: BLE001 - the first capture will try again and say why
+        logger.exception("Could not preload the Whisper model %s", WHISPER_MODEL)
 
 
 def _make_final_transcribe_fn(language: str | None) -> WhisperTranscriber:
@@ -108,6 +121,8 @@ def health():
         "ok": True,
         "service": "ghostmeet-backend",
         "model": WHISPER_MODEL,
+        # false until Whisper is in memory: a capture started now waits for it
+        "model_ready": is_loaded(WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE),
         "chunk_interval_sec": CHUNK_INTERVAL,
     }
 

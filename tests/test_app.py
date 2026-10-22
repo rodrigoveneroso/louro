@@ -85,6 +85,23 @@ def test_health_reports_the_active_configuration(client):
     assert body["ok"] is True
     assert "model" in body
     assert "chunk_interval_sec" in body
+    assert body["model_ready"] is False  # nothing preloads in tests
+
+
+def test_the_model_is_loaded_when_the_backend_starts(monkeypatch):
+    """So the first capture of the day starts at once instead of waiting for Whisper."""
+    loaded = []
+    monkeypatch.setenv("GHOSTMEET_PRELOAD", "1")
+    monkeypatch.setattr(app_module, "get_model", lambda *config: loaded.append(config))
+
+    with TestClient(app_module.app):
+        for _ in range(100):
+            if loaded:
+                break
+            time.sleep(0.01)
+
+    config = (app_module.WHISPER_MODEL, app_module.WHISPER_DEVICE, app_module.WHISPER_COMPUTE)
+    assert loaded == [config]
 
 
 def test_audio_stream_produces_a_transcript(client, webm):

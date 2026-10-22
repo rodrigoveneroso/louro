@@ -13,7 +13,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from backend.transcriber import WhisperTranscriber, get_model, reset_model_cache
+from backend.transcriber import WhisperTranscriber, get_model, is_loaded, reset_model_cache
 
 
 class FakeModel:
@@ -152,3 +152,13 @@ def test_adapter_without_vocabulary_sends_no_hotwords():
     WhisperTranscriber(model)(np.zeros(16000, dtype=np.float32))
 
     assert model.calls[0]["hotwords"] is None
+
+
+def test_a_model_is_known_to_be_loaded_only_once_it_is():
+    reset_model_cache()
+    try:
+        assert not is_loaded("small", "cpu", "auto")
+        get_model("small", "cpu", "auto", factory=lambda *a, **k: FakeModel())
+        assert is_loaded("small", "cpu", "auto")
+    finally:
+        reset_model_cache()

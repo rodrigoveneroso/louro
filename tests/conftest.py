@@ -29,6 +29,8 @@ def isolate_storage(monkeypatch, tmp_path):
     monkeypatch.delenv("GHOSTMEET_VOCABULARY_FILE", raising=False)
     monkeypatch.delenv("GHOSTMEET_FINAL_MODEL", raising=False)
     monkeypatch.delenv("GHOSTMEET_ON_EXPORT", raising=False)
+    # tests never load a real Whisper model
+    monkeypatch.setenv("GHOSTMEET_PRELOAD", "0")
     yield
     assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS
     assert app_module.DB_PATH != _REAL_DB
