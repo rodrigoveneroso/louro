@@ -205,7 +205,7 @@
     "message": "A aba da reunião só traz o áudio dos outros participantes. Para transcrever o que você fala também, o ghostmeet precisa do seu microfone. O áudio não sai deste computador."
   },
   "micHeadphones": {
-    "message": "Com fone de ouvido, os outros não são captados de novo pela sua caixa de som."
+    "message": "Pode usar sem fone: o ghostmeet tira da gravação o eco dos outros que sai pela sua caixa de som, e o que você fala enquanto está no mudo no Meet não é gravado."
   },
   "micAllow": {
     "message": "Permitir microfone"

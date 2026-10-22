@@ -7,6 +7,20 @@
   // the tab title is "Meet - <code>" for ad hoc calls and "Meet - <name>" for scheduled ones
   const TITLE_PREFIX = /^\s*(google\s+)?meet\s*[-–—:|]\s*/i;
 
+  // The microphone button is labelled with what it would do: "turn off" while you are
+  // heard, "turn on" while you are muted. "Desativar" contains "ativar", so the "off"
+  // label is looked for first.
+  const MIC_OFF = /desativar (o )?microfone|turn off microphone/i;
+  const MIC_ON = /ativar (o )?microfone|turn on microphone/i;
+
+  /** true when muted, false when not, null when the page shows no microphone button. */
+  function isMicMuted(buttonLabels) {
+    const labels = buttonLabels.map((label) => label || '');
+    if (labels.some((label) => MIC_OFF.test(label))) return false;
+    if (labels.some((label) => MIC_ON.test(label))) return true;
+    return null;
+  }
+
   function isInCall(buttonLabels) {
     return buttonLabels.some((label) => LEAVE_CALL.test(label || ''));
   }
@@ -31,5 +45,5 @@
     return titleFromTabTitle(fromAttribute, code) || titleFromTabTitle(doc.title, code);
   }
 
-  globalThis.ghostmeetMeet = { isInCall, meetingCode, titleFromTabTitle, meetingTitle };
+  globalThis.ghostmeetMeet = { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle };
 })();

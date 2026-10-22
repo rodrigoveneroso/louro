@@ -1,11 +1,13 @@
 // Content script for Google Meet: tells the extension when you join or leave a call, so
-// capture can follow the call, and gives the running capture the meeting's name and code.
+// capture can follow the call, gives the running capture the meeting's name and code,
+// and whether you are muted, so nothing of yours is kept while you are.
 (() => {
-  const { isInCall, meetingCode, meetingTitle } = globalThis.ghostmeetMeet;
+  const { isInCall, isMicMuted, meetingCode, meetingTitle } = globalThis.ghostmeetMeet;
   const CHECK_MS = 2000;
 
   let inCall = null; // unknown until the first check
   let reported = ''; // meeting info last sent for the running capture
+  let reportedMute = ''; // mute state last sent for the running capture
 
   function send(message) {
     chrome.runtime.sendMessage({ target: 'background', ...message }).catch(() => {});
@@ -29,6 +31,13 @@
     if (activeSessionId && inCall && info !== reported) {
       reported = info;
       send({ action: 'meeting_info', sessionId: activeSessionId, title, code });
+    }
+
+    const muted = isMicMuted(labels);
+    const mute = JSON.stringify([activeSessionId, muted]);
+    if (activeSessionId && muted !== null && mute !== reportedMute) {
+      reportedMute = mute;
+      send({ action: 'mic_muted', muted });
     }
   }
 

@@ -1,7 +1,8 @@
 /**
  * Verifies, in a real browser, that capture can follow a Google Meet call: the extension
- * sees you join and leave, names the session after the meeting, stops when you leave,
- * and drops a capture too short to be a meeting.
+ * sees you join and leave, names the session after the meeting, keeps nothing of yours
+ * while you are muted, stops when you leave, and drops a capture too short to be a
+ * meeting.
  *
  *   1. npm install playwright ws && npx playwright install chromium
  *   2. node tests/extension/verify-follow-call.mjs
@@ -34,9 +35,14 @@ const SESSION = `verify-${Date.now()}`;
 const MEET_URL = 'https://meet.google.com/abc-defg-hij';
 
 const FAKE_MEET = `<!doctype html><html><head><title>Meet - Weekly sync</title></head><body>
-  <button aria-label="Ativar microfone">mic</button>
+  <button id="mic" aria-label="Desativar microfone (ctrl + d)">mic</button>
   <button id="join" aria-label="Participar agora">Participar agora</button>
   <script>
+    const mic = document.getElementById('mic');
+    mic.onclick = () => {
+      const muted = mic.getAttribute('aria-label').startsWith('Ativar');
+      mic.setAttribute('aria-label', (muted ? 'Desativar' : 'Ativar') + ' microfone (ctrl + d)');
+    };
     document.getElementById('join').onclick = () => {
       const leave = document.createElement('button');
       leave.id = 'leave';
@@ -48,6 +54,17 @@ const FAKE_MEET = `<!doctype html><html><head><title>Meet - Weekly sync</title><
 </body></html>`;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Peak level of the newest audio in the session's working PCM file (s16le). */
+function recentPeak(dir, seconds = 1.5) {
+  const file = path.join(dir, `${SESSION}.pcm`);
+  if (!fs.existsSync(file)) return 0;
+  const bytes = fs.readFileSync(file);
+  const tail = bytes.subarray(Math.max(0, bytes.length - seconds * 16000 * 2));
+  let peak = 0;
+  for (let i = 0; i + 1 < tail.length; i += 2) peak = Math.max(peak, Math.abs(tail.readInt16LE(i)));
+  return peak / 32768;
+}
 const api = (p) => fetch(`http://${BACKEND}${p}`).then((r) => (r.ok ? r.json() : null));
 
 const failures = [];
@@ -173,13 +190,12 @@ try {
   });
   offscreen = cdp(target.webSocketDebuggerUrl);
   await offscreen.ready;
+  // a silent "tab" and Chromium's fake microphone: all the sound recorded is yours
   await offscreen.evaluate(`(async () => {
     const mod = await import('./offscreen.js');
-    const ac = new AudioContext();
-    const osc = ac.createOscillator();
-    const dest = ac.createMediaStreamDestination();
-    osc.connect(dest); osc.start();
-    await mod.startRecording(dest.stream, { sessionId: ${JSON.stringify(SESSION)}, language: 'pt', backend: ${JSON.stringify(BACKEND)} });
+    const silent = new AudioContext().createMediaStreamDestination().stream;
+    const { stream } = await mod.mixInputs(silent, { playback: false });
+    await mod.startRecording(stream, { sessionId: ${JSON.stringify(SESSION)}, language: 'pt', backend: ${JSON.stringify(BACKEND)} });
   })()`);
   await worker.evaluate(
     `chrome.storage.local.set({ activeSessionId: ${JSON.stringify(SESSION)}, meetingTabId: ${tabId} })`,
@@ -191,6 +207,19 @@ try {
   });
   check(named?.title === 'Weekly sync', `the session took the meeting's name (${named?.title})`);
   check(named?.meeting_code === 'abc-defg-hij', 'and its Meet code');
+
+  console.log('\nmuting yourself in the meeting');
+  await sleep(2500);
+  const heard = recentPeak(dataDir);
+  check(heard > 0.01, `your microphone is recorded while you are heard (peak ${heard.toFixed(3)})`);
+  await page.click('#mic');
+  await sleep(4000); // the content script looks every 2 s, then the newest audio must be silent
+  const muted = recentPeak(dataDir);
+  check(muted < 0.002, `nothing of yours is kept while you are muted (peak ${muted.toFixed(4)})`);
+  await page.click('#mic');
+  await sleep(4000);
+  const back = recentPeak(dataDir);
+  check(back > 0.01, `and you are recorded again once you unmute (peak ${back.toFixed(3)})`);
 
   console.log('\nleaving the call');
   await page.click('#leave');

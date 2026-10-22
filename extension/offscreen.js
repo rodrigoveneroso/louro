@@ -17,6 +17,7 @@ let mix = null; // MediaStreamAudioDestinationNode the inputs are mixed into
 let tabSource = null;
 let micStream = null;
 let echoGate = null; // AudioWorkletNode taking the meeting's echo out of the microphone
+let micEnabled = true; // false while you are muted in the meeting
 let target = null; // { sessionId, language, backend } while a capture is running
 let stopping = false;
 let attempts = 0;
@@ -101,11 +102,18 @@ async function createEchoGate() {
       numberOfOutputs: 1,
       outputChannelCount: [1],
     });
+    node.port.postMessage({ enabled: micEnabled });
     return node;
   } catch (error) {
     console.warn('echo suppression unavailable:', error);
     return null;
   }
+}
+
+/** Follow the meeting's own mute button: muted there means nothing of yours is kept. */
+export function setMicEnabled(enabled) {
+  micEnabled = Boolean(enabled);
+  if (echoGate) echoGate.port.postMessage({ enabled: micEnabled });
 }
 
 function withTimeout(promise, ms) {
@@ -323,6 +331,7 @@ function releaseCapture() {
   mix = null;
   tabSource = null;
   echoGate = null;
+  micEnabled = true;
   if (audioContext) {
     audioContext.close().catch(() => {});
     audioContext = null;
@@ -343,6 +352,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (message.action === 'start') {
         const { mic } = await start(message);
         sendResponse({ ok: true, mic });
+      } else if (message.action === 'set_mic_enabled') {
+        setMicEnabled(message.enabled);
+        sendResponse({ ok: true });
       } else if (message.action === 'attach_mic') {
         sendResponse({ ok: true, mic: await attachMic() });
       } else if (message.action === 'stop') {

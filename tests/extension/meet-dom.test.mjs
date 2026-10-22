@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 
 import '../../extension/meet-dom.js';
 
-const { isInCall, meetingCode, titleFromTabTitle, meetingTitle } = globalThis.ghostmeetMeet;
+const { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle } =
+  globalThis.ghostmeetMeet;
 
 test('the leave button means you are in the call, in either language', () => {
   assert.equal(isInCall(['Ativar microfone', 'Sair da chamada']), true);
@@ -50,4 +51,15 @@ test('a title attribute on the page wins over the tab title', () => {
 test('without the attribute the tab title is used', () => {
   const doc = { title: 'Meet - Retro', querySelector: () => null };
   assert.equal(meetingTitle(doc, 'abc-defg-hij'), 'Retro');
+});
+
+test('the microphone button says whether you are muted, in either language', () => {
+  assert.equal(isMicMuted(['Ativar microfone (ctrl + d)', 'Sair da chamada']), true);
+  assert.equal(isMicMuted(['Desativar microfone (ctrl + d)']), false);
+  assert.equal(isMicMuted(['Turn on microphone']), true);
+  assert.equal(isMicMuted(['Turn off microphone']), false);
+});
+
+test('without a microphone button the mute state is unknown', () => {
+  assert.equal(isMicMuted(['Sair da chamada', null]), null);
 });

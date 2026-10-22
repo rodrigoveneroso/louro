@@ -187,7 +187,9 @@ async function onMicGranted() {
   }
   // back to the meeting, which is where the user was before the prompt
   const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
-  if (meetingTabId !== undefined) chrome.tabs.update(meetingTabId, { active: true }).catch(() => {});
+  if (meetingTabId !== undefined) {
+    chrome.tabs.update(meetingTabId, { active: true }).catch(() => {});
+  }
   return { ok: true, mic };
 }
 
@@ -246,6 +248,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse(await onPopupOpened(message.tabId));
     } else if (message.action === 'call_state' && sender.tab) {
       await onCallState(sender.tab.id, message.inCall);
+      sendResponse({ ok: true });
+    } else if (message.action === 'mic_muted' && sender.tab) {
+      // only the meeting being recorded decides; another Meet tab is not you speaking
+      const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+      if (meetingTabId === sender.tab.id) {
+        const enabled = !message.muted;
+        await chrome.runtime
+          .sendMessage({ target: 'offscreen', action: 'set_mic_enabled', enabled })
+          .catch(() => {});
+      }
       sendResponse({ ok: true });
     } else if (message.action === 'meeting_info') {
       const session = encodeURIComponent(message.sessionId);
