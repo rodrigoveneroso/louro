@@ -160,15 +160,14 @@ def test_reusing_a_finished_session_id_starts_fresh(client, webm, tmp_path):
 
     assert first["audio_bytes"] == len(webm)
     assert second["audio_bytes"] == len(webm)  # not doubled
-    assert (tmp_path / "repeat.webm").stat().st_size == len(webm)
 
 
-def test_the_pcm_working_file_is_reclaimed_but_the_archive_is_kept(client, webm, tmp_path):
+def test_no_audio_is_kept_once_the_session_ends(client, webm, tmp_path):
     """A 4-hour session leaves ~450 MB of working PCM behind if this is not cleaned up."""
     session_id = stream(client, webm)
 
     assert not (tmp_path / f"{session_id}.pcm").exists()
-    assert (tmp_path / f"{session_id}.webm").exists()
+    assert not (tmp_path / f"{session_id}.webm").exists()
 
 
 def test_completion_notice_reports_the_final_state(client, webm):
@@ -204,7 +203,7 @@ def test_hanging_up_without_stop_does_not_leak_the_working_file(client, webm, tm
         time.sleep(0.05)
 
     assert not (tmp_path / "dropped.pcm").exists()
-    assert (tmp_path / "dropped.webm").exists()
+    assert not (tmp_path / "dropped.webm").exists()
 
 
 def test_unknown_session_returns_404(client):
@@ -273,3 +272,17 @@ def test_transcribe_factory_applies_the_requested_language(monkeypatch):
         assert app_module._make_transcribe_fn(None).language is None
     finally:
         transcriber_module.reset_model_cache()
+
+
+def test_speaker_events_are_appended_as_json_lines(client, tmp_path):
+    body = {"events": [{"t": 1, "name": "Ana", "from": "a", "to": "b"}]}
+    assert client.post("/api/sessions/s1/speaker-events", json=body).json() == {"stored": 1}
+    client.post("/api/sessions/s1/speaker-events", json=body)
+
+    lines = (tmp_path / "s1.speakers.jsonl").read_text().splitlines()
+    assert len(lines) == 2
+
+
+def test_speaker_events_reject_a_path_like_session_id(client):
+    assert client.post("/api/sessions/..%2Fx/speaker-events", json={"events": []}).status_code in (400, 404)
+    assert client.post("/api/sessions/ok/speaker-events", json={"events": "nope"}).status_code == 400

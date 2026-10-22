@@ -20,6 +20,7 @@ def isolate_storage(monkeypatch, tmp_path):
     recordings.mkdir(exist_ok=True)
     monkeypatch.setattr(app_module, "RECORDINGS_DIR", recordings)
     monkeypatch.setattr(app_module, "DB_PATH", recordings / "ghostmeet.db")
+    monkeypatch.setenv("GHOSTMEET_EXPORT_DIR", str(tmp_path / "export"))
     yield
     assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS
     assert app_module.DB_PATH != _REAL_DB

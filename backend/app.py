@@ -2,18 +2,21 @@
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
 from typing import Dict, List
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .decoder import StreamingWebmDecoder
+from .exporter import export_session
 from .incremental import IncrementalTranscriber, Segment
 from .models import Session
 from .pcm_store import PcmStore
@@ -141,6 +144,31 @@ async def summarize_session(session_id: str):
     return summary.to_dict()
 
 
+_SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_MAX_SPEAKER_EVENTS = 500
+
+
+@app.post("/api/sessions/{session_id}/speaker-events")
+async def add_speaker_events(session_id: str, request: Request):
+    """Raw per-participant UI changes seen in the meeting page, kept as JSON lines.
+
+    Which change means "is speaking" is worked out afterwards by lining these up with the
+    transcript, so nothing is interpreted here.
+    """
+    if not _SESSION_ID.match(session_id):
+        raise HTTPException(status_code=400, detail="invalid session id")
+    body = await request.json()
+    events = body.get("events") if isinstance(body, dict) else None
+    if not isinstance(events, list) or len(events) > _MAX_SPEAKER_EVENTS:
+        raise HTTPException(status_code=400, detail="expected a list of at most 500 events")
+    path = RECORDINGS_DIR / f"{session_id}.speakers.jsonl"
+    with path.open("a", encoding="utf-8") as out:
+        for event in events:
+            if isinstance(event, dict):
+                out.write(json.dumps(event, ensure_ascii=False) + "\n")
+    return {"stored": len(events)}
+
+
 @app.get("/api/sessions/{session_id}/summary")
 def get_summary(session_id: str):
     summary = summaries.get(session_id) or store.load_summary(session_id)
@@ -200,14 +228,12 @@ async def ws_audio(websocket: WebSocket):
             await websocket.close(code=4409, reason="session already capturing")
             return
 
-    archive_path = RECORDINGS_DIR / f"{session_id}.webm"
     pcm_path = RECORDINGS_DIR / f"{session_id}.pcm"
     # a re-used id starts fresh: appending to a previous recording corrupts both files
     pcm_path.unlink(missing_ok=True)
 
     session = Session(
         session_id=session_id,
-        file=archive_path.name,
         language=language,
     )
     sessions[session_id] = session
@@ -228,19 +254,17 @@ async def ws_audio(websocket: WebSocket):
 
     try:
         try:
-            with archive_path.open("wb") as archive:
-                while True:
-                    message = await websocket.receive()
-                    if message.get("bytes"):
-                        chunk = message["bytes"]
-                        archive.write(chunk)
-                        session.chunks += 1
-                        session.audio_bytes += len(chunk)
-                        pipeline.feed(chunk)  # returns immediately
-                    elif message.get("text") == "stop":
-                        break
-                    elif message.get("type") == "websocket.disconnect":
-                        break
+            while True:
+                message = await websocket.receive()
+                if message.get("bytes"):
+                    chunk = message["bytes"]
+                    session.chunks += 1
+                    session.audio_bytes += len(chunk)
+                    pipeline.feed(chunk)  # returns immediately
+                elif message.get("text") == "stop":
+                    break
+                elif message.get("type") == "websocket.disconnect":
+                    break
         except WebSocketDisconnect:
             pass
 
@@ -257,13 +281,17 @@ async def ws_audio(websocket: WebSocket):
         session.transcript_segments = len(pipeline.transcriber.transcript)
         session.duration_sec = round(pcm.duration, 2)
         store.save_session(session)
+        try:
+            export_session(session, pipeline.transcriber.transcript)
+        except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
+            logger.exception("Could not export transcript for %s", session_id)
     finally:
         # Always release the handle and reclaim the working file, even if the client
         # vanished or a pass blew up mid-session. Order matters: the decoder writes into
         # the PCM store from its own thread, so it has to be stopped first.
         decoder.close()
         pcm.close()
-        # the PCM working file is large (~115 MB/hour); the webm archive is the durable copy
+        # audio is never kept: only the transcript is persisted, the PCM is just a working file
         pcm_path.unlink(missing_ok=True)
 
     # tell the client the final pass is done, so it knows the transcript is complete and
