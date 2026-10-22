@@ -8,8 +8,9 @@ benchmark (`bench/`) still imports `backend/` to measure the v0.1 tail window.
 ```bash
 cd legacy
 python -m venv ../.venv && ../.venv/bin/python -m pip install -r requirements-dev.txt
-../.venv/bin/python -m pytest tests/ -q          # 114 tests, no model, no network
+../.venv/bin/python -m pytest tests/ -q          # 128 tests, no model, no network
 node --test tests/extension/shared.test.mjs     # extension helpers
+node tests/extension/verify-mic-and-reconnect.mjs   # real browser: microphone, reconnect
 ../.venv/bin/python -m backend                   # backend on 127.0.0.1:8877
 ./start.sh && ./stop.sh                          # or in the background (reads .env)
 docker compose up -d                             # or in Docker, published on loopback only
