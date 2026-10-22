@@ -10,7 +10,8 @@ it further** (see "About this fork" in the [main README](../README.md)). The ben
 cd legacy
 python -m venv ../.venv && ../.venv/bin/python -m pip install -r requirements-dev.txt
 ../.venv/bin/python -m pytest tests/ -q          # 148 tests, no model, no network
-node --test tests/extension/shared.test.mjs tests/extension/meet-dom.test.mjs
+node --test tests/extension/shared.test.mjs tests/extension/meet-dom.test.mjs \
+  tests/extension/echo-gate.test.mjs
 node tests/extension/verify-mic-and-reconnect.mjs   # real browser: microphone, reconnect
 node tests/extension/verify-follow-call.mjs         # real browser: follow a Meet call
 node tests/extension/verify-popup.mjs               # real browser: the popup
