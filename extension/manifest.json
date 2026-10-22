@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ghostmeet",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "AI meeting assistant — live captions and summaries from any browser tab",
   "permissions": [
     "tabCapture",
@@ -41,6 +41,8 @@
         "https://meet.google.com/*"
       ],
       "js": [
+        "meet-dom.js",
+        "meet-call.js",
         "meet-speakers.js"
       ],
       "run_at": "document_idle"

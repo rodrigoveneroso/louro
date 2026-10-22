@@ -33,13 +33,81 @@ async function closeOffscreen() {
   if (await offscreenExists()) await chrome.offscreen.closeDocument();
 }
 
-async function startCapture() {
+// Capture follows the call when the user turned that on in the popup. Chrome only lets
+// an extension capture a tab after the user invoked it there (a click on its icon), and
+// that grant lasts until the tab navigates away: one click on the Meet tab, in the lobby
+// or in the call, is enough for the call to start and stop the recording on its own.
+async function followsCall() {
+  const { autoCapture = false } = await chrome.storage.local.get('autoCapture');
+  return autoCapture;
+}
+
+// which Meet tabs are in a call right now; session storage outlives the worker sleeping
+async function callTabs() {
+  const { inCall = {} } = await chrome.storage.session.get('inCall');
+  return inCall;
+}
+
+async function onCallState(tabId, inCall) {
+  const tabs = await callTabs();
+  if (inCall) tabs[tabId] = true;
+  else delete tabs[tabId];
+  await chrome.storage.session.set({ inCall: tabs });
+
+  if (!(await followsCall())) return;
+  const running = await activeCapture();
+  if (inCall && !running) {
+    const result = await startCapture(tabId);
+    if (result.ok) announceCapture(result.sessionId);
+    else await setReminder(tabId, true); // no grant yet: ask for the one click
+  } else if (!inCall) {
+    await setReminder(tabId, false);
+    const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+    if (running && meetingTabId === tabId) await stopCapture();
+  }
+}
+
+/** The popup just opened on `tabId`, which grants the capture if a call is waiting. */
+async function onPopupOpened(tabId) {
+  if (!(await followsCall()) || (await activeCapture())) return { ok: true, started: false };
+  if (!(await callTabs())[tabId]) return { ok: true, started: false };
+  const result = await startCapture(tabId);
+  if (result.ok) announceCapture(result.sessionId);
+  return { ...result, started: result.ok };
+}
+
+async function setReminder(tabId, on) {
+  await chrome.action.setBadgeText({ tabId, text: on ? 'REC' : '' }).catch(() => {});
+  if (on) await chrome.action.setBadgeBackgroundColor({ tabId, color: '#b91c1c' }).catch(() => {});
+  await chrome.action
+    .setTitle({ tabId, title: on ? 'ghostmeet: click to record this call' : 'ghostmeet' })
+    .catch(() => {});
+}
+
+function announceCapture(sessionId) {
+  chrome.runtime
+    .sendMessage({ target: 'panel', action: 'transcript_start', sessionId })
+    .catch(() => {});
+}
+
+async function postToBackend(path, body) {
+  await fetch(`http://${BACKEND}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).catch(() => {});
+}
+
+async function startCapture(tabId = null) {
   const running = await activeCapture();
   if (running) {
     return { ok: false, error: 'already capturing', sessionId: running.sessionId };
   }
 
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab =
+    tabId === null
+      ? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
+      : await chrome.tabs.get(tabId).catch(() => null);
   if (!tab || tab.id === undefined) {
     return { ok: false, error: 'no active tab to capture' };
   }
@@ -71,6 +139,7 @@ async function startCapture() {
   }
 
   await chrome.storage.local.set({ activeSessionId: sessionId, meetingTabId: tab.id });
+  await setReminder(tab.id, false);
   notifyPanel({ type: 'mic', ok: Boolean(started.mic) });
   if (!started.mic) await askForMic();
   return { ok: true, sessionId, mic: Boolean(started.mic), message: 'capture started' };
@@ -110,7 +179,7 @@ async function stopCapture() {
   return { ok: true, sessionId, message: 'capture stopped' };
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // offscreen and side panel traffic is addressed elsewhere
   if (message?.target && message.target !== 'background') return;
 
@@ -121,12 +190,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse(await stopCapture());
     } else if (message.action === 'mic_granted') {
       sendResponse(await onMicGranted());
+    } else if (message.action === 'popup_opened') {
+      sendResponse(await onPopupOpened(message.tabId));
+    } else if (message.action === 'call_state' && sender.tab) {
+      await onCallState(sender.tab.id, message.inCall);
+      sendResponse({ ok: true });
+    } else if (message.action === 'meeting_info') {
+      const session = encodeURIComponent(message.sessionId);
+      await postToBackend(`/api/sessions/${session}/meeting`, {
+        title: message.title,
+        code: message.code,
+      });
+      sendResponse({ ok: true });
     } else if (message.action === 'speaker_events') {
-      await fetch(`http://${BACKEND}/api/sessions/${encodeURIComponent(message.sessionId)}/speaker-events`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ events: message.events }),
-      }).catch(() => {});
+      const session = encodeURIComponent(message.sessionId);
+      await postToBackend(`/api/sessions/${session}/speaker-events`, { events: message.events });
       sendResponse({ ok: true });
     } else if (message.action === 'capture_finished') {
       // the backend finished its last pass, so the recorder is no longer needed
@@ -138,4 +216,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   })();
 
   return true;
+});
+
+// a closed meeting tab ends the meeting, whether or not capture follows the call
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  const tabs = await callTabs();
+  if (tabs[tabId]) {
+    delete tabs[tabId];
+    await chrome.storage.session.set({ inCall: tabs });
+  }
+  const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+  if (meetingTabId === tabId && (await activeCapture())) await stopCapture();
 });

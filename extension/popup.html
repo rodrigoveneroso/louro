@@ -6,12 +6,17 @@
       body { font-family: -apple-system, sans-serif; width: 280px; padding: 12px; }
       button { width: 100%; margin-bottom: 8px; padding: 10px; }
       #status { font-size: 12px; color: #555; white-space: pre-wrap; }
+      #auto { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; margin: 4px 0 10px; }
     </style>
   </head>
   <body>
     <h3>ghostmeet capture</h3>
     <button id="startBtn">Start capture</button>
     <button id="stopBtn">Stop capture</button>
+    <label id="auto">
+      <input type="checkbox" id="autoCapture" />
+      Start and stop with the call (Google Meet)
+    </label>
     <div id="status">idle</div>
     <script src="popup.js"></script>
   </body>

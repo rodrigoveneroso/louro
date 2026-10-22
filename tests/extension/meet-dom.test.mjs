@@ -1,0 +1,53 @@
+/**
+ * Readers of the Google Meet page.
+ *
+ * Run with: node --test tests/extension/meet-dom.test.mjs
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import '../../extension/meet-dom.js';
+
+const { isInCall, meetingCode, titleFromTabTitle, meetingTitle } = globalThis.ghostmeetMeet;
+
+test('the leave button means you are in the call, in either language', () => {
+  assert.equal(isInCall(['Ativar microfone', 'Sair da chamada']), true);
+  assert.equal(isInCall(['Turn off camera', 'Leave call']), true);
+});
+
+test('the lobby has no leave button', () => {
+  assert.equal(isInCall(['Ativar microfone', 'Participar agora', null]), false);
+  assert.equal(isInCall([]), false);
+});
+
+test('the meeting code comes from the url', () => {
+  assert.equal(meetingCode('https://meet.google.com/abc-defg-hij'), 'abc-defg-hij');
+  assert.equal(meetingCode('https://meet.google.com/abc-defg-hij?authuser=1'), 'abc-defg-hij');
+  assert.equal(meetingCode('https://meet.google.com/landing'), null);
+  assert.equal(meetingCode('https://example.com/abc-defg-hij'), null);
+});
+
+test('a scheduled meeting is named in the tab title', () => {
+  assert.equal(titleFromTabTitle('Meet - Weekly sync', 'abc-defg-hij'), 'Weekly sync');
+  assert.equal(titleFromTabTitle('Meet – Planejamento Q4', null), 'Planejamento Q4');
+});
+
+test('an ad hoc call has no name, only its code', () => {
+  assert.equal(titleFromTabTitle('Meet - abc-defg-hij', 'abc-defg-hij'), null);
+  assert.equal(titleFromTabTitle('Google Meet', null), null);
+  assert.equal(titleFromTabTitle('', null), null);
+});
+
+test('a title attribute on the page wins over the tab title', () => {
+  const doc = {
+    title: 'Meet - abc-defg-hij',
+    querySelector: (selector) =>
+      selector === '[data-meeting-title]' ? { getAttribute: () => 'Retro' } : null,
+  };
+  assert.equal(meetingTitle(doc, 'abc-defg-hij'), 'Retro');
+});
+
+test('without the attribute the tab title is used', () => {
+  const doc = { title: 'Meet - Retro', querySelector: () => null };
+  assert.equal(meetingTitle(doc, 'abc-defg-hij'), 'Retro');
+});
