@@ -1,32 +1,24 @@
-# legacy — ghostmeet v0.1
+# legacy/ — the extension and the backend
 
-The v0.1 line: a Chrome MV3 extension that streams tab and microphone audio to a local
-FastAPI backend (faster-whisper), with an OpenClaw skill on top. Upstream's desktop app
-(`app/`, `crates/`) replaces it from 0.2 and builds nothing new here; **this fork develops
-it further** (see "About this fork" in the [main README](../README.md)). The benchmark
-(`bench/`) still imports `backend/` to measure the v0.1 tail window.
+Everything this fork works on lives here; the main [README](../README.md) explains what
+it does and how to install it. Upstream keeps this as its frozen v0.1 (tag `v0.1.0`)
+while it builds a desktop app; the benchmark in `../bench/` still imports `backend/`.
 
 ```bash
-cd legacy
-./install.sh && ./doctor.sh                      # set up, start at login, check
-python -m venv ../.venv && ../.venv/bin/python -m pip install -r requirements-dev.txt
-../.venv/bin/python -m pytest tests/ -q          # 168 tests, no model, no network
+./install.sh                                        # set up, start at login
+./doctor.sh                                         # what is wrong, and how to fix it
+./start.sh  /  ./stop.sh                            # by hand (through the service if any)
+./run.sh                                            # in the foreground
+
+../.venv/bin/python -m pip install -r requirements-dev.txt
+../.venv/bin/python -m pytest tests/ -q            # backend suite, no model, no network
 node --test tests/extension/shared.test.mjs tests/extension/meet-dom.test.mjs \
-  tests/extension/echo-gate.test.mjs
-node tests/extension/verify-mic-and-reconnect.mjs   # real browser: microphone, reconnect
-node tests/extension/verify-follow-call.mjs         # real browser: follow a Meet call
-node tests/extension/verify-popup.mjs               # real browser: the popup
-python3 tools/make_icons.py                         # redraw the extension icons
-../.venv/bin/python -m backend                   # backend on 127.0.0.1:8877
-./start.sh && ./stop.sh                          # by hand (through the service if installed)
-docker compose up -d                             # or in Docker, published on loopback only
+  tests/extension/echo-gate.test.mjs               # extension logic
+node tests/extension/verify-popup.mjs              # and the other verify-*.mjs: real browser
+
+GHOSTMEET_EXPORT_DIR=~/meetings ../.venv/bin/python -m backend.exporter   # re-export all
+../.venv/bin/python tools/bench_whisper.py speech.wav reference.txt      # pick a model
+python3 tools/make_icons.py                                              # redraw the icons
 ```
 
-Run from `legacy/`: the backend now keeps its recordings in `legacy/recordings/`
-(gitignored). Recordings an older checkout made in the repository root are not moved.
-
-Re-export every stored session as markdown (needs `GHOSTMEET_EXPORT_DIR`):
-
-```bash
-GHOSTMEET_EXPORT_DIR=~/meetings ../.venv/bin/python -m backend.exporter
-```
+Sessions live in `recordings/` (gitignored) unless `GHOSTMEET_DATA_DIR` says otherwise.
