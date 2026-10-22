@@ -162,3 +162,12 @@ def test_a_model_is_known_to_be_loaded_only_once_it_is():
         assert is_loaded("small", "cpu", "auto")
     finally:
         reset_model_cache()
+
+
+def test_the_beam_size_can_be_chosen():
+    model = FakeModel()
+
+    WhisperTranscriber(model)(np.zeros(16000, dtype=np.float32))
+    WhisperTranscriber(model, beam_size=1)(np.zeros(16000, dtype=np.float32))
+
+    assert [call["beam_size"] for call in model.calls] == [5, 1]

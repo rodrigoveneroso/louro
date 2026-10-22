@@ -25,7 +25,7 @@ from .incremental import IncrementalTranscriber, Segment
 from .models import Note, Session
 from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
-from .refine import final_model, transcribe_recording
+from .refine import final_beam_size, final_model, transcribe_recording
 from .retention import should_discard, worth_keeping
 from .store import SessionStore, default_data_dir
 from .transcriber import WhisperTranscriber, get_model, is_loaded
@@ -160,7 +160,7 @@ def _preload_model() -> None:
 def _make_final_transcribe_fn(language: str | None) -> WhisperTranscriber:
     """The transcriber of the second pass after the meeting (see refine.py)."""
     model = get_model(final_model(), WHISPER_DEVICE, WHISPER_COMPUTE)
-    return WhisperTranscriber(model, language=language)
+    return WhisperTranscriber(model, language=language, beam_size=final_beam_size())
 
 
 def _make_transcribe_fn(language: str | None) -> WhisperTranscriber:

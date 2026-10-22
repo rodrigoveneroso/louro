@@ -61,9 +61,16 @@ def reset_model_cache() -> None:
 class WhisperTranscriber:
     """Turns one bounded window of PCM into raw segments for a single session."""
 
-    def __init__(self, model: Any, language: str | None = None, hotwords: str | None = None):
+    def __init__(
+        self,
+        model: Any,
+        language: str | None = None,
+        hotwords: str | None = None,
+        beam_size: int = 5,
+    ):
         self._model = model
         self.language = language
+        self.beam_size = beam_size
         # names and terms to expect (see vocabulary.py); may change during the session,
         # as participants join
         self.hotwords = hotwords
@@ -73,7 +80,7 @@ class WhisperTranscriber:
             audio,
             language=self.language,
             hotwords=self.hotwords or None,
-            beam_size=5,
+            beam_size=self.beam_size,
             vad_filter=True,
             vad_parameters=dict(
                 min_silence_duration_ms=500,

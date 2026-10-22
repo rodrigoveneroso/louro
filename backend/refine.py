@@ -20,6 +20,14 @@ def final_model() -> str | None:
     return os.environ.get("GHOSTMEET_FINAL_MODEL", "").strip() or None
 
 
+def final_beam_size() -> int:
+    """Greedy decoding by default. Measured on Portuguese speech, large-v3-turbo with a
+    beam of 5 skipped whole sentences of a window, while with 1 it kept them all and
+    made 40% fewer errors than the live `small` (tools/bench_whisper.py)."""
+    raw = os.environ.get("GHOSTMEET_FINAL_BEAM", "").strip()
+    return int(raw) if raw.isdigit() and int(raw) > 0 else 1
+
+
 def transcribe_recording(pcm_path: Path, transcribe: TranscribeFn) -> List[Segment]:
     """The whole recording, window after window, as one finished transcript."""
     pcm = PcmStore(pcm_path)
