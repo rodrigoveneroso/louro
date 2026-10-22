@@ -23,7 +23,8 @@ OUT = Path(__file__).resolve().parent.parent / "extension" / "icons"
 def render(font_path: str) -> Image.Image:
     font = ImageFont.truetype(font_path, NATIVE_SIZE)
     canvas = Image.new("RGBA", (NATIVE_SIZE * 2, NATIVE_SIZE * 2), (0, 0, 0, 0))
-    ImageDraw.Draw(canvas).text((NATIVE_SIZE // 2, NATIVE_SIZE // 2), GHOST, font=font, embedded_color=True)
+    origin = (NATIVE_SIZE // 2, NATIVE_SIZE // 2)
+    ImageDraw.Draw(canvas).text(origin, GHOST, font=font, embedded_color=True)
     glyph = canvas.crop(canvas.getbbox())
     # square, with a little air around the ghost so it does not touch the edges
     side = int(max(glyph.size) * 1.08)
