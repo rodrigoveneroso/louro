@@ -6,7 +6,12 @@ import { newSessionId } from './shared.js';
 const BACKEND = '127.0.0.1:8877';
 const OFFSCREEN_URL = 'offscreen.html';
 
-let active = null;
+// A Manifest V3 service worker is shut down when idle, so in-memory state does not survive
+// a long meeting. The capture in progress lives in storage instead.
+async function activeCapture() {
+  const { activeSessionId } = await chrome.storage.local.get('activeSessionId');
+  return activeSessionId ? { sessionId: activeSessionId } : null;
+}
 
 async function offscreenExists() {
   const contexts = await chrome.runtime.getContexts({
@@ -29,8 +34,9 @@ async function closeOffscreen() {
 }
 
 async function startCapture() {
-  if (active) {
-    return { ok: false, error: 'already capturing', sessionId: active.sessionId };
+  const running = await activeCapture();
+  if (running) {
+    return { ok: false, error: 'already capturing', sessionId: running.sessionId };
   }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -45,7 +51,8 @@ async function startCapture() {
     return { ok: false, error: `could not capture this tab: ${error.message}` };
   }
 
-  const { language = '' } = await chrome.storage.local.get('language');
+  // no language picker: the backend applies GHOSTMEET_LANGUAGE, set once in .env
+  const language = '';
   const sessionId = newSessionId();
 
   await ensureOffscreen();
@@ -63,16 +70,15 @@ async function startCapture() {
     return { ok: false, error: started?.error || 'recorder failed to start' };
   }
 
-  active = { sessionId, tabId: tab.id };
   await chrome.storage.local.set({ activeSessionId: sessionId });
   return { ok: true, sessionId, message: 'capture started' };
 }
 
 async function stopCapture() {
-  if (!active) return { ok: false, error: 'not capturing' };
-
-  const { sessionId } = active;
-  active = null;
+  // Always tell the recorder to stop, even if the state says nothing is running: a
+  // recorder that outlives its bookkeeping keeps streaming and can never be closed.
+  const running = await activeCapture();
+  const sessionId = running ? running.sessionId : null;
   await chrome.runtime.sendMessage({ target: 'offscreen', action: 'stop' }).catch(() => {});
   await chrome.storage.local.remove('activeSessionId');
   return { ok: true, sessionId, message: 'capture stopped' };
@@ -87,6 +93,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse(await startCapture());
     } else if (message.action === 'stop_capture') {
       sendResponse(await stopCapture());
+    } else if (message.action === 'speaker_events') {
+      await fetch(`http://${BACKEND}/api/sessions/${encodeURIComponent(message.sessionId)}/speaker-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events: message.events }),
+      }).catch(() => {});
+      sendResponse({ ok: true });
     } else if (message.action === 'capture_finished') {
       // the backend finished its last pass, so the recorder is no longer needed
       await closeOffscreen();

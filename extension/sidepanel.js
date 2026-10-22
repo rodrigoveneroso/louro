@@ -1,4 +1,4 @@
-import { formatClock, renderSummary } from './shared.js';
+import { formatClock } from './shared.js';
 
 const BACKEND_URL = '127.0.0.1:8877';
 
@@ -6,18 +6,12 @@ let ws = null;
 let segmentCount = 0;
 let startTime = null;
 let durationTimer = null;
-// the session the panel is showing — outlives the capture so Summarize still works
-// after Stop, when activeSessionId has already been cleared
-let shownSessionId = null;
 
 const statusEl = document.getElementById('status');
 const transcriptEl = document.getElementById('transcript');
 const emptyStateEl = document.getElementById('empty-state');
 const segmentCountEl = document.getElementById('segment-count');
 const durationEl = document.getElementById('duration');
-const languageEl = document.getElementById('language');
-const btnClear = document.getElementById('btn-clear');
-const btnSummarize = document.getElementById('btn-summarize');
 
 // --- helpers ---
 
@@ -73,10 +67,6 @@ function note(text) {
   return div;
 }
 
-function getActiveSessionId() {
-  return chrome.storage.local.get('activeSessionId').then((r) => r.activeSessionId || null);
-}
-
 // --- duration timer ---
 
 function startDurationTimer() {
@@ -112,7 +102,6 @@ async function loadHistory(sessionId) {
 async function connectTranscript(sessionId) {
   if (ws) ws.close();
 
-  shownSessionId = sessionId;
   setStatus('connecting', 'connecting...');
   clearTranscript();
   await loadHistory(sessionId);
@@ -172,58 +161,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   sendResponse({ ok: true });
   return true;
 });
-
-// --- language ---
-
-chrome.storage.local.get('language').then(({ language }) => {
-  if (language) languageEl.value = language;
-});
-
-languageEl.addEventListener('change', () => {
-  // applies to the next session — Whisper is told the language when capture starts
-  chrome.storage.local.set({ language: languageEl.value });
-});
-
-// --- summarize ---
-
-btnSummarize.addEventListener('click', async () => {
-  const sessionId = shownSessionId || (await getActiveSessionId());
-  if (!sessionId) {
-    note('No session to summarize yet — start a capture first.');
-    return;
-  }
-
-  btnSummarize.disabled = true;
-  btnSummarize.textContent = '⏳ Generating...';
-  const loading = note('🤖 Generating summary with Claude...');
-
-  try {
-    const resp = await fetch(
-      `http://${BACKEND_URL}/api/sessions/${sessionId}/summarize`,
-      { method: 'POST' },
-    );
-    const data = await resp.json();
-    loading.remove();
-
-    if (resp.ok && data.status === 'done' && data.content) {
-      const summaryDiv = document.createElement('div');
-      summaryDiv.className = 'summary-block';
-      summaryDiv.innerHTML = renderSummary(data.content);
-      transcriptEl.appendChild(summaryDiv);
-      scrollToBottom();
-    } else {
-      note(`❌ ${data.error || data.detail || 'Summary generation failed'}`);
-    }
-  } catch (e) {
-    loading.remove();
-    note(`❌ Failed to connect: ${e.message}`);
-  } finally {
-    btnSummarize.disabled = false;
-    btnSummarize.textContent = '📋 Summarize';
-  }
-});
-
-btnClear.addEventListener('click', clearTranscript);
 
 // --- on load: reattach to whatever is running ---
 

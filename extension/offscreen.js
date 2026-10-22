@@ -10,6 +10,10 @@ let audioContext = null;
 let sendChain = Promise.resolve();
 
 async function start({ streamId, sessionId, language, backend }) {
+  // The offscreen document outlives a session. A recorder left over from a previous one
+  // would keep emitting header-less chunks into the new socket and break decoding.
+  discardPreviousCapture();
+
   const tabStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: streamId },
@@ -85,6 +89,17 @@ export function stopRecording() {
   // pass is complete, otherwise the tail of the meeting is never transcribed.
   if (recorder && recorder.state !== 'inactive') recorder.stop();
   recorder = null;
+}
+
+function discardPreviousCapture() {
+  if (recorder) {
+    recorder.ondataavailable = null;
+    recorder.onstop = null;
+    if (recorder.state !== 'inactive') recorder.stop();
+    recorder = null;
+  }
+  releaseCapture();
+  sendChain = Promise.resolve();
 }
 
 function releaseCapture() {
