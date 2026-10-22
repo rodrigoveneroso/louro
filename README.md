@@ -1,9 +1,10 @@
 # legacy — ghostmeet v0.1
 
-The v0.1 line, kept as it was tagged (`v0.1.0`): a Chrome MV3 extension that streams tab
-audio to a local FastAPI backend (faster-whisper), with an OpenClaw skill on top. The
-desktop app (`app/`, `crates/`) replaces it from 0.2; nothing new is built here. The
-benchmark (`bench/`) still imports `backend/` to measure the v0.1 tail window.
+The v0.1 line: a Chrome MV3 extension that streams tab and microphone audio to a local
+FastAPI backend (faster-whisper), with an OpenClaw skill on top. Upstream's desktop app
+(`app/`, `crates/`) replaces it from 0.2 and builds nothing new here; **this fork develops
+it further** (see "About this fork" in the [main README](../README.md)). The benchmark
+(`bench/`) still imports `backend/` to measure the v0.1 tail window.
 
 ```bash
 cd legacy
