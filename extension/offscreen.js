@@ -6,11 +6,15 @@ import { ChunkQueue, audioSocketUrl, reconnectDelay } from './shared.js';
 const MAX_QUEUED_CHUNKS = 600;
 // give up on a backend that has not come back after this many attempts (~5 minutes)
 const MAX_RECONNECT_ATTEMPTS = 35;
+const MIC_TIMEOUT_MS = 3000;
 
 let recorder = null;
 let socket = null;
-let stream = null;
+let stream = null; // what is recorded: the tab, plus the microphone when allowed
+let inputs = []; // every captured MediaStream, stopped together
 let audioContext = null;
+let mix = null; // MediaStreamAudioDestinationNode the inputs are mixed into
+let micStream = null;
 let target = null; // { sessionId, language, backend } while a capture is running
 let stopping = false;
 let attempts = 0;
@@ -28,13 +32,70 @@ async function start({ streamId, sessionId, language, backend }) {
       mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: streamId },
     },
   });
+  const mixed = await mixInputs(tabStream);
+  await startRecording(mixed.stream, { sessionId, language, backend });
+  return { mic: mixed.mic };
+}
 
-  // Capturing a tab takes its audio away from the speakers; play it back so the user
-  // can still hear the meeting they are in.
+/**
+ * The stream to record: the meeting tab plus, when allowed, the microphone.
+ *
+ * Capturing a tab takes its audio away from the speakers, so it is played back for the
+ * user to keep hearing the meeting. The microphone goes into the recording only: the
+ * meeting tab never plays your own voice, so without it half of the conversation is
+ * missing from the transcript.
+ */
+export async function mixInputs(tabStream, { playback = true } = {}) {
+  inputs.push(tabStream);
   audioContext = new AudioContext();
-  audioContext.createMediaStreamSource(tabStream).connect(audioContext.destination);
+  mix = audioContext.createMediaStreamDestination();
+  const tab = audioContext.createMediaStreamSource(tabStream);
+  if (playback) tab.connect(audioContext.destination);
+  tab.connect(mix);
+  const mic = await attachMic();
+  return { stream: mix.stream, mic };
+}
 
-  await startRecording(tabStream, { sessionId, language, backend });
+/**
+ * Add the microphone to the recording. Can be called mid-session, once the user has
+ * granted the permission on the extension page (an offscreen document cannot prompt).
+ */
+export async function attachMic() {
+  if (micStream) return true;
+  if (!audioContext || !mix) return false;
+  try {
+    micStream = await withTimeout(
+      navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      }),
+      MIC_TIMEOUT_MS,
+    );
+  } catch {
+    return false;
+  }
+  inputs.push(micStream);
+  audioContext.createMediaStreamSource(micStream).connect(mix);
+  return true;
+}
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('timed out'));
+      // a late grant must not leave a live microphone behind
+      promise.then((late) => late.getTracks().forEach((t) => t.stop())).catch(() => {});
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 /**
@@ -216,10 +277,14 @@ function releaseCapture() {
     clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
+  inputs.forEach((input) => input.getTracks().forEach((track) => track.stop()));
+  inputs = [];
   if (stream) {
     stream.getTracks().forEach((track) => track.stop());
     stream = null;
   }
+  micStream = null;
+  mix = null;
   if (audioContext) {
     audioContext.close().catch(() => {});
     audioContext = null;
@@ -238,8 +303,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   (async () => {
     try {
       if (message.action === 'start') {
-        await start(message);
-        sendResponse({ ok: true });
+        const { mic } = await start(message);
+        sendResponse({ ok: true, mic });
+      } else if (message.action === 'attach_mic') {
+        sendResponse({ ok: true, mic: await attachMic() });
       } else if (message.action === 'stop') {
         stopRecording();
         sendResponse({ ok: true });

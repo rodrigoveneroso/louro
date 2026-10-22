@@ -154,6 +154,12 @@ function onBackendMessage(data) {
     setStatus('disconnected', 'finished');
     note(`✅ Transcription complete — ${count} segments, ${formatClock(duration)}`);
     stopDurationTimer();
+  } else if (data.type === 'mic') {
+    note(
+      data.ok
+        ? '🎤 Your microphone is included'
+        : '⚠️ Recording the meeting tab only: your own voice is not included',
+    );
   } else if (data.type === 'reconnecting') {
     setStatus('connecting', 'backend lost, reconnecting...');
   } else if (data.type === 'reconnected' && data.session_id) {

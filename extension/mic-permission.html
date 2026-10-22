@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ghostmeet — microphone</title>
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0;
+           display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+    main { max-width: 440px; padding: 24px; text-align: center; }
+    h1 { font-size: 20px; }
+    p { line-height: 1.5; color: #b0b0c0; }
+    button { margin: 6px; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer;
+             font-size: 14px; background: #2a2a4a; color: #e0e0e0; }
+    #allow { background: #4f46e5; color: #fff; }
+    #status { margin-top: 16px; min-height: 1.5em; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>👻 Include your voice in the transcript</h1>
+    <p>The meeting tab only carries the other participants. To transcribe what you say too,
+      ghostmeet needs your microphone. Audio stays on this machine.</p>
+    <p>Wearing headphones avoids the others being picked up twice through your speakers.</p>
+    <button id="allow">Allow microphone</button>
+    <button id="skip">Not now</button>
+    <button id="never">Never ask again</button>
+    <div id="status"></div>
+  </main>
+  <script type="module" src="mic-permission.js"></script>
+</body>
+</html>

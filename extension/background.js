@@ -70,8 +70,34 @@ async function startCapture() {
     return { ok: false, error: started?.error || 'recorder failed to start' };
   }
 
-  await chrome.storage.local.set({ activeSessionId: sessionId });
-  return { ok: true, sessionId, message: 'capture started' };
+  await chrome.storage.local.set({ activeSessionId: sessionId, meetingTabId: tab.id });
+  notifyPanel({ type: 'mic', ok: Boolean(started.mic) });
+  if (!started.mic) await askForMic();
+  return { ok: true, sessionId, mic: Boolean(started.mic), message: 'capture started' };
+}
+
+function notifyPanel(data) {
+  chrome.runtime.sendMessage({ target: 'panel', action: 'backend_message', data }).catch(() => {});
+}
+
+// The microphone permission can only be granted on a visible page. The tab stream id is
+// already taken by now, so opening a tab here does not change what is being recorded.
+async function askForMic() {
+  const { micDeclined } = await chrome.storage.local.get('micDeclined');
+  if (micDeclined) return;
+  await chrome.tabs.create({ url: chrome.runtime.getURL('mic-permission.html') });
+}
+
+async function onMicGranted() {
+  const reply = await chrome.runtime
+    .sendMessage({ target: 'offscreen', action: 'attach_mic' })
+    .catch(() => null);
+  const mic = Boolean(reply?.mic);
+  if (mic) notifyPanel({ type: 'mic', ok: true });
+  // back to the meeting, which is where the user was before the prompt
+  const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+  if (meetingTabId !== undefined) chrome.tabs.update(meetingTabId, { active: true }).catch(() => {});
+  return { ok: true, mic };
 }
 
 async function stopCapture() {
@@ -93,6 +119,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       sendResponse(await startCapture());
     } else if (message.action === 'stop_capture') {
       sendResponse(await stopCapture());
+    } else if (message.action === 'mic_granted') {
+      sendResponse(await onMicGranted());
     } else if (message.action === 'speaker_events') {
       await fetch(`http://${BACKEND}/api/sessions/${encodeURIComponent(message.sessionId)}/speaker-events`, {
         method: 'POST',
