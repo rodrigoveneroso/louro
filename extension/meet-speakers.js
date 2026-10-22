@@ -3,7 +3,9 @@
 // names are obfuscated and change, so the meaning is worked out later by lining these
 // events up with the transcript.
 (() => {
-  const JUNK = /Mais opções|Reenquadrar|Planos de fundo|Fixar|Silenciar|Remover|Apresent/i;
+  // controls and tooltips inside a tile, in Portuguese and English, that are not a name
+  const JUNK =
+    /Mais opções|Reenquadrar|Planos de fundo|Fixar|Silenciar|Remover|Apresent|Desativar|Ativar|Aumentar|zoom|anotaç|microfone|tela cheia|More options|Reframe|Background|\bPin\b|Mute|Unmute|Remove|Present|notes|full ?screen/i;
   const FLUSH_MS = 2000;
   const MAX_PER_FLUSH = 400;
 

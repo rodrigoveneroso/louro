@@ -13,6 +13,7 @@ from typing import Sequence
 
 from .incremental import Segment
 from .models import Session
+from .speakers import attribute, load_events
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +31,21 @@ def _stamp(seconds: float) -> str:
     return f"{hours:d}:{minutes:02d}:{secs:02d}" if hours else f"{minutes:02d}:{secs:02d}"
 
 
-def export_session(session: Session, segments: Sequence[Segment], target: Path | None = None) -> Path | None:
+def export_session(
+    session: Session,
+    segments: Sequence[Segment],
+    target: Path | None = None,
+    speaker_events: Path | None = None,
+) -> Path | None:
+    """Write one session as markdown. With `speaker_events` (the Google Meet log), lines
+    get the name of whoever was speaking when the meeting UI showed it clearly."""
     target = target or export_dir()
     if target is None or not segments:
         return None
     target.mkdir(parents=True, exist_ok=True)
+
+    events = load_events(speaker_events) if speaker_events else []
+    speakers = attribute(segments, events, session.started_at) if events else [None] * len(segments)
 
     started = dt.datetime.fromisoformat(session.started_at)
     path = target / f"{started:%Y-%m-%d_%H%M}_{session.session_id}.md"
@@ -45,11 +56,17 @@ def export_session(session: Session, segments: Sequence[Segment], target: Path |
         f"- duração: {_stamp(session.duration_sec)}",
         f"- idioma: {session.language or 'auto'}",
         f"- status: {session.status}",
+    ]
+    if events:
+        lines.append("- falantes: estimados pelo indicador de áudio do Google Meet (aproximado)")
+    lines += [
         "",
         "## Transcrição",
         "",
     ]
-    lines += [f"[{_stamp(s.start)}] {s.text.strip()}" for s in segments]
+    for segment, speaker in zip(segments, speakers, strict=True):
+        who = f"{speaker}: " if speaker else ""
+        lines.append(f"[{_stamp(segment.start)}] {who}{segment.text.strip()}")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -57,10 +74,12 @@ def export_session(session: Session, segments: Sequence[Segment], target: Path |
 def export_all() -> int:
     from .store import SessionStore, default_data_dir
 
-    store = SessionStore(default_data_dir() / "ghostmeet.db")
+    recordings = default_data_dir()
+    store = SessionStore(recordings / "ghostmeet.db")
     count = 0
     for session in store.load_sessions().values():
-        if export_session(session, store.load_segments(session.session_id)):
+        events = recordings / f"{session.session_id}.speakers.jsonl"
+        if export_session(session, store.load_segments(session.session_id), speaker_events=events):
             count += 1
     store.close()
     return count

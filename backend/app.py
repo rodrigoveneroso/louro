@@ -316,7 +316,11 @@ async def ws_audio(websocket: WebSocket):
         session.duration_sec = round(offset + pcm.duration, 2)
         store.save_session(session)
         try:
-            export_session(session, segments)
+            export_session(
+                session,
+                segments,
+                speaker_events=RECORDINGS_DIR / f"{session_id}.speakers.jsonl",
+            )
         except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
             logger.exception("Could not export transcript for %s", session_id)
     finally:
