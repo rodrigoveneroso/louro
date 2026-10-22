@@ -9,7 +9,7 @@ it further** (see "About this fork" in the [main README](../README.md)). The ben
 ```bash
 cd legacy
 python -m venv ../.venv && ../.venv/bin/python -m pip install -r requirements-dev.txt
-../.venv/bin/python -m pytest tests/ -q          # 148 tests, no model, no network
+../.venv/bin/python -m pytest tests/ -q          # 168 tests, no model, no network
 node --test tests/extension/shared.test.mjs tests/extension/meet-dom.test.mjs \
   tests/extension/echo-gate.test.mjs
 node tests/extension/verify-mic-and-reconnect.mjs   # real browser: microphone, reconnect
