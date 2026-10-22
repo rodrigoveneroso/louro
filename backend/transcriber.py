@@ -55,14 +55,18 @@ def reset_model_cache() -> None:
 class WhisperTranscriber:
     """Turns one bounded window of PCM into raw segments for a single session."""
 
-    def __init__(self, model: Any, language: str | None = None):
+    def __init__(self, model: Any, language: str | None = None, hotwords: str | None = None):
         self._model = model
         self.language = language
+        # names and terms to expect (see vocabulary.py); may change during the session,
+        # as participants join
+        self.hotwords = hotwords
 
     def __call__(self, audio: np.ndarray) -> List[Any]:
         segments, info = self._model.transcribe(
             audio,
             language=self.language,
+            hotwords=self.hotwords or None,
             beam_size=5,
             vad_filter=True,
             vad_parameters=dict(

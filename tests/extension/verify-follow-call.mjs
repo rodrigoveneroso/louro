@@ -1,8 +1,8 @@
 /**
  * Verifies, in a real browser, that capture can follow a Google Meet call: the extension
- * sees you join and leave, names the session after the meeting, keeps nothing of yours
- * while you are muted, stops when you leave, and drops a capture too short to be a
- * meeting.
+ * sees you join and leave, names the session after the meeting, hands the participants'
+ * names to the transcriber, keeps nothing of yours while you are muted, stops when you
+ * leave, and drops a capture too short to be a meeting.
  *
  *   1. npm install playwright ws && npx playwright install chromium
  *   2. node tests/extension/verify-follow-call.mjs
@@ -37,6 +37,8 @@ const MEET_URL = 'https://meet.google.com/abc-defg-hij';
 const FAKE_MEET = `<!doctype html><html><head><title>Meet - Weekly sync</title></head><body>
   <button id="mic" aria-label="Desativar microfone (ctrl + d)">mic</button>
   <button id="join" aria-label="Participar agora">Participar agora</button>
+  <div data-participant-id="spaces/x/devices/1"><span>Desativar som</span><span>Ana Souza</span></div>
+  <div data-participant-id="spaces/x/devices/2"><span>Mais opções</span><span>Bruno Lima</span></div>
   <script>
     const mic = document.getElementById('mic');
     mic.onclick = () => {
@@ -84,6 +86,7 @@ async function until(probe, ms = 10000) {
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-data-'));
 let backend = null;
+let backendLog = '';
 
 async function startBackend() {
   if (await api('/api/health').catch(() => null)) {
@@ -91,7 +94,6 @@ async function startBackend() {
   }
   backend = spawn(PYTHON, ['-m', 'backend'], {
     cwd: LEGACY,
-    stdio: 'ignore',
     env: {
       ...process.env,
       GHOSTMEET_PORT: String(PORT),
@@ -101,6 +103,8 @@ async function startBackend() {
       GHOSTMEET_MODEL: process.env.GHOSTMEET_MODEL || 'base',
     },
   });
+  backend.stdout.on('data', (d) => (backendLog += d));
+  backend.stderr.on('data', (d) => (backendLog += d));
   if (!(await until(() => api('/api/health').catch(() => null), 30000))) {
     throw new Error('backend did not start');
   }
@@ -207,6 +211,10 @@ try {
   });
   check(named?.title === 'Weekly sync', `the session took the meeting's name (${named?.title})`);
   check(named?.meeting_code === 'abc-defg-hij', 'and its Meet code');
+  check(
+    Boolean(await until(() => backendLog.includes('Vocabulary: 0 of your terms, 2 participants'))),
+    'the participants on screen were handed to the transcriber as vocabulary',
+  );
 
   console.log('\nmuting yourself in the meeting');
   await sleep(2500);

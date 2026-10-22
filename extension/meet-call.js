@@ -1,8 +1,9 @@
 // Content script for Google Meet: tells the extension when you join or leave a call, so
-// capture can follow the call, gives the running capture the meeting's name and code,
-// and whether you are muted, so nothing of yours is kept while you are.
+// capture can follow the call; gives the running capture the meeting's name, code and
+// participants; and says whether you are muted, so nothing of yours is kept meanwhile.
 (() => {
-  const { isInCall, isMicMuted, meetingCode, meetingTitle } = globalThis.ghostmeetMeet;
+  const { isInCall, isMicMuted, meetingCode, meetingTitle, participantNames } =
+    globalThis.ghostmeetMeet;
   const CHECK_MS = 2000;
 
   let inCall = null; // unknown until the first check
@@ -27,10 +28,12 @@
     }
 
     const { activeSessionId } = await chrome.storage.local.get('activeSessionId');
-    const info = JSON.stringify([activeSessionId, title, code]);
+    // the names also teach the transcriber how the participants' names are spelled
+    const participants = participantNames(document);
+    const info = JSON.stringify([activeSessionId, title, code, participants]);
     if (activeSessionId && inCall && info !== reported) {
       reported = info;
-      send({ action: 'meeting_info', sessionId: activeSessionId, title, code });
+      send({ action: 'meeting_info', sessionId: activeSessionId, title, code, participants });
     }
 
     const muted = isMicMuted(labels);

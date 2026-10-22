@@ -130,3 +130,25 @@ def test_adapter_enables_voice_activity_filtering():
     WhisperTranscriber(model)(np.zeros(16000, dtype=np.float32))
 
     assert model.calls[0]["vad_filter"] is True
+
+
+def test_adapter_passes_the_vocabulary_as_hotwords():
+    model = FakeModel()
+    transcribe = WhisperTranscriber(model, language="pt", hotwords="Ana Souza, ClickHouse")
+
+    transcribe(np.zeros(16000, dtype=np.float32))
+    transcribe.hotwords = "Ana Souza, ClickHouse, Bruno Lima"  # someone joined
+    transcribe(np.zeros(16000, dtype=np.float32))
+
+    assert [call["hotwords"] for call in model.calls] == [
+        "Ana Souza, ClickHouse",
+        "Ana Souza, ClickHouse, Bruno Lima",
+    ]
+
+
+def test_adapter_without_vocabulary_sends_no_hotwords():
+    model = FakeModel()
+
+    WhisperTranscriber(model)(np.zeros(16000, dtype=np.float32))
+
+    assert model.calls[0]["hotwords"] is None

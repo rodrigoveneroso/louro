@@ -3,9 +3,7 @@
 // names are obfuscated and change, so the meaning is worked out later by lining these
 // events up with the transcript.
 (() => {
-  // controls and tooltips inside a tile, in Portuguese and English, that are not a name
-  const JUNK =
-    /Mais opções|Reenquadrar|Planos de fundo|Fixar|Silenciar|Remover|Apresent|Desativar|Ativar|Aumentar|zoom|anotaç|microfone|tela cheia|More options|Reframe|Background|\bPin\b|Mute|Unmute|Remove|Present|notes|full ?screen/i;
+  const { tileName } = globalThis.ghostmeetMeet;
   const FLUSH_MS = 2000;
   const MAX_PER_FLUSH = 400;
 
@@ -14,11 +12,7 @@
   let observer = null;
 
   function nameOf(tile) {
-    const leaf = [...tile.querySelectorAll('span,div')]
-      .filter((n) => n.children.length === 0)
-      .map((n) => n.textContent.trim())
-      .find((text) => text && text.length < 40 && !JUNK.test(text));
-    return leaf || tile.dataset.participantId;
+    return tileName(tile) || tile.dataset.participantId;
   }
 
   function onMutations(mutations) {

@@ -27,6 +27,7 @@ class StubWhisper:
 
     def __init__(self, language=None):
         self.language = language
+        self.hotwords = None
         self.samples_seen = 0
 
     def __call__(self, audio):
@@ -57,6 +58,7 @@ def client(monkeypatch, tmp_path, built):
     monkeypatch.setattr(app_module, "summaries", {})
     monkeypatch.setattr(app_module, "capture_done", {})
     monkeypatch.setattr(app_module, "resumed", set())
+    monkeypatch.setattr(app_module, "vocabularies", {})
     with TestClient(app_module.app) as c:
         yield c
 
@@ -391,3 +393,38 @@ def test_meeting_info_is_validated(client, webm):
     assert client.post("/api/sessions/checked/meeting", json=["x"]).status_code == 400
     too_long = client.post("/api/sessions/checked/meeting", json={"title": "x" * 201})
     assert too_long.status_code == 400
+
+
+def test_your_vocabulary_reaches_the_transcriber(client, webm, built, monkeypatch):
+    made, _ = built
+    monkeypatch.setenv("GHOSTMEET_VOCABULARY", "ClickHouse, Metabase")
+
+    stream(client, webm, query="?session=vocab")
+
+    assert made[0].hotwords == "ClickHouse, Metabase"
+
+
+def test_participants_named_by_the_meeting_page_join_the_vocabulary(
+    client, webm, built, monkeypatch
+):
+    made, _ = built
+    monkeypatch.setenv("GHOSTMEET_VOCABULARY", "RPA")
+
+    with client.websocket_connect("/ws/audio?session=names") as ws:
+        ws.receive_json()
+        for names in (["Ana Souza"], ["Bruno Lima", "ana souza"]):  # Bruno joins later
+            client.post("/api/sessions/names/meeting", json={"participants": names})
+        ws.send_bytes(webm)
+        ws.send_text("stop")
+        ws.receive_json()
+
+    assert made[0].hotwords == "RPA, Ana Souza, Bruno Lima"
+
+
+def test_participants_must_be_a_short_list(client, webm):
+    stream(client, webm, query="?session=many")
+
+    reply = client.post("/api/sessions/many/meeting", json={"participants": ["x"] * 101})
+
+    assert reply.status_code == 400
+

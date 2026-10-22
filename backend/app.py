@@ -25,6 +25,8 @@ from .retention import should_discard, worth_keeping
 from .store import SessionStore, default_data_dir
 from .summarizer import Summary, generate_summary
 from .transcriber import WhisperTranscriber, get_model
+from .vocabulary import clean as clean_terms
+from .vocabulary import configured_terms, hotwords
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -51,6 +53,8 @@ transcript_subscribers: Dict[str, List[WebSocket]] = {}
 capture_done: Dict[str, asyncio.Event] = {}
 # sessions continued after a dropped connection: their transcript spans several pipelines
 resumed: set[str] = set()
+# per live session: the transcriber, your vocabulary and the participants seen so far
+vocabularies: Dict[str, dict] = {}
 store: SessionStore | None = None
 
 
@@ -195,7 +199,35 @@ async def set_meeting_info(session_id: str, request: Request):
             raise HTTPException(status_code=400, detail=f"{field} must be a short string")
         setattr(session, attr, value.strip() or None)
     store.save_session(session)
+    participants = body.get("participants")
+    if participants is not None:
+        if not isinstance(participants, list) or len(participants) > _MAX_PARTICIPANTS:
+            raise HTTPException(status_code=400, detail="participants must be a short list")
+        _hint_participants(session_id, clean_terms(participants))
     return {"title": session.title, "meeting_code": session.meeting_code}
+
+
+_MAX_PARTICIPANTS = 100
+
+
+def _hint_participants(session_id: str, names: List[str]) -> None:
+    """Tell the live transcriber who is in the meeting, so it spells their names."""
+    vocabulary = vocabularies.get(session_id)
+    if vocabulary is None:
+        return
+    vocabulary["participants"] = clean_terms(vocabulary["participants"] + names)
+    _apply_vocabulary(vocabulary)
+
+
+def _apply_vocabulary(vocabulary: dict) -> None:
+    transcribe = vocabulary["transcribe"]
+    if hasattr(transcribe, "hotwords"):
+        transcribe.hotwords = hotwords(vocabulary["terms"], vocabulary["participants"])
+        logger.info(
+            "Vocabulary: %d of your terms, %d participants",
+            len(vocabulary["terms"]),
+            len(vocabulary["participants"]),
+        )
 
 
 @app.get("/api/sessions/{session_id}/summary")
@@ -298,9 +330,13 @@ async def ws_audio(websocket: WebSocket):
 
     pcm = PcmStore(pcm_path)
     decoder = StreamingWebmDecoder(pcm)
+    transcribe = _make_transcribe_fn(language)
+    vocabulary = vocabularies.setdefault(session_id, {"participants": []})
+    vocabulary.update(transcribe=transcribe, terms=configured_terms())
+    _apply_vocabulary(vocabulary)
     pipeline = SessionPipeline(
         decoder=decoder,
-        transcriber=IncrementalTranscriber(pcm, _make_transcribe_fn(language)),
+        transcriber=IncrementalTranscriber(pcm, transcribe),
         on_segments=partial(_broadcast_segments, session_id, offset),
         interval_sec=CHUNK_INTERVAL,
     )
@@ -354,6 +390,7 @@ async def ws_audio(websocket: WebSocket):
         pcm.close()
         # audio is never kept: only the transcript is persisted, the PCM is just a working file
         pcm_path.unlink(missing_ok=True)
+        vocabularies.pop(session_id, None)
         done.set()
 
     # tell the client the final pass is done, so it knows the transcript is complete and
@@ -370,6 +407,7 @@ async def ws_audio(websocket: WebSocket):
         )
     except Exception:  # noqa: BLE001 - client hung up first
         logger.debug("Could not send completion notice for %s", session_id)
+
 
     logger.info(
         "Session %s complete: %d chunks, %d bytes, %.0fs audio, %d segments",
@@ -404,6 +442,7 @@ def _discard(session: Session) -> None:
     store.delete_session(session.session_id)
     sessions.pop(session.session_id, None)
     pipelines.pop(session.session_id, None)
+    vocabularies.pop(session.session_id, None)
     resumed.discard(session.session_id)
     (RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl").unlink(missing_ok=True)
     try:

@@ -38,6 +38,25 @@
     return title.slice(0, 200);
   }
 
+  // texts inside a participant tile that are its controls and tooltips, not a name
+  const NOT_A_NAME =
+    /Mais opções|Reenquadrar|Planos de fundo|Fixar|Silenciar|Remover|Apresent|Desativar|Ativar|Aumentar|zoom|anotaç|microfone|tela cheia|More options|Reframe|Background|\bPin\b|Mute|Unmute|Remove|Present|notes|full ?screen/i;
+
+  /** The participant's name shown in a tile, or null when none is readable. */
+  function tileName(tile) {
+    const leaf = [...tile.querySelectorAll('span,div')]
+      .filter((n) => n.children.length === 0)
+      .map((n) => n.textContent.trim())
+      .find((text) => text && text.length < 40 && !NOT_A_NAME.test(text));
+    return leaf || null;
+  }
+
+  /** Everyone with a tile on screen, each name once. */
+  function participantNames(doc) {
+    const names = [...doc.querySelectorAll('[data-participant-id]')].map(tileName).filter(Boolean);
+    return [...new Set(names)].sort();
+  }
+
   /** Best available name for the meeting shown in `doc`. */
   function meetingTitle(doc, code) {
     const tagged = doc.querySelector('[data-meeting-title]');
@@ -45,5 +64,13 @@
     return titleFromTabTitle(fromAttribute, code) || titleFromTabTitle(doc.title, code);
   }
 
-  globalThis.ghostmeetMeet = { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle };
+  globalThis.ghostmeetMeet = {
+    isInCall,
+    isMicMuted,
+    meetingCode,
+    meetingTitle,
+    participantNames,
+    tileName,
+    titleFromTabTitle,
+  };
 })();

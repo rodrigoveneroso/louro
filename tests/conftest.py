@@ -24,6 +24,9 @@ def isolate_storage(monkeypatch, tmp_path):
     # the stub recordings are a couple of seconds long, so keep everything; tests about
     # dropping short captures set their own minimum
     monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "0")
+    # a developer's own vocabulary must not leak into the tests
+    monkeypatch.delenv("GHOSTMEET_VOCABULARY", raising=False)
+    monkeypatch.delenv("GHOSTMEET_VOCABULARY_FILE", raising=False)
     yield
     assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS
     assert app_module.DB_PATH != _REAL_DB

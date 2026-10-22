@@ -8,8 +8,14 @@ import assert from 'node:assert/strict';
 
 import '../../extension/meet-dom.js';
 
-const { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle } =
+const { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle, participantNames } =
   globalThis.ghostmeetMeet;
+
+/** A participant tile whose leaf elements show `texts`, as Meet renders them. */
+function tile(...texts) {
+  const leaves = texts.map((textContent) => ({ children: [], textContent }));
+  return { querySelectorAll: () => leaves };
+}
 
 test('the leave button means you are in the call, in either language', () => {
   assert.equal(isInCall(['Ativar microfone', 'Sair da chamada']), true);
@@ -62,4 +68,17 @@ test('the microphone button says whether you are muted, in either language', () 
 
 test('without a microphone button the mute state is unknown', () => {
   assert.equal(isMicMuted(['Sair da chamada', null]), null);
+});
+
+test("the participants are read from their tiles, skipping the tiles' controls", () => {
+  const doc = {
+    querySelectorAll: () => [
+      tile('Desativar som', 'Bruno Lima'),
+      tile('Mais opções', 'Ana Souza'),
+      tile('Ana Souza'), // the same person on a second tile, e.g. presenting
+      tile('Aumentar zoom'), // nothing readable
+    ],
+  };
+
+  assert.deepEqual(participantNames(doc), ['Ana Souza', 'Bruno Lima']);
 });

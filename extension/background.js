@@ -264,6 +264,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       await postToBackend(`/api/sessions/${session}/meeting`, {
         title: message.title,
         code: message.code,
+        participants: message.participants,
       });
       sendResponse({ ok: true });
     } else if (message.action === 'speaker_events') {
