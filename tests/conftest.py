@@ -31,6 +31,8 @@ def isolate_storage(monkeypatch, tmp_path):
     monkeypatch.delenv("GHOSTMEET_ON_EXPORT", raising=False)
     # Starlette's TestClient calls itself "testserver"
     monkeypatch.setattr(app_module, "ALLOWED_HOSTS", app_module.ALLOWED_HOSTS | {"testserver"})
+    # captions on the live interval, watched or not, unless a test says otherwise
+    monkeypatch.setattr(app_module, "IDLE_INTERVAL", 0.0)
     # tests never load a real Whisper model
     monkeypatch.setenv("GHOSTMEET_PRELOAD", "0")
     yield

@@ -597,3 +597,34 @@ def test_without_a_meeting_page_captions_have_no_speaker(client, webm):
 
     assert segments[0]["speaker"] is None
 
+
+def test_with_the_live_captions_closed_nothing_is_transcribed_until_stop(client, webm, monkeypatch):
+    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(app_module, "IDLE_INTERVAL", 300.0)
+
+    with client.websocket_connect("/ws/audio?session=quiet-meeting") as ws:
+        ws.receive_json()
+        ws.send_bytes(webm)
+        time.sleep(0.5)  # ten live intervals
+        during = client.get("/api/sessions/quiet-meeting/transcript").json()["segment_count"]
+        ws.send_text("stop")
+        ws.receive_json()
+
+    after = client.get("/api/sessions/quiet-meeting/transcript").json()["segment_count"]
+    assert (during, after >= 1) == (0, True)
+
+
+def test_opening_the_live_captions_transcribes_at_once(client, webm, monkeypatch):
+    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(app_module, "IDLE_INTERVAL", 300.0)
+
+    with client.websocket_connect("/ws/audio?session=opened") as ws:
+        ws.receive_json()
+        ws.send_bytes(webm)
+        time.sleep(0.3)
+        with client.websocket_connect("/ws/transcript/opened") as panel:
+            caption = panel.receive_json()  # no waiting for the five-minute batch
+        ws.send_text("stop")
+        ws.receive_json()
+
+    assert caption["type"] == "transcript" and caption["segments"]

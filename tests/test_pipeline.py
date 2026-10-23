@@ -377,3 +377,85 @@ async def test_broadcast_failure_does_not_stop_transcription():
         await pipeline.stop()
 
     assert [s.text for s in incremental.transcript] == ["one", "two"]
+
+
+async def test_nobody_watching_means_no_transcription_until_the_batch_is_due():
+    """With the live captions closed, the meeting is not transcribed every few seconds."""
+    whisper = Whisper(script=[[RawSeg(0.0, 1.0, "said early")]])
+    store = FakeStore()
+    collector = Collector()
+    pipeline = SessionPipeline(
+        decoder=FakeDecoder(store),
+        transcriber=IncrementalTranscriber(store, whisper, holdback_sec=0.0),
+        on_segments=collector,
+        interval_sec=0.02,
+        idle_interval_sec=100.0,
+        watched=lambda: False,
+    )
+    await pipeline.start()
+    try:
+        pipeline.feed(b"chunk")
+        await asyncio.sleep(0.3)  # many live intervals, far from the idle one
+
+        assert whisper.calls == 0
+    finally:
+        await pipeline.stop()
+
+    assert collector.texts == ["said early"]  # nothing lost: Stop transcribes the rest
+
+
+async def test_a_viewer_arriving_catches_up_the_whole_backlog_at_once():
+    whisper = Whisper()
+    store = FakeStore()
+    watching = {"now": False}
+    pipeline = SessionPipeline(
+        decoder=FakeDecoder(store, seconds_per_chunk=30.0),
+        transcriber=IncrementalTranscriber(store, whisper, holdback_sec=0.0, window_sec=30.0),
+        on_segments=Collector(),
+        interval_sec=0.02,
+        idle_interval_sec=100.0,
+        watched=lambda: watching["now"],
+    )
+    await pipeline.start()
+    try:
+        for _ in range(5):  # two and a half minutes of meeting, nobody watching
+            pipeline.feed(b"chunk")
+        await asyncio.sleep(0.1)
+        assert whisper.calls == 0
+
+        watching["now"] = True
+        pipeline.nudge()
+        for _ in range(100):
+            if pipeline.transcriber.pending_samples < 30 * SAMPLE_RATE:
+                break
+            await asyncio.sleep(0.02)
+
+        assert pipeline.transcriber.pending_samples < 30 * SAMPLE_RATE
+        assert whisper.calls >= 5
+    finally:
+        await pipeline.stop()
+
+
+async def test_an_idle_batch_transcribes_everything_waiting():
+    whisper = Whisper()
+    store = FakeStore()
+    pipeline = SessionPipeline(
+        decoder=FakeDecoder(store, seconds_per_chunk=30.0),
+        transcriber=IncrementalTranscriber(store, whisper, holdback_sec=0.0, window_sec=30.0),
+        on_segments=Collector(),
+        interval_sec=0.01,
+        idle_interval_sec=0.15,
+        watched=lambda: False,
+    )
+    await pipeline.start()
+    try:
+        for _ in range(4):
+            pipeline.feed(b"chunk")
+        for _ in range(100):
+            if whisper.calls >= 4:
+                break
+            await asyncio.sleep(0.02)
+
+        assert pipeline.transcriber.pending_samples < 30 * SAMPLE_RATE
+    finally:
+        await pipeline.stop()

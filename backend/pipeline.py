@@ -3,13 +3,18 @@
 The WebSocket handler only calls `feed()`, which hands bytes to the decoder thread and
 returns. Transcription runs on its own schedule in a worker thread, so a slow pass slows
 captions down but never stops audio from being received.
+
+That schedule depends on whether anyone is watching the live captions. With nobody
+watching, audio only piles up on disk (cheap) and is transcribed in one batch every
+`idle_interval_sec`, so the machine stays quiet during the meeting; a viewer arriving
+calls `nudge()`, and the backlog is caught up at once and kept live from then on.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from typing import Awaitable, Callable, List, Protocol
+from typing import Awaitable, Callable, List, Optional, Protocol
 
 from .incremental import IncrementalTranscriber, Segment
 
@@ -18,6 +23,8 @@ logger = logging.getLogger(__name__)
 # Bound on how many catch-up passes `stop()` will run before giving up, so a stuck
 # session can never spin forever at hangup.
 _MAX_DRAIN_PASSES = 2000
+# Bound on the passes of one catch-up, for the same reason.
+_MAX_CATCH_UP_PASSES = 500
 
 
 class Decoder(Protocol):
@@ -37,11 +44,17 @@ class SessionPipeline:
         transcriber: IncrementalTranscriber,
         on_segments: OnSegments,
         interval_sec: float = 10.0,
+        idle_interval_sec: Optional[float] = None,
+        watched: Optional[Callable[[], bool]] = None,
     ):
         self.decoder = decoder
         self.transcriber = transcriber
         self._on_segments = on_segments
         self._interval = interval_sec
+        # None (or no longer than the live interval): always live, whoever is watching
+        self._idle_interval = idle_interval_sec
+        self._watched = watched or (lambda: True)
+        self._wake = asyncio.Event()
         # one worker per session: passes for a session are serialised, and a long pass
         # cannot occupy the shared default executor
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ghostmeet-stt")
@@ -51,6 +64,10 @@ class SessionPipeline:
     async def start(self) -> None:
         if self._worker is None:
             self._worker = asyncio.create_task(self._run())
+
+    def nudge(self) -> None:
+        """Someone started watching: catch up now instead of at the next batch."""
+        self._wake.set()
 
     def feed(self, chunk: bytes) -> None:
         """Hand audio to the decoder. Returns without waiting for anything."""
@@ -79,10 +96,34 @@ class SessionPipeline:
         await self._drain()
         self._executor.shutdown(wait=False)
 
+    def _wait(self) -> float:
+        idle = self._idle_interval is not None and self._idle_interval > self._interval
+        return self._idle_interval if idle and not self._watched() else self._interval
+
     async def _run(self) -> None:
+        loop = asyncio.get_running_loop()
+        last = loop.time()
         while True:
-            await asyncio.sleep(self._interval)
+            remaining = last + self._wait() - loop.time()
+            if remaining > 0 and not self._wake.is_set():
+                try:
+                    await asyncio.wait_for(self._wake.wait(), timeout=remaining)
+                except asyncio.TimeoutError:
+                    pass
+            # the wait may have changed meanwhile (a viewer came or went)
+            if self._wake.is_set() or loop.time() >= last + self._wait():
+                self._wake.clear()
+                await self._catch_up()
+                last = loop.time()
+
+    async def _catch_up(self) -> None:
+        """One pass, then more while a whole window or more is still waiting: after an
+        idle batch, or when transcription fell behind."""
+        window = getattr(self.transcriber, "window_samples", 0)
+        for _ in range(_MAX_CATCH_UP_PASSES):
             await self._pass()
+            if not window or self.transcriber.pending_samples < window:
+                break
 
     async def _drain(self) -> None:
         """Catch up on any backlog with forced passes: no more audio is coming, so speech

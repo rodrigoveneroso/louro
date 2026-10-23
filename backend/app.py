@@ -48,6 +48,9 @@ WHISPER_DEVICE = os.environ.get("GHOSTMEET_DEVICE", "auto")
 WHISPER_COMPUTE = os.environ.get("GHOSTMEET_COMPUTE_TYPE", "auto")
 WHISPER_LANGUAGE = os.environ.get("GHOSTMEET_LANGUAGE") or None
 CHUNK_INTERVAL = float(os.environ.get("GHOSTMEET_CHUNK_INTERVAL", "10"))
+# With the live captions closed, transcribe in one batch this often instead (0: always
+# live). Keeps the machine quiet during the meeting; Stop still finishes everything.
+IDLE_INTERVAL = float(os.environ.get("GHOSTMEET_IDLE_INTERVAL", "300"))
 # how long a resumed capture waits for the dropped one to finish its final pass
 RESUME_WAIT_SEC = 120.0
 
@@ -339,6 +342,9 @@ async def ws_transcript(websocket: WebSocket, session_id: str):
         return
     await websocket.accept()
     transcript_subscribers.setdefault(session_id, []).append(websocket)
+    # someone opened the live captions: transcribe what piled up while nobody watched
+    if session_id in pipelines:
+        pipelines[session_id].nudge()
     try:
         while True:
             await websocket.receive_text()
@@ -446,6 +452,8 @@ async def ws_audio(websocket: WebSocket):
         transcriber=IncrementalTranscriber(pcm, transcribe),
         on_segments=partial(_broadcast_segments, session_id, offset),
         interval_sec=CHUNK_INTERVAL,
+        idle_interval_sec=IDLE_INTERVAL or None,
+        watched=lambda: bool(transcript_subscribers.get(session_id)),
     )
     pipelines[session_id] = pipeline
     await pipeline.start()

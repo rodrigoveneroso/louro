@@ -84,6 +84,11 @@ class IncrementalTranscriber:
         self.transcript: List[Segment] = []
 
     @property
+    def window_samples(self) -> int:
+        """The most audio one pass reads."""
+        return self._window_samples
+
+    @property
     def pending_samples(self) -> int:
         """Audio that has arrived but not been consumed yet."""
         return max(0, self._source.total_samples - self._cursor)
