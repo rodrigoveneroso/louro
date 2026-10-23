@@ -120,10 +120,21 @@
   });
   // while recording, a click folds the pill down to the ghost and its red dot
   pill.addEventListener('click', () => {
-    if (lastKind === 'recording') chrome.storage.local.set({ pillCollapsed: !state.pillCollapsed });
+    if (lastKind !== 'recording' || !extensionAlive()) return;
+    chrome.storage.local.set({ pillCollapsed: !state.pillCollapsed }).catch(() => {});
   });
 
   function render() {
+    try {
+      renderOnce();
+    } catch (error) {
+      if (extensionAlive()) throw error;
+      clearInterval(timer); // went away mid-render (chrome.i18n throws too)
+      host.remove();
+    }
+  }
+
+  function renderOnce() {
     if (!extensionAlive()) {
       // reloaded or updated: take the pill away, the new copy of this script draws its own
       clearInterval(timer);

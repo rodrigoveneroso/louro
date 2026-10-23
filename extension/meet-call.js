@@ -14,7 +14,18 @@
     chrome.runtime.sendMessage({ target: 'background', ...message }).catch(() => {});
   }
 
+  // The extension can go away between the check below and any chrome.* call after it
+  // (reloaded, updated): whatever then throws ends this copy of the script quietly.
   async function check() {
+    try {
+      await checkOnce();
+    } catch (error) {
+      if (extensionAlive()) throw error;
+      clearInterval(timer);
+    }
+  }
+
+  async function checkOnce() {
     if (!extensionAlive()) {
       clearInterval(timer); // reloaded or updated: the new copy of this script takes over
       return;

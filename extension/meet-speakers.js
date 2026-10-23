@@ -47,9 +47,13 @@
     if (!sessionId || buffer.length === 0) return;
     const events = buffer;
     buffer = [];
-    chrome.runtime
-      .sendMessage({ target: 'background', action: 'speaker_events', sessionId, events })
-      .catch(() => {});
+    try {
+      chrome.runtime
+        .sendMessage({ target: 'background', action: 'speaker_events', sessionId, events })
+        .catch(() => {});
+    } catch {
+      // the extension went away since the check above; the next flush stands down
+    }
   }
 
   function sync(id) {
