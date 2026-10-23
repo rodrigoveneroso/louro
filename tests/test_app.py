@@ -58,6 +58,7 @@ def client(monkeypatch, tmp_path, built):
     monkeypatch.setattr(app_module, "capture_done", {})
     monkeypatch.setattr(app_module, "resumed", set())
     monkeypatch.setattr(app_module, "vocabularies", {})
+    monkeypatch.setattr(app_module, "live_events", {})
     with TestClient(app_module.app) as c:
         yield c
 
@@ -562,3 +563,37 @@ def test_without_a_final_model_there_is_no_second_pass(client, webm, tmp_path):
 
     assert done["refining"] is False
     assert not (tmp_path / "once.pcm").exists()
+
+
+def test_live_captions_say_who_is_speaking(client, webm, monkeypatch):
+    """The meeting page reports a tile's audio meter moving; the caption takes its name."""
+    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+
+    with client.websocket_connect("/ws/transcript/named-live") as sub:
+        with client.websocket_connect("/ws/audio?session=named-live") as ws:
+            ws.receive_json()
+            started_at = client.get("/api/sessions/named-live").json()["started_at"]
+            # the meter of Ana's tile moves through the first seconds of the session
+            events = [
+                {"t": _epoch_ms(started_at, i / 10), "tile": "tile-a", "name": "Ana Souza",
+                 "el": "MeterX", "from": "l1", "to": "l2"}
+                for i in range(30)
+            ]
+            client.post("/api/sessions/named-live/speaker-events", json={"events": events})
+            ws.send_bytes(webm)
+            caption = sub.receive_json()
+            ws.send_text("stop")
+            ws.receive_json()
+
+    assert caption["segments"][0]["speaker"] == "Ana Souza"
+    stored = client.get("/api/sessions/named-live/transcript").json()["segments"]
+    assert stored[0]["speaker"] == "Ana Souza"
+
+
+def test_without_a_meeting_page_captions_have_no_speaker(client, webm):
+    session_id = stream(client, webm)
+
+    segments = client.get(f"/api/sessions/{session_id}/transcript").json()["segments"]
+
+    assert segments[0]["speaker"] is None
+

@@ -27,6 +27,7 @@ from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
 from .refine import final_beam_size, final_model, transcribe_recording
 from .retention import should_discard, worth_keeping
+from .speakers import attribute, load_events
 from .store import SessionStore, default_data_dir
 from .transcriber import WhisperTranscriber, get_model, is_loaded
 from .vocabulary import clean as clean_terms
@@ -60,6 +61,9 @@ capture_done: Dict[str, asyncio.Event] = {}
 resumed: set[str] = set()
 # per live session: the transcriber, your vocabulary and the participants seen so far
 vocabularies: Dict[str, dict] = {}
+# per live session: the meeting page's speaker events so far, to name captions as they
+# come instead of re-reading the whole log on every pass
+live_events: Dict[str, List[dict]] = {}
 store: SessionStore | None = None
 
 
@@ -224,8 +228,8 @@ _MAX_SPEAKER_EVENTS = 500
 async def add_speaker_events(session_id: str, request: Request):
     """Raw per-participant UI changes seen in the meeting page, kept as JSON lines.
 
-    Which change means "is speaking" is worked out afterwards by lining these up with the
-    transcript, so nothing is interpreted here.
+    Nothing is interpreted here: speakers.py works out which change means "is speaking"
+    when captions are named, live and again at export.
     """
     if not _SESSION_ID.match(session_id):
         raise HTTPException(status_code=400, detail="invalid session id")
@@ -234,10 +238,12 @@ async def add_speaker_events(session_id: str, request: Request):
     if not isinstance(events, list) or len(events) > _MAX_SPEAKER_EVENTS:
         raise HTTPException(status_code=400, detail="expected a list of at most 500 events")
     path = RECORDINGS_DIR / f"{session_id}.speakers.jsonl"
+    kept = [event for event in events if isinstance(event, dict)]
     with path.open("a", encoding="utf-8") as out:
-        for event in events:
-            if isinstance(event, dict):
-                out.write(json.dumps(event, ensure_ascii=False) + "\n")
+        for event in kept:
+            out.write(json.dumps(event, ensure_ascii=False) + "\n")
+    if session_id in live_events:
+        live_events[session_id] += [e for e in kept if {"t", "tile", "el"} <= e.keys()]
     return {"stored": len(events)}
 
 
@@ -352,10 +358,17 @@ async def _broadcast_segments(session_id: str, offset: float, segments: List[Seg
         segment.start += offset
         segment.end += offset
 
+    # name who said each one, from what the meeting page has shown so far; the export
+    # names them again with the whole log, so a caption named too early gets a second look
+    session = sessions.get(session_id)
+    events = live_events.get(session_id)
+    if session is not None and events:
+        for segment, speaker in zip(segments, attribute(segments, events, session.started_at)):
+            segment.speaker = speaker
+
     # persist first: captions are nice to have, a lost transcript is not recoverable
     store.add_segments(session_id, segments)
 
-    session = sessions.get(session_id)
     if session is not None and session_id in pipelines:
         session.transcript_segments = len(_segments_for(session_id))
         store.save_session(session)
@@ -423,6 +436,8 @@ async def ws_audio(websocket: WebSocket):
     pcm = PcmStore(pcm_path)
     decoder = StreamingWebmDecoder(pcm)
     transcribe = _make_transcribe_fn(language)
+    # a resumed session already has a speaker log on disk
+    live_events[session_id] = load_events(RECORDINGS_DIR / f"{session_id}.speakers.jsonl")
     vocabulary = vocabularies.setdefault(session_id, {"participants": []})
     vocabulary.update(transcribe=transcribe, terms=configured_terms())
     _apply_vocabulary(vocabulary)
@@ -493,6 +508,7 @@ async def ws_audio(websocket: WebSocket):
         # the PCM store from its own thread, so it has to be stopped first.
         decoder.close()
         pcm.close()
+        live_events.pop(session_id, None)
         # Audio is never kept: the PCM is only a working file, removed now or, when a
         # second pass is due, as soon as that pass has read it.
         if not refining:

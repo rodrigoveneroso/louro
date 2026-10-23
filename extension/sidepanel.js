@@ -30,11 +30,17 @@ function addSegment(seg, { highlight = true } = {}) {
   const timeSpan = document.createElement('div');
   timeSpan.className = 'time';
   timeSpan.textContent = `${formatClock(seg.start)} → ${formatClock(seg.end)}`;
-  if (seg.speaker) timeSpan.textContent += `  ${seg.speaker}`;
 
   const textSpan = document.createElement('div');
   textSpan.className = 'text';
-  textSpan.textContent = seg.text;
+  // who said it, when the meeting page showed it clearly enough to tell
+  if (seg.speaker) {
+    const who = document.createElement('span');
+    who.className = 'speaker';
+    who.textContent = `${seg.speaker}: `;
+    textSpan.appendChild(who);
+  }
+  textSpan.appendChild(document.createTextNode(seg.text));
 
   div.appendChild(timeSpan);
   div.appendChild(textSpan);

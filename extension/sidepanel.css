@@ -118,6 +118,11 @@ body {
   color: #f0f0f0;
 }
 
+.segment .speaker {
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
 .segment.new {
   border-left-color: #22d3ee;
   background: #1a2a3e;

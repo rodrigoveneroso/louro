@@ -4,7 +4,8 @@
 // events up with the transcript.
 (() => {
   const { tileName } = globalThis.ghostmeetMeet;
-  const FLUSH_MS = 2000;
+  // often enough that a caption is named from events that have already arrived
+  const FLUSH_MS = 1000;
   const MAX_PER_FLUSH = 400;
 
   let sessionId = null;
