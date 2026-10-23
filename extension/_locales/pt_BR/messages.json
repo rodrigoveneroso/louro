@@ -267,37 +267,37 @@
   "popupRefining": {
     "message": "melhorando a transcrição com o modelo maior…"
   },
-  "pillIdle": {
-    "message": "Não está gravando"
+  "popupOverlay": {
+    "message": "Mostrar o botão do ghostmeet na barra do Meet"
   },
-  "pillIdleHint": {
-    "message": "Clique no 👻 na barra do Chrome para gravar esta chamada"
+  "buttonIdle": {
+    "message": "ghostmeet: esta chamada não está sendo gravada"
   },
-  "pillRecording": {
-    "message": "Gravando · $P1$",
+  "buttonIdleTitle": {
+    "message": "Esta chamada não está sendo gravada"
+  },
+  "buttonIdleHint": {
+    "message": "Para gravar, clique no 👻 na barra de extensões do Chrome. O Chrome exige esse clique uma vez em cada aba."
+  },
+  "buttonRecording": {
+    "message": "ghostmeet: gravando há $P1$. Clique para marcar um momento ou anotar",
     "placeholders": {
       "p1": {
         "content": "$1"
       }
     }
   },
-  "pillMicOn": {
-    "message": "sua voz está incluída"
+  "buttonFinishing": {
+    "message": "Finalizando…"
   },
-  "pillMicOff": {
-    "message": "só o áudio da chamada"
+  "buttonFinishingTip": {
+    "message": "ghostmeet: finalizando a transcrição"
   },
-  "pillMuted": {
-    "message": "você está no mudo: sua voz não entra"
+  "buttonDone": {
+    "message": "Salva"
   },
-  "pillFinishing": {
-    "message": "Finalizando a transcrição…"
-  },
-  "pillDone": {
-    "message": "Transcrição salva"
-  },
-  "pillDoneDetail": {
-    "message": "$P1$ · $P2$ trechos",
+  "buttonDoneTip": {
+    "message": "ghostmeet: transcrição salva · $P1$ · $P2$ trechos",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -307,19 +307,10 @@
       }
     }
   },
-  "pillDiscarded": {
-    "message": "Curta demais: não foi guardada"
+  "buttonDiscarded": {
+    "message": "Não guardada"
   },
-  "pillDismiss": {
-    "message": "Dispensar nesta chamada"
-  },
-  "pillCollapse": {
-    "message": "Recolher"
-  },
-  "pillExpand": {
-    "message": "Mostrar"
-  },
-  "popupOverlay": {
-    "message": "Mostrar o status na tela do Meet"
+  "buttonDiscardedTip": {
+    "message": "ghostmeet: curta demais ou sem fala, não foi guardada"
   }
 }

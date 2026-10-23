@@ -60,9 +60,9 @@ try {
   });
 
   await page.goto('https://meet.google.com/abc-defg-hij');
-  const pill = page.locator('ghostmeet-status .pill');
+  const pill = page.locator('ghostmeet-button .button');
   await sleep(2500);
-  check(await pill.isVisible(), 'before: the pill says the call is not being recorded');
+  check(await pill.isVisible(), "before: the ghostmeet button is in Meet's control bar");
 
   console.log('\nreloading the extension, the Meet tab left open');
   const extensions = await context.newPage();
@@ -79,8 +79,8 @@ try {
   const stoodDown = invalidated.length === 0;
   check(stoodDown, `the scripts left behind stand down (${invalidated.length} errors)`);
   check(errors.length === 0, `no other error either${errors.length ? `: ${errors[0]}` : ''}`);
-  check((await page.locator('ghostmeet-status').count()) === 1, 'exactly one pill on the page');
-  // the old copy takes its pill away, so a visible one is the new copy's; and it follows
+  check((await page.locator('ghostmeet-button').count()) === 1, 'exactly one button on the page');
+  // the old copy takes its button away, so a visible one is the new copy's; and it follows
   // the reloaded extension's state
   check(await pill.isVisible(), 'and the new scripts run without reloading the tab');
   const popup = await context.newPage();
@@ -91,8 +91,8 @@ try {
   });
   await page.bringToFront();
   await sleep(1500);
-  const title = await pill.locator('.title').textContent();
-  check(/^Gravando/.test(title), `following the reloaded extension (${title})`);
+  const kind = await pill.getAttribute('class');
+  check(/recording/.test(kind), `following the reloaded extension (${kind})`);
 } catch (error) {
   console.error('ERROR:', error.message);
   failures.push(error.message);

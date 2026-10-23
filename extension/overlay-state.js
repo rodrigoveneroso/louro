@@ -1,8 +1,8 @@
-// What the status pill on the Meet page should say, from the capture's state. Pure, so
-// the content script that draws it and the tests share it. A classic script (content
-// scripts are not modules), so it publishes on globalThis.
+// What the ghostmeet button in Meet's control bar should show, from the capture's state.
+// Pure, so the content script that draws it and the tests share it. A classic script
+// (content scripts are not modules), so it publishes on globalThis.
 (() => {
-  // how long "transcript saved" stays up after a capture ends
+  // how long "saved" stays on the button after a capture ends
   const DONE_VISIBLE_MS = 8000;
 
   function clock(seconds) {
@@ -15,42 +15,35 @@
 
   /**
    * @param {object} input
-   *   inCall, muted (true/false/null), mine (this tab is the one recorded), now (ms),
-   *   dismissed (the user closed the "not recording" pill for this call), and the
-   *   capture's storage: activeSessionId, captureStartedAt, captureMic,
-   *   finishingSessionId, lastCapture.
-   * @returns {{kind: string, title?: string, detail?: string} | null} null: show nothing
+   *   inCall, mine (this tab is the one recorded), now (ms), and the capture's storage:
+   *   activeSessionId, captureStartedAt, finishingSessionId, lastCapture.
+   * @returns {{kind: string, label: string, tip: string} | null}
+   *   kind: idle | recording | finishing | done; label: text on the button, if any;
+   *   tip: what hovering says. null: no button.
    */
-  function pillState(input, t) {
+  function buttonState(input, t) {
+    if (!input.inCall) return null;
     const recording = Boolean(input.activeSessionId);
     if (recording && !input.mine) return null; // another tab is the meeting being recorded
     if (recording) {
       const elapsed = clock((input.now - (input.captureStartedAt || input.now)) / 1000);
-      const title = t('pillRecording', elapsed);
-      if (input.captureMic && input.muted === true) {
-        return { kind: 'recording', title, detail: t('pillMuted'), warn: true };
-      }
-      return { kind: 'recording', title, detail: t(input.captureMic ? 'pillMicOn' : 'pillMicOff') };
+      return { kind: 'recording', label: elapsed, tip: t('buttonRecording', elapsed) };
     }
     if (input.finishingSessionId && input.mine) {
-      return { kind: 'finishing', title: t('pillFinishing') };
+      return { kind: 'finishing', label: t('buttonFinishing'), tip: t('buttonFinishingTip') };
     }
     const last = input.lastCapture;
     if (last && input.mine && input.now - (last.at || 0) < DONE_VISIBLE_MS) {
       if (last.status === 'stopped') {
-        return {
-          kind: 'done',
-          title: t('pillDone'),
-          detail: t('pillDoneDetail', clock(last.durationSec || 0), last.segments ?? 0),
-        };
+        const tip = t('buttonDoneTip', clock(last.durationSec || 0), last.segments ?? 0);
+        return { kind: 'done', label: t('buttonDone'), tip };
       }
-      if (last.status === 'discarded') return { kind: 'done', title: t('pillDiscarded') };
+      if (last.status === 'discarded') {
+        return { kind: 'done', label: t('buttonDiscarded'), tip: t('buttonDiscardedTip') };
+      }
     }
-    if (input.inCall && !input.dismissed) {
-      return { kind: 'idle', title: t('pillIdle'), detail: t('pillIdleHint') };
-    }
-    return null;
+    return { kind: 'idle', label: '', tip: t('buttonIdle') };
   }
 
-  globalThis.ghostmeetOverlay = { pillState, clock, DONE_VISIBLE_MS };
+  globalThis.ghostmeetOverlay = { buttonState, clock, DONE_VISIBLE_MS };
 })();

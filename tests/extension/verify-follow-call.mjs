@@ -2,8 +2,9 @@
  * Verifies, in a real browser, that capture can follow a Google Meet call: the extension
  * sees you join and leave, names the session after the meeting, hands the participants'
  * names to the transcriber, keeps nothing of yours while you are muted, stops when you
- * leave, and drops a capture too short to be a meeting; and that the status pill on the
- * page says, at each step, whether the call is being recorded.
+ * leave, and drops a capture too short to be a meeting; and that the ghostmeet button
+ * in Meet's control bar says, at each step, whether the call is being recorded, and
+ * takes marks and notes while it is.
  *
  *   1. npm install playwright ws && npx playwright install chromium
  *   2. node tests/extension/verify-follow-call.mjs
@@ -174,13 +175,16 @@ try {
     worker.evaluate(`chrome.storage.session.get('inCall').then((s) => (s.inCall || {})[${tabId}] === true)`);
   const badge = () => worker.evaluate(`chrome.action.getBadgeText({ tabId: ${tabId} })`);
 
-  const pill = page.locator('ghostmeet-status .pill');
-  const pillTitle = async () => ((await pill.isVisible()) ? pill.locator('.title').textContent() : null);
+  const button = page.locator('ghostmeet-button .button');
+  const buttonKind = async () => {
+    if (!(await button.isVisible())) return null;
+    return (await button.getAttribute('class')).replace('button', '').trim();
+  };
 
   console.log('joining the call');
   await sleep(2500);
   check((await inCall()) === false, 'the lobby is not taken for a call');
-  check((await pillTitle()) === null, 'the lobby shows no status pill');
+  check((await buttonKind()) === null, 'the lobby has no ghostmeet button');
   await page.click('#join');
   check(Boolean(await until(inCall)), 'joining the call is noticed');
   check(
@@ -188,11 +192,20 @@ try {
     'without the click Chrome requires, the extension asks for it on its icon',
   );
   check(
-    (await until(async () => (await pillTitle()) === 'Não está gravando')) !== null,
-    'and the page itself says the call is not being recorded',
+    (await until(async () => (await buttonKind()) === 'idle')) !== null,
+    "and Meet's control bar gets a ghost that says the call is not being recorded",
   );
-  await pill.locator('.close').click();
-  check(Boolean(await until(async () => (await pillTitle()) === null)), 'which can be dismissed for this call');
+  const slot = await page.evaluate(() => {
+    const host = document.querySelector('ghostmeet-button');
+    const next = host?.nextElementSibling;
+    const leave = '[aria-label="Sair da chamada"]';
+    return next && (next.matches(leave) || next.querySelector(leave)) ? 'leave' : null;
+  });
+  check(slot === 'leave', 'right before the leave button');
+  await button.click();
+  const hint = await page.locator('ghostmeet-button .idle-view').textContent();
+  check(/clique no 👻/.test(hint), 'clicking it says where to click to record');
+  await page.mouse.click(5, 5);
 
   console.log('\nrecording, named after the meeting');
   // stands in for the automatic start: the recording a click on the icon would begin
@@ -223,9 +236,32 @@ try {
   check(named?.title === 'Weekly sync', `the session took the meeting's name (${named?.title})`);
   check(named?.meeting_code === 'abc-defg-hij', 'and its Meet code');
   check(
-    Boolean(await until(async () => /^Gravando · 00:\d\d$/.test((await pillTitle()) || ''))),
-    `the pill now says it is recording (${await pillTitle()})`,
+    Boolean(await until(async () => (await buttonKind()) === 'recording')),
+    'the button now shows the recording',
   );
+  const elapsed = await page.locator('ghostmeet-button .label').textContent();
+  check(/^00:\d\d$/.test(elapsed), `with its time (${elapsed})`);
+
+  console.log('\nmarks and notes from the call');
+  await button.click();
+  await page.locator('ghostmeet-button .mark').click();
+  const feedback = page.locator('ghostmeet-button .feedback');
+  check(
+    Boolean(await until(async () => /^📌 Momento marcado em 00:\d\d$/.test(await feedback.textContent()))),
+    `a moment is marked from the button (${await feedback.textContent()})`,
+  );
+  await page.locator('ghostmeet-button input').fill('decidir na sexta');
+  await page.locator('ghostmeet-button input').press('Enter');
+  check(
+    Boolean(await until(async () => /^📝 Nota salva em/.test(await feedback.textContent()))),
+    'and a note taken',
+  );
+  const notes = (await api(`/api/sessions/${SESSION}/notes`))?.notes || [];
+  check(
+    notes.map((n) => n.text).join('|') === '|decidir na sexta',
+    'both reached the session',
+  );
+  await page.mouse.click(5, 5);
   check(
     Boolean(await until(() => backendLog.includes('Vocabulary: 0 of your terms, 2 participants'))),
     'the participants on screen were handed to the transcriber as vocabulary',
@@ -239,8 +275,6 @@ try {
   await sleep(4000); // the content script looks every 2 s, then the newest audio must be silent
   const muted = recentPeak(dataDir);
   check(muted < 0.002, `nothing of yours is kept while you are muted (peak ${muted.toFixed(4)})`);
-  const mutedDetail = await pill.locator('.detail').textContent();
-  check(/mudo/.test(mutedDetail), `and the pill says your voice is not going in (${mutedDetail})`);
   await page.click('#mic');
   await sleep(4000);
   const back = recentPeak(dataDir);

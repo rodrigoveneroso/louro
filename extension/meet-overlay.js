@@ -1,27 +1,27 @@
-// Content script for Google Meet: a small status pill at the top of the call, saying
-// whether ghostmeet is recording it. Above all it catches the case that is easy to miss:
-// being in a call that is not recorded because the extension was never clicked on it.
-// Drawn in a shadow root, so Meet's styles and ours never touch.
+// Content script for Google Meet: a ghostmeet button in the call's control bar, beside
+// Meet's own. It shows whether the call is being recorded, which catches the case that
+// is easy to miss (in a call the extension was never clicked on), and while recording it
+// opens a small panel to mark the moment or take a note. Drawn in a shadow root, so
+// Meet's styles and ours never touch.
 (() => {
-  const { pillState } = globalThis.ghostmeetOverlay;
-  const { extensionAlive, isInCall, isMicMuted, meetingCode } = globalThis.ghostmeetMeet;
+  const { buttonState } = globalThis.ghostmeetOverlay;
+  const { extensionAlive, isInCall } = globalThis.ghostmeetMeet;
   const t = (key, ...values) => chrome.i18n.getMessage(key, values.map(String)) || key;
 
   const STATE_KEYS = [
     'activeSessionId',
     'meetingTabId',
     'captureStartedAt',
-    'captureMic',
     'finishingSessionId',
     'lastCapture',
     'overlayEnabled',
-    'pillCollapsed',
   ];
   const TICK_MS = 1000;
+  const LEAVE_CALL = /leave call|sair da chamada|sair da ligação|deixar a chamada/i;
 
   let state = {};
   let tabId = null; // ours, from the service worker: content scripts cannot ask Chrome
-  let lastKind = null;
+  let shown = null;
 
   chrome.runtime
     .sendMessage({ target: 'background', action: 'whoami' })
@@ -37,92 +37,197 @@
     render();
   });
 
-  // --- the pill --------------------------------------------------------------------------
+  // --- the button and its panel ------------------------------------------------------------
 
-  // a pill left by a previous copy of this script (the extension was reloaded)
-  document.querySelectorAll('ghostmeet-status').forEach((old) => old.remove());
-  const host = document.createElement('ghostmeet-status');
+  // a button left by a previous copy of this script (the extension was reloaded)
+  document.querySelectorAll('ghostmeet-button').forEach((old) => old.remove());
+  const host = document.createElement('ghostmeet-button');
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
-      :host { all: initial; }
-      .pill {
-        position: fixed; top: 12px; left: 50%; z-index: 2147483647;
-        transform: translateX(-50%);
-        display: flex; align-items: center; gap: 8px;
-        max-width: min(92vw, 520px); padding: 6px 8px 6px 10px;
-        border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(32, 33, 36, 0.92); color: #e8eaed;
-        box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-        backdrop-filter: blur(8px);
-        font: 500 13px/1.25 'Google Sans', Roboto, system-ui, sans-serif;
-        cursor: default; user-select: none;
-        animation: enter 0.25s ease-out;
+      :host { all: initial; display: inline-flex; position: relative; margin: 0 6px;
+              font: 500 14px/1 'Google Sans', Roboto, system-ui, sans-serif; }
+      :host(.floating) { position: fixed; left: 16px; bottom: 20px; z-index: 2147483647; }
+      .button {
+        all: unset; box-sizing: border-box; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        height: 40px; min-width: 40px; padding: 0 10px; border-radius: 20px;
+        background: #333537; color: #e3e3e3;
+        transition: background-color 0.15s;
       }
-      .pill[hidden] { display: none; }
-      .ghost { font-size: 16px; }
-      .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: #9aa0a6; }
-      .texts { display: flex; flex-direction: column; min-width: 0; }
-      .title { white-space: nowrap; }
-      .detail { font-weight: 400; font-size: 11.5px; color: #bdc1c6; white-space: nowrap;
-                overflow: hidden; text-overflow: ellipsis; }
-      .detail:empty { display: none; }
-      .warn .detail { color: #fdd663; }
-      button {
-        all: unset; cursor: pointer; display: grid; place-items: center;
-        width: 22px; height: 22px; border-radius: 50%; color: #bdc1c6; font-size: 15px;
+      .button:hover { background: #444746; }
+      .button:focus-visible { outline: 2px solid #a8c7fa; outline-offset: 2px; }
+      .ghost { font-size: 18px; line-height: 1; position: relative; }
+      .label { font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .label:empty { display: none; }
+      .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; }
+
+      .idle .ghost::after {
+        content: ''; position: absolute; right: -3px; top: -2px; width: 8px; height: 8px;
+        border-radius: 50%; background: #fdd663; box-shadow: 0 0 0 2px #333537;
       }
-      button:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
-      button:focus-visible { outline: 2px solid #8ab4f8; }
-      .arrow { display: none; color: #fdd663; font-size: 15px; }
+      .recording { background: #3c2f2f; }
+      .recording:hover { background: #4d3a3a; }
+      .recording .dot, .finishing .dot {
+        display: block; animation: pulse 1.6s ease-in-out infinite;
+      }
+      .recording .dot { background: #f28b82; }
+      .finishing .dot { background: #a8c7fa; animation-duration: 1s; }
+      .done .dot { display: block; background: #6dd58c; }
 
-      .idle { border-color: rgba(253, 214, 99, 0.55); }
-      .idle .dot { background: #fdd663; }
-      .idle .arrow { display: inline; animation: point 1.4s ease-in-out infinite; }
+      .panel {
+        position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+        width: 280px; box-sizing: border-box; padding: 12px;
+        border-radius: 12px; background: #303134; color: #e3e3e3;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+        display: flex; flex-direction: column; gap: 10px;
+        font: 400 13px/1.4 'Google Sans', Roboto, system-ui, sans-serif;
+        animation: rise 0.15s ease-out;
+      }
+      :host(.floating) .panel { left: 0; transform: none; }
+      .panel.below { bottom: auto; top: calc(100% + 12px); }
+      .panel[hidden] { display: none; }
+      .panel .text { color: #c4c7c5; }
+      .panel .text strong { color: #e3e3e3; font-weight: 500; }
+      .mark {
+        all: unset; box-sizing: border-box; cursor: pointer; text-align: center;
+        padding: 9px; border-radius: 20px; background: #a8c7fa; color: #062e6f; font-weight: 500;
+      }
+      .mark:hover { background: #c2d7fb; }
+      .mark:focus-visible { outline: 2px solid #fff; }
+      input {
+        all: unset; box-sizing: border-box; width: 100%; padding: 9px 12px; border-radius: 8px;
+        background: #202124; color: #e3e3e3; border: 1px solid #5f6368;
+      }
+      input:focus { border-color: #a8c7fa; }
+      input::placeholder { color: #9aa0a6; }
+      .feedback { color: #6dd58c; font-size: 12px; min-height: 1em; }
+      .feedback.error { color: #f28b82; }
 
-      .recording { cursor: pointer; }
-      .recording .dot { background: #f28b82; animation: pulse 1.6s ease-in-out infinite; }
-      .recording .close { display: none; }
-      .recording.collapsed { padding: 6px; gap: 6px; }
-      .recording.collapsed .texts { display: none; }
-
-      .finishing .dot { background: #8ab4f8; animation: pulse 1s ease-in-out infinite; }
-      .finishing .close, .done .close { display: none; }
-      .done .dot { background: #81c995; }
-
-      @keyframes enter { from { opacity: 0; transform: translate(-50%, -8px); } }
       @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
-      @keyframes point { 50% { transform: translate(3px, -3px); } }
-      @media (prefers-reduced-motion: reduce) {
-        .pill, .dot, .arrow { animation: none !important; }
-      }
+      @keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
     </style>
-    <div class="pill" role="status" aria-live="polite" hidden>
+    <button class="button idle" type="button" aria-haspopup="dialog" aria-expanded="false">
       <span class="ghost" aria-hidden="true">👻</span>
       <span class="dot" aria-hidden="true"></span>
-      <span class="texts"><span class="title"></span><span class="detail"></span></span>
-      <span class="arrow" aria-hidden="true">↗</span>
-      <button class="close" type="button">×</button>
+      <span class="label"></span>
+    </button>
+    <div class="panel" role="dialog" hidden>
+      <div class="idle-view">
+        <div class="text"></div>
+      </div>
+      <div class="notes-view">
+        <button class="mark" type="button"></button>
+        <input type="text" maxlength="1000" />
+        <div class="feedback" aria-live="polite"></div>
+      </div>
     </div>`;
-  const pill = root.querySelector('.pill');
-  const title = root.querySelector('.title');
-  const detail = root.querySelector('.detail');
-  const close = root.querySelector('.close');
-  close.title = close.ariaLabel = t('pillDismiss');
-  document.documentElement.appendChild(host);
+  const button = root.querySelector('.button');
+  const label = root.querySelector('.label');
+  const panel = root.querySelector('.panel');
+  const idleView = root.querySelector('.idle-view');
+  const idleText = root.querySelector('.idle-view .text');
+  const notesView = root.querySelector('.notes-view');
+  const mark = root.querySelector('.mark');
+  const input = root.querySelector('input');
+  const feedback = root.querySelector('.feedback');
+  mark.textContent = t('popupMark');
+  input.placeholder = t('popupNotePlaceholder');
+  idleText.append(
+    Object.assign(document.createElement('strong'), { textContent: t('buttonIdleTitle') }),
+    document.createElement('br'),
+    t('buttonIdleHint'),
+  );
 
-  // "not recording" can be dismissed for the rest of this call
-  const dismissKey = () => `ghostmeet:dismissed:${meetingCode(location.href) || location.pathname}`;
-  close.addEventListener('click', (event) => {
+  function openPanel(open) {
+    panel.hidden = !open;
+    button.setAttribute('aria-expanded', String(open));
+    if (!open) return;
+    fit();
+    if (shown?.kind === 'recording') input.focus();
+  }
+
+  /** Above the button as Meet's own menus open, unless that runs off the screen. */
+  function fit() {
+    const margin = 8;
+    panel.classList.remove('below');
+    panel.style.marginLeft = '0px';
+    let box = panel.getBoundingClientRect();
+    if (box.top < margin) {
+      panel.classList.add('below');
+      box = panel.getBoundingClientRect();
+    }
+    if (box.left < margin) panel.style.marginLeft = `${margin - box.left}px`;
+    else if (box.right > innerWidth - margin) {
+      panel.style.marginLeft = `${innerWidth - margin - box.right}px`;
+    }
+  }
+
+  button.addEventListener('click', (event) => {
     event.stopPropagation();
-    sessionStorage.setItem(dismissKey(), '1');
-    render();
+    if (shown?.kind === 'idle' || shown?.kind === 'recording') openPanel(panel.hidden);
   });
-  // while recording, a click folds the pill down to the ghost and its red dot
-  pill.addEventListener('click', () => {
-    if (lastKind !== 'recording' || !extensionAlive()) return;
-    chrome.storage.local.set({ pillCollapsed: !state.pillCollapsed }).catch(() => {});
+  panel.addEventListener('click', (event) => event.stopPropagation());
+  document.addEventListener('click', () => openPanel(false));
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      openPanel(false);
+      button.focus();
+    }
+    event.stopPropagation(); // typing a note must not reach Meet's own shortcuts
   });
+
+  async function addNote(text) {
+    if (!extensionAlive()) return;
+    const reply = await chrome.runtime
+      .sendMessage({ target: 'background', action: 'add_note', text })
+      .catch(() => null);
+    feedback.classList.toggle('error', !reply?.ok);
+    if (reply?.ok) {
+      const at = globalThis.ghostmeetOverlay.clock(reply.atSec);
+      feedback.textContent = t(text ? 'popupNoted' : 'popupMarked', at);
+    } else {
+      feedback.textContent = t('popupNoteFailed');
+    }
+  }
+
+  mark.addEventListener('click', () => addNote(''));
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !input.value.trim()) return;
+    const text = input.value;
+    input.value = '';
+    addNote(text);
+  });
+
+  // --- where it goes ------------------------------------------------------------------------
+
+  /** The element of Meet's control bar to put the button before: the leave button's slot. */
+  function anchor() {
+    const leave = [...document.querySelectorAll('button[aria-label]')].find((b) =>
+      LEAVE_CALL.test(b.getAttribute('aria-label') || ''),
+    );
+    if (!leave) return null;
+    // climb out of the wrappers Meet puts around a single button, up to the bar's row
+    let slot = leave;
+    while (slot.parentElement && slot.parentElement.children.length === 1) {
+      slot = slot.parentElement;
+    }
+    return slot.parentElement ? slot : null;
+  }
+
+  function place() {
+    const slot = anchor();
+    if (slot) {
+      host.classList.remove('floating');
+      if (host.nextElementSibling !== slot) slot.before(host);
+    } else {
+      host.classList.add('floating'); // no bar found: float in the corner instead
+      if (host.parentElement !== document.documentElement) document.documentElement.append(host);
+    }
+  }
+
+  // --- keeping it current ----------------------------------------------------------------
 
   function render() {
     try {
@@ -136,7 +241,7 @@
 
   function renderOnce() {
     if (!extensionAlive()) {
-      // reloaded or updated: take the pill away, the new copy of this script draws its own
+      // reloaded or updated: take the button away, the new copy of this script adds its own
       clearInterval(timer);
       host.remove();
       return;
@@ -144,31 +249,29 @@
     const labels = [...document.querySelectorAll('button[aria-label]')].map((b) =>
       b.getAttribute('aria-label'),
     );
-    const shown =
+    shown =
       state.overlayEnabled !== false &&
-      pillState(
+      buttonState(
         {
           ...state,
           inCall: isInCall(labels),
-          muted: isMicMuted(labels),
           mine: tabId !== null && state.meetingTabId === tabId,
-          dismissed: sessionStorage.getItem(dismissKey()) === '1',
           now: Date.now(),
         },
         t,
       );
     if (!shown) {
-      pill.hidden = true;
-      lastKind = null;
+      host.remove();
       return;
     }
-    pill.hidden = false;
-    lastKind = shown.kind;
-    const folded = shown.kind === 'recording' && state.pillCollapsed;
-    pill.className = `pill ${shown.kind}${folded ? ' collapsed' : ''}${shown.warn ? ' warn' : ''}`;
-    title.textContent = shown.title;
-    detail.textContent = shown.detail || '';
-    pill.title = shown.kind === 'recording' ? t(folded ? 'pillExpand' : 'pillCollapse') : '';
+    place();
+    button.className = `button ${shown.kind}`;
+    button.title = shown.tip;
+    button.setAttribute('aria-label', shown.tip);
+    label.textContent = shown.label;
+    idleView.hidden = shown.kind !== 'idle';
+    notesView.hidden = shown.kind !== 'recording';
+    if (shown.kind !== 'idle' && shown.kind !== 'recording') openPanel(false);
   }
 
   const timer = setInterval(render, TICK_MS);

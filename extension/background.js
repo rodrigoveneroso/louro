@@ -329,7 +329,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 
 // Chrome only injects content scripts into pages loaded after the extension. A Meet tab
 // open when the extension is installed, reloaded or updated would otherwise have no
-// status pill and no speaker log until reloaded by hand (the previous copies of the
+// ghostmeet button and no speaker log until reloaded by hand (the previous copies of the
 // scripts notice they are orphaned and stand down). Every start of this worker checks:
 // after a reload the scripts of the old extension are gone from its view, while a
 // worker merely woken up finds them still running and injects nothing.
