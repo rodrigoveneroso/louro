@@ -24,4 +24,6 @@ if [ ! -x "$PYTHON" ]; then
   exit 1
 fi
 
-exec "$PYTHON" -m backend
+# Low priority: the meeting (Chrome, Meet's video) always comes first, and Whisper takes
+# the CPU that is left. GHOSTMEET_NICE=0 runs it at normal priority.
+exec nice -n "${GHOSTMEET_NICE:-10}" "$PYTHON" -m backend
