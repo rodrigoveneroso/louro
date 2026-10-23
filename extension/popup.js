@@ -177,6 +177,16 @@ chrome.commands.getAll().then((commands) => {
   document.getElementById('shortcut').textContent = shortcut ? t('popupShortcut', shortcut) : '';
 });
 
+// --- the status pill on the Meet page ---
+
+const overlayEl = document.getElementById('overlayEnabled');
+chrome.storage.local.get('overlayEnabled').then(({ overlayEnabled = true }) => {
+  overlayEl.checked = overlayEnabled;
+});
+overlayEl.addEventListener('change', () => {
+  chrome.storage.local.set({ overlayEnabled: overlayEl.checked });
+});
+
 // --- capture follows the call ---
 
 chrome.storage.local.get('autoCapture').then(({ autoCapture = false }) => {

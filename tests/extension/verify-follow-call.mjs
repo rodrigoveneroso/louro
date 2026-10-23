@@ -2,7 +2,8 @@
  * Verifies, in a real browser, that capture can follow a Google Meet call: the extension
  * sees you join and leave, names the session after the meeting, hands the participants'
  * names to the transcriber, keeps nothing of yours while you are muted, stops when you
- * leave, and drops a capture too short to be a meeting.
+ * leave, and drops a capture too short to be a meeting; and that the status pill on the
+ * page says, at each step, whether the call is being recorded.
  *
  *   1. npm install playwright ws && npx playwright install chromium
  *   2. node tests/extension/verify-follow-call.mjs
@@ -174,15 +175,25 @@ try {
     worker.evaluate(`chrome.storage.session.get('inCall').then((s) => (s.inCall || {})[${tabId}] === true)`);
   const badge = () => worker.evaluate(`chrome.action.getBadgeText({ tabId: ${tabId} })`);
 
+  const pill = page.locator('ghostmeet-status .pill');
+  const pillTitle = async () => ((await pill.isVisible()) ? pill.locator('.title').textContent() : null);
+
   console.log('joining the call');
   await sleep(2500);
   check((await inCall()) === false, 'the lobby is not taken for a call');
+  check((await pillTitle()) === null, 'the lobby shows no status pill');
   await page.click('#join');
   check(Boolean(await until(inCall)), 'joining the call is noticed');
   check(
     (await until(async () => (await badge()) === 'REC')) !== null,
     'without the click Chrome requires, the extension asks for it on its icon',
   );
+  check(
+    (await until(async () => (await pillTitle()) === 'Não está gravando')) !== null,
+    'and the page itself says the call is not being recorded',
+  );
+  await pill.locator('.close').click();
+  check(Boolean(await until(async () => (await pillTitle()) === null)), 'which can be dismissed for this call');
 
   console.log('\nrecording, named after the meeting');
   // stands in for the automatic start: the recording a click on the icon would begin
@@ -202,7 +213,8 @@ try {
     await mod.startRecording(stream, { sessionId: ${JSON.stringify(SESSION)}, language: 'pt', backend: ${JSON.stringify(BACKEND)} });
   })()`);
   await worker.evaluate(
-    `chrome.storage.local.set({ activeSessionId: ${JSON.stringify(SESSION)}, meetingTabId: ${tabId} })`,
+    // as a real start leaves it: this tab, with the microphone in
+    `chrome.storage.local.set({ activeSessionId: ${JSON.stringify(SESSION)}, meetingTabId: ${tabId}, captureMic: true })`,
   );
 
   const named = await until(async () => {
@@ -211,6 +223,10 @@ try {
   });
   check(named?.title === 'Weekly sync', `the session took the meeting's name (${named?.title})`);
   check(named?.meeting_code === 'abc-defg-hij', 'and its Meet code');
+  check(
+    Boolean(await until(async () => /^Gravando · 00:\d\d$/.test((await pillTitle()) || ''))),
+    `the pill now says it is recording (${await pillTitle()})`,
+  );
   check(
     Boolean(await until(() => backendLog.includes('Vocabulary: 0 of your terms, 2 participants'))),
     'the participants on screen were handed to the transcriber as vocabulary',
@@ -224,6 +240,8 @@ try {
   await sleep(4000); // the content script looks every 2 s, then the newest audio must be silent
   const muted = recentPeak(dataDir);
   check(muted < 0.002, `nothing of yours is kept while you are muted (peak ${muted.toFixed(4)})`);
+  const mutedDetail = await pill.locator('.detail').textContent();
+  check(/mudo/.test(mutedDetail), `and the pill says your voice is not going in (${mutedDetail})`);
   await page.click('#mic');
   await sleep(4000);
   const back = recentPeak(dataDir);

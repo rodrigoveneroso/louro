@@ -272,6 +272,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse(await startCapture());
     } else if (message.action === 'stop_capture') {
       sendResponse(await stopCapture());
+    } else if (message.action === 'whoami') {
+      sendResponse({ tabId: sender.tab?.id ?? null }); // content scripts cannot ask Chrome
     } else if (message.action === 'add_note') {
       sendResponse(await addNote(message.text));
     } else if (message.action === 'mic_granted') {

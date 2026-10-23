@@ -266,5 +266,60 @@
   },
   "popupRefining": {
     "message": "melhorando a transcrição com o modelo maior…"
+  },
+  "pillIdle": {
+    "message": "Não está gravando"
+  },
+  "pillIdleHint": {
+    "message": "Clique no 👻 na barra do Chrome para gravar esta chamada"
+  },
+  "pillRecording": {
+    "message": "Gravando · $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "pillMicOn": {
+    "message": "sua voz está incluída"
+  },
+  "pillMicOff": {
+    "message": "só o áudio da chamada"
+  },
+  "pillMuted": {
+    "message": "você está no mudo: sua voz não entra"
+  },
+  "pillFinishing": {
+    "message": "Finalizando a transcrição…"
+  },
+  "pillDone": {
+    "message": "Transcrição salva"
+  },
+  "pillDoneDetail": {
+    "message": "$P1$ · $P2$ trechos",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      },
+      "p2": {
+        "content": "$2"
+      }
+    }
+  },
+  "pillDiscarded": {
+    "message": "Curta demais: não foi guardada"
+  },
+  "pillDismiss": {
+    "message": "Dispensar nesta chamada"
+  },
+  "pillCollapse": {
+    "message": "Recolher"
+  },
+  "pillExpand": {
+    "message": "Mostrar"
+  },
+  "popupOverlay": {
+    "message": "Mostrar o status na tela do Meet"
   }
 }

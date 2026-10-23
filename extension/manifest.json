@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ghostmeet",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "__MSG_extDescription__",
   "default_locale": "pt_BR",
   "permissions": [
@@ -49,6 +49,8 @@
       ],
       "js": [
         "meet-dom.js",
+        "overlay-state.js",
+        "meet-overlay.js",
         "meet-call.js",
         "meet-speakers.js"
       ],
