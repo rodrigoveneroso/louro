@@ -4,7 +4,7 @@
 // Drawn in a shadow root, so Meet's styles and ours never touch.
 (() => {
   const { pillState } = globalThis.ghostmeetOverlay;
-  const { isInCall, isMicMuted, meetingCode } = globalThis.ghostmeetMeet;
+  const { extensionAlive, isInCall, isMicMuted, meetingCode } = globalThis.ghostmeetMeet;
   const t = (key, ...values) => chrome.i18n.getMessage(key, values.map(String)) || key;
 
   const STATE_KEYS = [
@@ -39,6 +39,8 @@
 
   // --- the pill --------------------------------------------------------------------------
 
+  // a pill left by a previous copy of this script (the extension was reloaded)
+  document.querySelectorAll('ghostmeet-status').forEach((old) => old.remove());
   const host = document.createElement('ghostmeet-status');
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
@@ -122,6 +124,12 @@
   });
 
   function render() {
+    if (!extensionAlive()) {
+      // reloaded or updated: take the pill away, the new copy of this script draws its own
+      clearInterval(timer);
+      host.remove();
+      return;
+    }
     const labels = [...document.querySelectorAll('button[aria-label]')].map((b) =>
       b.getAttribute('aria-label'),
     );
@@ -152,5 +160,5 @@
     pill.title = shown.kind === 'recording' ? t(folded ? 'pillExpand' : 'pillCollapse') : '';
   }
 
-  setInterval(render, TICK_MS);
+  const timer = setInterval(render, TICK_MS);
 })();

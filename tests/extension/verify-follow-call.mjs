@@ -167,7 +167,6 @@ try {
   const page = await context.newPage();
   await page.goto(MEET_URL);
   await page.bringToFront();
-  // the extension has no host permission on Meet, so it cannot look tabs up by url
   const tabId = await worker.evaluate(
     `chrome.tabs.query({ active: true, lastFocusedWindow: true }).then((t) => t[0].id)`,
   );

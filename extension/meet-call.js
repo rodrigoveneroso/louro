@@ -2,7 +2,7 @@
 // capture can follow the call; gives the running capture the meeting's name, code and
 // participants; and says whether you are muted, so nothing of yours is kept meanwhile.
 (() => {
-  const { isInCall, isMicMuted, meetingCode, meetingTitle, participantNames } =
+  const { extensionAlive, isInCall, isMicMuted, meetingCode, meetingTitle, participantNames } =
     globalThis.ghostmeetMeet;
   const CHECK_MS = 2000;
 
@@ -15,6 +15,10 @@
   }
 
   async function check() {
+    if (!extensionAlive()) {
+      clearInterval(timer); // reloaded or updated: the new copy of this script takes over
+      return;
+    }
     const labels = [...document.querySelectorAll('button[aria-label]')].map((b) =>
       b.getAttribute('aria-label'),
     );
@@ -44,6 +48,6 @@
     }
   }
 
+  const timer = setInterval(check, CHECK_MS);
   check();
-  setInterval(check, CHECK_MS);
 })();

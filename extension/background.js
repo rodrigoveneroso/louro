@@ -326,3 +326,29 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
   if (meetingTabId === tabId && (await activeCapture())) await stopCapture();
 });
+
+// Chrome only injects content scripts into pages loaded after the extension. A Meet tab
+// open when the extension is installed, reloaded or updated would otherwise have no
+// status pill and no speaker log until reloaded by hand (the previous copies of the
+// scripts notice they are orphaned and stand down). Every start of this worker checks:
+// after a reload the scripts of the old extension are gone from its view, while a
+// worker merely woken up finds them still running and injects nothing.
+async function ensureMeetScripts() {
+  const [scripts] = chrome.runtime.getManifest().content_scripts;
+  const tabs = await chrome.tabs.query({ url: scripts.matches }).catch(() => []);
+  for (const tab of tabs) {
+    try {
+      const [probe] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => Boolean(globalThis.ghostmeetMeet),
+      });
+      if (!probe?.result) {
+        await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: scripts.js });
+      }
+    } catch {
+      // a tab that is closing, discarded, or showing an error page
+    }
+  }
+}
+
+ensureMeetScripts();

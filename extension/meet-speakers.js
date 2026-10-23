@@ -3,7 +3,7 @@
 // names are obfuscated and change, so the meaning is worked out later by lining these
 // events up with the transcript.
 (() => {
-  const { tileName } = globalThis.ghostmeetMeet;
+  const { extensionAlive, tileName } = globalThis.ghostmeetMeet;
   // often enough that a caption is named from events that have already arrived
   const FLUSH_MS = 1000;
   const MAX_PER_FLUSH = 400;
@@ -36,6 +36,14 @@
   }
 
   function flush() {
+    if (!extensionAlive()) {
+      // reloaded or updated: stop watching, the new copy of this script takes over
+      clearInterval(timer);
+      if (observer) observer.disconnect();
+      observer = null;
+      buffer = [];
+      return;
+    }
     if (!sessionId || buffer.length === 0) return;
     const events = buffer;
     buffer = [];
@@ -65,5 +73,5 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.activeSessionId) sync(changes.activeSessionId.newValue);
   });
-  setInterval(flush, FLUSH_MS);
+  const timer = setInterval(flush, FLUSH_MS);
 })();

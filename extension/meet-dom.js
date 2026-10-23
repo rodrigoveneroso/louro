@@ -64,7 +64,21 @@
     return titleFromTabTitle(fromAttribute, code) || titleFromTabTitle(doc.title, code);
   }
 
+  /**
+   * Whether this content script still belongs to a running extension. Reloading or
+   * updating the extension leaves the scripts of open tabs behind, where every chrome.*
+   * call throws "Extension context invalidated"; they must notice and stand down.
+   */
+  function extensionAlive() {
+    try {
+      return Boolean(chrome.runtime && chrome.runtime.id);
+    } catch {
+      return false;
+    }
+  }
+
   globalThis.ghostmeetMeet = {
+    extensionAlive,
     isInCall,
     isMicMuted,
     meetingCode,
