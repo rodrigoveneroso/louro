@@ -13,7 +13,7 @@ while it builds a desktop app; the benchmark in `../bench/` still imports `backe
 ../.venv/bin/python -m pip install -r requirements-dev.txt
 ../.venv/bin/python -m pytest tests/ -q            # backend suite, no model, no network
 node --test tests/extension/shared.test.mjs tests/extension/meet-dom.test.mjs \
-  tests/extension/echo-gate.test.mjs               # extension logic
+  tests/extension/echo-gate.test.mjs tests/extension/overlay-state.test.mjs
 node tests/extension/verify-popup.mjs              # and the other verify-*.mjs: real browser
 
 GHOSTMEET_EXPORT_DIR=~/meetings ../.venv/bin/python -m backend.exporter   # re-export all
