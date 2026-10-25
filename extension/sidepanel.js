@@ -58,7 +58,7 @@ function scrollToBottom() {
 }
 
 function clearTranscript() {
-  transcriptEl.innerHTML = '';
+  transcriptEl.replaceChildren();
   segmentCount = 0;
   segmentCountEl.textContent = t('panelSegments', 0);
   emptyStateEl.classList.remove('hidden');
