@@ -35,7 +35,7 @@ def wired(monkeypatch, tmp_path):
     """Point the app at a temp recordings dir and database."""
     monkeypatch.setattr(app_module, "_make_transcribe_fn", stub_factory)
     monkeypatch.setattr(app_module, "RECORDINGS_DIR", tmp_path)
-    monkeypatch.setattr(app_module, "DB_PATH", tmp_path / "ghostmeet.db")
+    monkeypatch.setattr(app_module, "DB_PATH", tmp_path / "louro.db")
     return tmp_path
 
 

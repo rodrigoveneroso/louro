@@ -177,7 +177,7 @@ chrome.commands.getAll().then((commands) => {
   document.getElementById('shortcut').textContent = shortcut ? t('popupShortcut', shortcut) : '';
 });
 
-// --- the ghostmeet button in Meet's control bar ---
+// --- the Louro button in Meet's control bar ---
 
 const overlayEl = document.getElementById('overlayEnabled');
 chrome.storage.local.get('overlayEnabled').then(({ overlayEnabled = true }) => {

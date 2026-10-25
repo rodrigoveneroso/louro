@@ -30,7 +30,7 @@ function check(ok, label) {
   if (!ok) failures.push(label);
 }
 
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-verify-'));
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-verify-'));
 let context = null;
 
 try {
@@ -60,9 +60,9 @@ try {
   });
 
   await page.goto('https://meet.google.com/abc-defg-hij');
-  const pill = page.locator('ghostmeet-button .button');
+  const pill = page.locator('louro-button .button');
   await sleep(2500);
-  check(await pill.isVisible(), "before: the ghostmeet button is in Meet's control bar");
+  check(await pill.isVisible(), "before: the Louro button is in Meet's control bar");
 
   console.log('\nreloading the extension, the Meet tab left open');
   const extensions = await context.newPage();
@@ -79,7 +79,7 @@ try {
   const stoodDown = invalidated.length === 0;
   check(stoodDown, `the scripts left behind stand down (${invalidated.length} errors)`);
   check(errors.length === 0, `no other error either${errors.length ? `: ${errors[0]}` : ''}`);
-  check((await page.locator('ghostmeet-button').count()) === 1, 'exactly one button on the page');
+  check((await page.locator('louro-button').count()) === 1, 'exactly one button on the page');
   // the old copy takes its button away, so a visible one is the new copy's; and it follows
   // the reloaded extension's state
   check(await pill.isVisible(), 'and the new scripts run without reloading the tab');

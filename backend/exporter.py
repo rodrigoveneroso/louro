@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 def export_dir() -> Path | None:
     """Target folder, or None when exporting is switched off (variable unset or empty)."""
-    raw = os.environ.get("GHOSTMEET_EXPORT_DIR", "")
+    raw = os.environ.get("LOURO_EXPORT_DIR", "")
     return Path(raw).expanduser() if raw.strip() else None
 
 
@@ -108,7 +108,7 @@ def export_all() -> int:
     from .store import SessionStore, default_data_dir
 
     recordings = default_data_dir()
-    store = SessionStore(recordings / "ghostmeet.db")
+    store = SessionStore(recordings / "louro.db")
     count = 0
     for session in store.load_sessions().values():
         segments = store.load_segments(session.session_id)

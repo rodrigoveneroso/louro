@@ -1,6 +1,6 @@
 """Which Whisper configuration to use on this machine: speed and accuracy, measured.
 
-    ../.venv/bin/python tools/bench_whisper.py speech.wav reference.txt [--language pt]
+    .venv/bin/python tools/bench_whisper.py speech.wav reference.txt [--language pt]
 
 `speech.wav` is any recording and `reference.txt` what is said in it. Without a real one
 at hand, a local TTS makes a fine stand-in, e.g. Piper (https://github.com/rhasspy/piper):

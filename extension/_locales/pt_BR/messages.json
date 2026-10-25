@@ -1,6 +1,6 @@
 {
   "extDescription": {
-    "message": "Legendas ao vivo e transcrição local das suas reuniões, direto no navegador"
+    "message": "Transcrição local das suas reuniões, sem bot na chamada"
   },
   "popupIdle": {
     "message": "Pronto para gravar esta aba"
@@ -96,7 +96,7 @@
     }
   },
   "errorBackendDown": {
-    "message": "O backend do ghostmeet não respondeu em $P1$. Ele está rodando? (./start.sh)",
+    "message": "O backend do Louro não respondeu em $P1$. Ele está rodando? (./start.sh)",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -115,16 +115,16 @@
     "message": "A extensão não respondeu. Recarregue-a em chrome://extensions"
   },
   "badgeTitle": {
-    "message": "ghostmeet"
+    "message": "Louro"
   },
   "badgeRecording": {
-    "message": "ghostmeet: gravando"
+    "message": "Louro: gravando"
   },
   "badgeAskClick": {
-    "message": "ghostmeet: clique para gravar esta chamada"
+    "message": "Louro: clique para gravar esta chamada"
   },
   "panelTitle": {
-    "message": "ghostmeet — legenda ao vivo"
+    "message": "🦜 Louro · legenda ao vivo"
   },
   "panelEmpty": {
     "message": "🎧 Comece uma gravação para ver a legenda ao vivo"
@@ -196,16 +196,16 @@
     "message": "❌ O backend ficou fora do ar por muito tempo e a gravação parou"
   },
   "micTitle": {
-    "message": "ghostmeet — microfone"
+    "message": "🦜 Louro · microfone"
   },
   "micHeading": {
-    "message": "👻 Inclua sua voz na transcrição"
+    "message": "Inclua sua voz na transcrição"
   },
   "micExplain": {
-    "message": "A aba da reunião só traz o áudio dos outros participantes. Para transcrever o que você fala também, o ghostmeet precisa do seu microfone. O áudio não sai deste computador."
+    "message": "A aba da reunião só traz o áudio dos outros participantes. Para transcrever o que você fala também, o Louro precisa do seu microfone. O áudio não sai deste computador."
   },
   "micHeadphones": {
-    "message": "Pode usar sem fone: o ghostmeet tira da gravação o eco dos outros que sai pela sua caixa de som, e o que você fala enquanto está no mudo no Meet não é gravado."
+    "message": "Pode usar sem fone: o Louro tira da gravação o eco dos outros que sai pela sua caixa de som, e o que você fala enquanto está no mudo no Meet não é gravado."
   },
   "micAllow": {
     "message": "Permitir microfone"
@@ -251,7 +251,7 @@
     }
   },
   "popupNoteFailed": {
-    "message": "Não deu para salvar: o backend do ghostmeet está rodando?"
+    "message": "Não deu para salvar: o backend do Louro está rodando?"
   },
   "popupShortcut": {
     "message": "Atalho para marcar sem abrir este menu: $P1$",
@@ -268,19 +268,19 @@
     "message": "melhorando a transcrição com o modelo maior…"
   },
   "popupOverlay": {
-    "message": "Mostrar o botão do ghostmeet na barra do Meet"
+    "message": "Mostrar o botão do Louro na barra do Meet"
   },
   "buttonIdle": {
-    "message": "ghostmeet: esta chamada não está sendo gravada"
+    "message": "Louro: esta chamada não está sendo gravada"
   },
   "buttonIdleTitle": {
     "message": "Esta chamada não está sendo gravada"
   },
   "buttonIdleHint": {
-    "message": "Para gravar, clique no 👻 na barra de extensões do Chrome. O Chrome exige esse clique uma vez em cada aba."
+    "message": "Para gravar, clique no 🦜 Louro na barra de extensões do Chrome. O Chrome exige esse clique uma vez em cada aba."
   },
   "buttonRecording": {
-    "message": "ghostmeet: gravando há $P1$. Clique para marcar um momento ou anotar",
+    "message": "Louro: gravando há $P1$. Clique para marcar um momento ou anotar",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -291,13 +291,13 @@
     "message": "Finalizando…"
   },
   "buttonFinishingTip": {
-    "message": "ghostmeet: finalizando a transcrição"
+    "message": "Louro: finalizando a transcrição"
   },
   "buttonDone": {
     "message": "Salva"
   },
   "buttonDoneTip": {
-    "message": "ghostmeet: transcrição salva · $P1$ · $P2$ trechos",
+    "message": "Louro: transcrição salva · $P1$ · $P2$ trechos",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -311,6 +311,6 @@
     "message": "Não guardada"
   },
   "buttonDiscardedTip": {
-    "message": "ghostmeet: curta demais ou sem fala, não foi guardada"
+    "message": "Louro: curta demais ou sem fala, não foi guardada"
   }
 }

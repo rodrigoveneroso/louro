@@ -3,7 +3,7 @@
 // names are obfuscated and change, so the meaning is worked out later by lining these
 // events up with the transcript.
 (() => {
-  const { extensionAlive, tileName } = globalThis.ghostmeetMeet;
+  const { extensionAlive, tileName } = globalThis.louroMeet;
   // often enough that a caption is named from events that have already arrived
   const FLUSH_MS = 1000;
   const MAX_PER_FLUSH = 400;

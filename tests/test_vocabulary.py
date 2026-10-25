@@ -5,8 +5,8 @@ from backend.vocabulary import MAX_CHARS, clean, configured_terms, hotwords
 
 
 def test_the_inline_list_is_comma_separated(monkeypatch):
-    monkeypatch.setenv("GHOSTMEET_VOCABULARY", " ClickHouse, Metabase ,,RPA ")
-    monkeypatch.delenv("GHOSTMEET_VOCABULARY_FILE", raising=False)
+    monkeypatch.setenv("LOURO_VOCABULARY", " ClickHouse, Metabase ,,RPA ")
+    monkeypatch.delenv("LOURO_VOCABULARY_FILE", raising=False)
 
     assert configured_terms() == ["ClickHouse", "Metabase", "RPA"]
 
@@ -14,15 +14,15 @@ def test_the_inline_list_is_comma_separated(monkeypatch):
 def test_the_file_has_one_term_per_line_and_comments(monkeypatch, tmp_path):
     words = tmp_path / "vocabulary.txt"
     words.write_text("# people\nAna Souza\nBruno Lima  # product\n\nOKR\n", encoding="utf-8")
-    monkeypatch.setenv("GHOSTMEET_VOCABULARY", "OKR")
-    monkeypatch.setenv("GHOSTMEET_VOCABULARY_FILE", str(words))
+    monkeypatch.setenv("LOURO_VOCABULARY", "OKR")
+    monkeypatch.setenv("LOURO_VOCABULARY_FILE", str(words))
 
     assert configured_terms() == ["OKR", "Ana Souza", "Bruno Lima"]
 
 
 def test_a_missing_file_is_not_fatal(monkeypatch, tmp_path):
-    monkeypatch.delenv("GHOSTMEET_VOCABULARY", raising=False)
-    monkeypatch.setenv("GHOSTMEET_VOCABULARY_FILE", str(tmp_path / "nope.txt"))
+    monkeypatch.delenv("LOURO_VOCABULARY", raising=False)
+    monkeypatch.setenv("LOURO_VOCABULARY_FILE", str(tmp_path / "nope.txt"))
 
     assert configured_terms() == []
 

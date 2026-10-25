@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import '../../extension/meet-dom.js';
 
 const { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle, participantNames } =
-  globalThis.ghostmeetMeet;
+  globalThis.louroMeet;
 
 /** A participant tile whose leaf elements show `texts`, as Meet renders them. */
 function tile(...texts) {

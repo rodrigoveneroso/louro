@@ -23,9 +23,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const LEGACY = path.resolve(HERE, '..', '..');
-const EXTENSION = path.join(LEGACY, 'extension');
-const PYTHON = process.env.GHOSTMEET_PYTHON || path.resolve(LEGACY, '..', '.venv', 'bin', 'python');
+const ROOT = path.resolve(HERE, '..', '..');
+const EXTENSION = path.join(ROOT, 'extension');
+const PYTHON = process.env.LOURO_PYTHON || path.resolve(ROOT, '.venv', 'bin', 'python');
 const PORT = 8879;
 const BACKEND = `127.0.0.1:${PORT}`;
 const CDP_PORT = 9412;
@@ -42,20 +42,20 @@ function check(ok, label) {
 
 // --- a backend we are allowed to kill ---
 
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-data-'));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-data-'));
 let backend = null;
 let backendLog = '';
 
 async function startBackend() {
   backend = spawn(PYTHON, ['-m', 'backend'], {
-    cwd: LEGACY,
+    cwd: ROOT,
     env: {
       ...process.env,
-      GHOSTMEET_PORT: String(PORT),
-      GHOSTMEET_DATA_DIR: dataDir,
-      GHOSTMEET_EXPORT_DIR: '',
-      GHOSTMEET_MIN_DURATION_SEC: '0', // a beep is not speech: keep it anyway
-      GHOSTMEET_MODEL: process.env.GHOSTMEET_MODEL || 'base',
+      LOURO_PORT: String(PORT),
+      LOURO_DATA_DIR: dataDir,
+      LOURO_EXPORT_DIR: '',
+      LOURO_MIN_DURATION_SEC: '0', // a beep is not speech: keep it anyway
+      LOURO_MODEL: process.env.LOURO_MODEL || 'base',
     },
   });
   backend.stdout.on('data', (d) => (backendLog += d));
@@ -133,7 +133,7 @@ async function openOffscreen(context) {
   throw new Error('offscreen document not reachable');
 }
 
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-verify-'));
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-verify-'));
 let context = null;
 let offscreen = null;
 

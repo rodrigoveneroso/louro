@@ -1,19 +1,19 @@
 """Run a command of yours once a meeting's transcript is written.
 
-GHOSTMEET_ON_EXPORT is a shell command, started in the background after each
-meeting's markdown export (so it needs GHOSTMEET_EXPORT_DIR). It learns about the
+LOURO_ON_EXPORT is a shell command, started in the background after each
+meeting's markdown export (so it needs LOURO_EXPORT_DIR). It learns about the
 meeting from its environment, never from its command line, so nothing a meeting
 contains can end up being executed:
 
-    GHOSTMEET_TRANSCRIPT    path of the markdown file
-    GHOSTMEET_SESSION_ID    session id
-    GHOSTMEET_TITLE         meeting name, or empty
-    GHOSTMEET_DURATION_SEC  length in seconds
+    LOURO_TRANSCRIPT    path of the markdown file
+    LOURO_SESSION_ID    session id
+    LOURO_TITLE         meeting name, or empty
+    LOURO_DURATION_SEC  length in seconds
 
 For example, have your AI agent write the summary:
 
-    GHOSTMEET_ON_EXPORT='claude -p "Summarise $GHOSTMEET_TRANSCRIPT" \\
-        > "${GHOSTMEET_TRANSCRIPT%.md}.summary.md"'
+    LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" \\
+        > "${LOURO_TRANSCRIPT%.md}.summary.md"'
 
 Its output goes to on-export.log in the data folder.
 """
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 def on_export_command() -> str | None:
-    return os.environ.get("GHOSTMEET_ON_EXPORT", "").strip() or None
+    return os.environ.get("LOURO_ON_EXPORT", "").strip() or None
 
 
 def run_on_export(
@@ -42,10 +42,10 @@ def run_on_export(
         return None
     env = {
         **os.environ,
-        "GHOSTMEET_TRANSCRIPT": str(transcript),
-        "GHOSTMEET_SESSION_ID": session.session_id,
-        "GHOSTMEET_TITLE": session.title or "",
-        "GHOSTMEET_DURATION_SEC": str(round(session.duration_sec)),
+        "LOURO_TRANSCRIPT": str(transcript),
+        "LOURO_SESSION_ID": session.session_id,
+        "LOURO_TITLE": session.title or "",
+        "LOURO_DURATION_SEC": str(round(session.duration_sec)),
     }
     log_dir.mkdir(parents=True, exist_ok=True)
     with (log_dir / "on-export.log").open("ab") as log:
@@ -63,7 +63,7 @@ def run_on_export(
                 start_new_session=True,  # outlives a backend restart, never blocks it
             )
         except OSError:
-            logger.exception("Could not run GHOSTMEET_ON_EXPORT for %s", session.session_id)
+            logger.exception("Could not run LOURO_ON_EXPORT for %s", session.session_id)
             return None
     # reaped in the background, so a finished command never lingers as a zombie
     threading.Thread(target=process.wait, name="on-export", daemon=True).start()

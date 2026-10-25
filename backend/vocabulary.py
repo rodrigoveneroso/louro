@@ -2,8 +2,8 @@
 
 Two sources, combined per session:
 
-- your own list, from GHOSTMEET_VOCABULARY (comma separated) and/or
-  GHOSTMEET_VOCABULARY_FILE (one term per line, `#` starts a comment). The file is read
+- your own list, from LOURO_VOCABULARY (comma separated) and/or
+  LOURO_VOCABULARY_FILE (one term per line, `#` starts a comment). The file is read
   at the start of every session, so editing it needs no restart;
 - the names of the meeting's participants, as the meeting page shows them.
 
@@ -25,8 +25,8 @@ MAX_TERM = 80
 
 
 def configured_terms() -> List[str]:
-    terms = _split(os.environ.get("GHOSTMEET_VOCABULARY", ""), ",")
-    path = os.environ.get("GHOSTMEET_VOCABULARY_FILE", "").strip()
+    terms = _split(os.environ.get("LOURO_VOCABULARY", ""), ",")
+    path = os.environ.get("LOURO_VOCABULARY_FILE", "").strip()
     if path:
         try:
             lines = Path(path).expanduser().read_text(encoding="utf-8").splitlines()

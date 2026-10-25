@@ -57,7 +57,7 @@ class SessionPipeline:
         self._wake = asyncio.Event()
         # one worker per session: passes for a session are serialised, and a long pass
         # cannot occupy the shared default executor
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ghostmeet-stt")
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="louro-stt")
         self._worker: asyncio.Task | None = None
         self._stopped = False
 

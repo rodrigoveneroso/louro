@@ -63,7 +63,7 @@ class StreamingWebmDecoder:
         self._closing = threading.Event()
         self.error: BaseException | None = None
         self._thread = threading.Thread(
-            target=self._run, name="ghostmeet-decoder", daemon=True
+            target=self._run, name="louro-decoder", daemon=True
         )
         self._thread.start()
 

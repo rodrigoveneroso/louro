@@ -65,9 +65,9 @@ _ADDED_COLUMNS = {"sessions": [("title", "TEXT"), ("meeting_code", "TEXT")]}
 
 
 def default_data_dir() -> Path:
-    """Where the database and per-session files live: GHOSTMEET_DATA_DIR, else
+    """Where the database and per-session files live: LOURO_DATA_DIR, else
     `recordings/` next to the backend package."""
-    configured = os.environ.get("GHOSTMEET_DATA_DIR", "").strip()
+    configured = os.environ.get("LOURO_DATA_DIR", "").strip()
     if configured:
         return Path(configured).expanduser()
     return Path(__file__).resolve().parent.parent / "recordings"

@@ -1,11 +1,11 @@
-// Content script for Google Meet: a ghostmeet button in the call's control bar, beside
+// Content script for Google Meet: a Louro button in the call's control bar, beside
 // Meet's own. It shows whether the call is being recorded, which catches the case that
 // is easy to miss (in a call the extension was never clicked on), and while recording it
 // opens a small panel to mark the moment or take a note. Drawn in a shadow root, so
 // Meet's styles and ours never touch.
 (() => {
-  const { buttonState } = globalThis.ghostmeetOverlay;
-  const { extensionAlive, isInCall } = globalThis.ghostmeetMeet;
+  const { buttonState } = globalThis.louroOverlay;
+  const { extensionAlive, isInCall } = globalThis.louroMeet;
   const t = (key, ...values) => chrome.i18n.getMessage(key, values.map(String)) || key;
 
   const STATE_KEYS = [
@@ -40,8 +40,8 @@
   // --- the button and its panel ------------------------------------------------------------
 
   // a button left by a previous copy of this script (the extension was reloaded)
-  document.querySelectorAll('ghostmeet-button').forEach((old) => old.remove());
-  const host = document.createElement('ghostmeet-button');
+  document.querySelectorAll('louro-button').forEach((old) => old.remove());
+  const host = document.createElement('louro-button');
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
@@ -57,12 +57,13 @@
       }
       .button:hover { background: #444746; }
       .button:focus-visible { outline: 2px solid #a8c7fa; outline-offset: 2px; }
-      .ghost { font-size: 18px; line-height: 1; position: relative; }
+      .logo { position: relative; display: inline-flex; }
+      .logo img { display: block; image-rendering: auto; }
       .label { font-variant-numeric: tabular-nums; white-space: nowrap; }
       .label:empty { display: none; }
       .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; }
 
-      .idle .ghost::after {
+      .idle .logo::after {
         content: ''; position: absolute; right: -3px; top: -2px; width: 8px; height: 8px;
         border-radius: 50%; background: #fdd663; box-shadow: 0 0 0 2px #333537;
       }
@@ -109,7 +110,7 @@
       @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
     </style>
     <button class="button idle" type="button" aria-haspopup="dialog" aria-expanded="false">
-      <span class="ghost" aria-hidden="true">👻</span>
+      <span class="logo" aria-hidden="true"><img alt="" width="22" height="22" /></span>
       <span class="dot" aria-hidden="true"></span>
       <span class="label"></span>
     </button>
@@ -124,6 +125,8 @@
       </div>
     </div>`;
   const button = root.querySelector('.button');
+  // the extension's own image; web_accessible_resources lets Meet's page load it
+  root.querySelector('.logo img').src = chrome.runtime.getURL('icons/icon32.png');
   const label = root.querySelector('.label');
   const panel = root.querySelector('.panel');
   const idleView = root.querySelector('.idle-view');
@@ -185,7 +188,7 @@
       .catch(() => null);
     feedback.classList.toggle('error', !reply?.ok);
     if (reply?.ok) {
-      const at = globalThis.ghostmeetOverlay.clock(reply.atSec);
+      const at = globalThis.louroOverlay.clock(reply.atSec);
       feedback.textContent = t(text ? 'popupNoted' : 'popupMarked', at);
     } else {
       feedback.textContent = t('popupNoteFailed');

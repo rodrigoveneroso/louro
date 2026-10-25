@@ -1,7 +1,7 @@
 /**
  * Verifies the extension's recording path in a real browser against a real backend.
  *
- *   1. GHOSTMEET_MIN_DURATION_SEC=0 python -m backend   (in another shell; the test records
+ *   1. LOURO_MIN_DURATION_SEC=0 python -m backend   (in another shell; the test records
  *      a tone, and a capture without speech is otherwise discarded when it stops)
  *   2. npm install playwright && npx playwright install chromium
  *   3. node tests/extension/verify-capture.mjs
@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const EXTENSION = path.resolve(HERE, '..', '..', 'extension');
-const BACKEND = process.env.GHOSTMEET_URL || 'http://127.0.0.1:8877';
+const BACKEND = process.env.LOURO_URL || 'http://127.0.0.1:8877';
 const CDP_PORT = 9411;
 const SESSION = `verify-${Date.now()}`;
 
@@ -64,7 +64,7 @@ function check(ok, label) {
   if (!ok) failures.push(label);
 }
 
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-verify-'));
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-verify-'));
 let context = null;
 let offscreen = null;
 

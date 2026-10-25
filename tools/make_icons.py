@@ -1,43 +1,38 @@
-"""Draw the extension icons from the 👻 emoji the side panel already uses.
+"""Draw the extension icons from assets/logo.png.
 
-    python3 tools/make_icons.py [path/to/NotoColorEmoji.ttf]
+    python3 tools/make_icons.py
 
-Uses Google's Noto Color Emoji (Apache-2.0), the font most Linux desktops ship. It is a
-bitmap font drawn at one fixed size, so the glyph is rendered there and scaled down.
-Needs Pillow; regenerate the icons with this script instead of editing them by hand.
+The whole parrot at 128 and 48 px; at 32 and 16 px, the size of the toolbar and the Meet
+button, only its head with the headphones, which stays recognisable where the whole
+bird would be a smudge. Needs Pillow; regenerate the icons with this script instead of
+editing them by hand.
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
-GHOST = "\N{GHOST}"
-NATIVE_SIZE = 109  # the only size Noto Color Emoji's bitmaps come in
-SIZES = (16, 32, 48, 128)
-DEFAULT_FONT = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"
-OUT = Path(__file__).resolve().parent.parent / "extension" / "icons"
+ROOT = Path(__file__).resolve().parent.parent
+LOGO = ROOT / "assets" / "logo.png"
+OUT = ROOT / "extension" / "icons"
+HEAD = (62, 28, 218, 140)  # left, top, right, bottom of the head in the 256 px logo
 
 
-def render(font_path: str) -> Image.Image:
-    font = ImageFont.truetype(font_path, NATIVE_SIZE)
-    canvas = Image.new("RGBA", (NATIVE_SIZE * 2, NATIVE_SIZE * 2), (0, 0, 0, 0))
-    origin = (NATIVE_SIZE // 2, NATIVE_SIZE // 2)
-    ImageDraw.Draw(canvas).text(origin, GHOST, font=font, embedded_color=True)
-    glyph = canvas.crop(canvas.getbbox())
-    # square, with a little air around the ghost so it does not touch the edges
-    side = int(max(glyph.size) * 1.08)
-    square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    square.paste(glyph, ((side - glyph.width) // 2, (side - glyph.height) // 2))
-    return square
+def square(image: Image.Image) -> Image.Image:
+    side = max(image.size)
+    canvas = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    canvas.paste(image, ((side - image.width) // 2, (side - image.height) // 2))
+    return canvas
 
 
 def main() -> None:
-    ghost = render(sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FONT)
-    for size in SIZES:
-        ghost.resize((size, size), Image.LANCZOS).save(OUT / f"icon{size}.png")
-        print(f"wrote icons/icon{size}.png")
+    logo = Image.open(LOGO).convert("RGBA")
+    whole = square(logo.crop(logo.getbbox()))
+    head = square(logo.crop(HEAD))
+    for size, source in ((128, whole), (48, whole), (32, head), (16, head)):
+        source.resize((size, size), Image.LANCZOS).save(OUT / f"icon{size}.png")
+        print(f"wrote extension/icons/icon{size}.png")
 
 
 if __name__ == "__main__":

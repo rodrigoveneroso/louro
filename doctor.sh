@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Says what is wrong with this ghostmeet setup, and how to fix it.
+# Says what is wrong with this Louro setup, and how to fix it.
 #
 #   ./doctor.sh        exit status 0 when everything is fine, 1 otherwise
 set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON="$DIR/../.venv/bin/python"
+PYTHON="$DIR/.venv/bin/python"
 problems=0
 
 ok() { printf '  ✓ %s\n' "$1"; }
@@ -15,7 +15,7 @@ bad() {
   problems=$((problems + 1))
 }
 
-echo "ghostmeet doctor"
+echo "Louro doctor"
 
 # --- installation ----------------------------------------------------------------------
 
@@ -25,17 +25,11 @@ else
   bad "virtualenv or dependencies missing" "./install.sh"
 fi
 
-ENV_FILE=""
-for candidate in "$DIR/.env" "$DIR/../.env"; do
-  if [ -f "$candidate" ]; then
-    ENV_FILE="$candidate"
-    break
-  fi
-done
-if [ -n "$ENV_FILE" ]; then
+ENV_FILE="$DIR/.env"
+if [ -f "$ENV_FILE" ]; then
   # read it the way run.sh does, so what is checked is what the backend gets
   set -a
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1090  # the user's own configuration
   source "$ENV_FILE" >/dev/null 2>&1
   set +a
   ok "configuration in $ENV_FILE"
@@ -43,12 +37,12 @@ else
   warn "no .env: running on defaults (./install.sh --reconfigure writes one)"
 fi
 
-MODEL="${GHOSTMEET_MODEL:-base}"
-PORT="${GHOSTMEET_PORT:-8877}"
+MODEL="${LOURO_MODEL:-base}"
+PORT="${LOURO_PORT:-8877}"
 expand() { printf '%s' "${1/#\~/$HOME}"; }
 
-if [ -z "${GHOSTMEET_LANGUAGE:-}" ]; then
-  warn "GHOSTMEET_LANGUAGE is not set: Whisper guesses the language of every meeting"
+if [ -z "${LOURO_LANGUAGE:-}" ]; then
+  warn "LOURO_LANGUAGE is not set: Whisper guesses the language of every meeting"
 fi
 
 if [ -x "$PYTHON" ] && "$PYTHON" - "$MODEL" 2>/dev/null <<'PY'; then
@@ -62,19 +56,19 @@ else
   bad "Whisper model '$MODEL' is not downloaded" "./install.sh (or it downloads on the first meeting)"
 fi
 
-if [ -n "${GHOSTMEET_EXPORT_DIR:-}" ]; then
-  export_dir=$(expand "$GHOSTMEET_EXPORT_DIR")
+if [ -n "${LOURO_EXPORT_DIR:-}" ]; then
+  export_dir=$(expand "$LOURO_EXPORT_DIR")
   if [ -d "$export_dir" ] && [ -w "$export_dir" ]; then
     ok "transcripts are exported to $export_dir"
   else
     bad "the export folder $export_dir does not exist or is not writable" "mkdir -p \"$export_dir\""
   fi
 else
-  warn "GHOSTMEET_EXPORT_DIR is not set: no markdown copy of the meetings"
+  warn "LOURO_EXPORT_DIR is not set: no markdown copy of the meetings"
 fi
 
-if [ -n "${GHOSTMEET_VOCABULARY_FILE:-}" ]; then
-  vocabulary=$(expand "$GHOSTMEET_VOCABULARY_FILE")
+if [ -n "${LOURO_VOCABULARY_FILE:-}" ]; then
+  vocabulary=$(expand "$LOURO_VOCABULARY_FILE")
   if [ -r "$vocabulary" ]; then
     terms=$(grep -cvE '^[[:space:]]*(#|$)' "$vocabulary")
     ok "vocabulary: $terms terms in $vocabulary"
@@ -85,11 +79,11 @@ fi
 
 # --- running -----------------------------------------------------------------------------
 
-if systemctl --user is-enabled ghostmeet >/dev/null 2>&1; then
-  if systemctl --user is-active ghostmeet >/dev/null 2>&1; then
+if systemctl --user is-enabled louro >/dev/null 2>&1; then
+  if systemctl --user is-active louro >/dev/null 2>&1; then
     ok "the service starts the backend at login, and it is running"
   else
-    bad "the service is installed but not running" "journalctl --user -u ghostmeet -n 50"
+    bad "the service is installed but not running" "journalctl --user -u louro -n 50"
   fi
 else
   warn "no autostart: run ./start.sh after each login (./install.sh sets up the service)"
@@ -109,7 +103,7 @@ fi
 
 version=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' "$DIR/extension/manifest.json")
 echo "  · the extension cannot be checked from here: chrome://extensions should show"
-echo "    ghostmeet $version, loaded from $DIR/extension"
+echo "    Louro $version, loaded from $DIR/extension"
 
 echo
 if [ "$problems" = 0 ]; then

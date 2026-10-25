@@ -1,4 +1,4 @@
-"""ghostmeet backend — audio capture + incremental STT."""
+"""Louro backend — audio capture + incremental STT."""
 from __future__ import annotations
 
 import asyncio
@@ -38,19 +38,19 @@ logger = logging.getLogger(__name__)
 
 RECORDINGS_DIR = default_data_dir()
 RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-DB_PATH = RECORDINGS_DIR / "ghostmeet.db"
+DB_PATH = RECORDINGS_DIR / "louro.db"
 
 # config from env
-WHISPER_MODEL = os.environ.get("GHOSTMEET_MODEL", "base")
-WHISPER_DEVICE = os.environ.get("GHOSTMEET_DEVICE", "auto")
+WHISPER_MODEL = os.environ.get("LOURO_MODEL", "base")
+WHISPER_DEVICE = os.environ.get("LOURO_DEVICE", "auto")
 # "auto" lets CTranslate2 pick the fastest type the hardware supports: int8 on a CPU,
 # twice as fast as float32 there with the same accuracy
-WHISPER_COMPUTE = os.environ.get("GHOSTMEET_COMPUTE_TYPE", "auto")
-WHISPER_LANGUAGE = os.environ.get("GHOSTMEET_LANGUAGE") or None
-CHUNK_INTERVAL = float(os.environ.get("GHOSTMEET_CHUNK_INTERVAL", "10"))
+WHISPER_COMPUTE = os.environ.get("LOURO_COMPUTE_TYPE", "auto")
+WHISPER_LANGUAGE = os.environ.get("LOURO_LANGUAGE") or None
+CHUNK_INTERVAL = float(os.environ.get("LOURO_CHUNK_INTERVAL", "10"))
 # With the live captions closed, transcribe in one batch this often instead (0: always
 # live). Keeps the machine quiet during the meeting; Stop still finishes everything.
-IDLE_INTERVAL = float(os.environ.get("GHOSTMEET_IDLE_INTERVAL", "300"))
+IDLE_INTERVAL = float(os.environ.get("LOURO_IDLE_INTERVAL", "300"))
 # how long a resumed capture waits for the dropped one to finish its final pass
 RESUME_WAIT_SEC = 120.0
 
@@ -82,7 +82,7 @@ async def lifespan(_app: FastAPI):
         if session.status in ("streaming", "transcribing"):
             session.status = "interrupted"
     logger.info("Loaded %d session(s) from %s", len(sessions), DB_PATH)
-    if os.environ.get("GHOSTMEET_PRELOAD", "1") != "0":
+    if os.environ.get("LOURO_PRELOAD", "1") != "0":
         # load Whisper now, off the event loop, so the first capture does not wait for it
         threading.Thread(target=_preload_model, name="preload", daemon=True).start()
     try:
@@ -92,7 +92,7 @@ async def lifespan(_app: FastAPI):
         store = None
 
 
-app = FastAPI(title="ghostmeet-backend", version="0.5.0", lifespan=lifespan)
+app = FastAPI(title="louro", version="0.5.0", lifespan=lifespan)
 
 # The API has no authentication, so the browser extension is the only intended caller.
 # Echoing back any Origin let any page the user visited read their meeting transcripts.
@@ -109,12 +109,12 @@ app.add_middleware(
 # CORS only governs what a web page may read over HTTP. The rest of the local-only
 # posture is enforced here, against what any page the user visits could still do:
 # - DNS rebinding: a hostile domain resolving to 127.0.0.1 is same-origin to the page,
-#   so requests must name this machine (GHOSTMEET_ALLOWED_HOSTS adds names, for a
-#   deliberate exposure with GHOSTMEET_HOST);
+#   so requests must name this machine (LOURO_ALLOWED_HOSTS adds names, for a
+#   deliberate exposure with LOURO_HOST);
 # - "simple" POSTs: a text/plain body skips the CORS preflight but was parsed as JSON
 #   anyway, so a body must be declared JSON, which makes the browser ask first;
 # - WebSockets, which CORS does not cover at all: see _refuse_websocket.
-_EXTRA_HOSTS = os.environ.get("GHOSTMEET_ALLOWED_HOSTS", "")
+_EXTRA_HOSTS = os.environ.get("LOURO_ALLOWED_HOSTS", "")
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"} | {
     host.strip().lower() for host in _EXTRA_HOSTS.split(",") if host.strip()
 }
@@ -180,7 +180,7 @@ def _make_transcribe_fn(language: str | None) -> WhisperTranscriber:
 def health():
     return {
         "ok": True,
-        "service": "ghostmeet-backend",
+        "service": "louro",
         "model": WHISPER_MODEL,
         # false until Whisper is in memory: a capture started now waits for it
         "model_ready": is_loaded(WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE),
@@ -663,9 +663,9 @@ def _resume_offset(session: Session, resume_ms: float) -> float:
 
 def default_host() -> str:
     """Loopback unless asked otherwise — the API is unauthenticated."""
-    return os.environ.get("GHOSTMEET_HOST", "127.0.0.1")
+    return os.environ.get("LOURO_HOST", "127.0.0.1")
 
 
 def run() -> None:
-    port = int(os.environ.get("GHOSTMEET_PORT", "8877"))
+    port = int(os.environ.get("LOURO_PORT", "8877"))
     uvicorn.run(app, host=default_host(), port=port)

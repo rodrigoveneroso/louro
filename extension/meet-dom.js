@@ -77,7 +77,7 @@
     }
   }
 
-  globalThis.ghostmeetMeet = {
+  globalThis.louroMeet = {
     extensionAlive,
     isInCall,
     isMicMuted,

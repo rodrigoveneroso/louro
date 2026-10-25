@@ -126,7 +126,7 @@ async function startCapture(tabId = null) {
     return { ok: false, error: t('errorCannotCapture', error.message) };
   }
 
-  // no language picker: the backend applies GHOSTMEET_LANGUAGE, set once in .env
+  // no language picker: the backend applies LOURO_LANGUAGE, set once in .env
   const language = '';
   const sessionId = newSessionId();
 
@@ -329,7 +329,7 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
 
 // Chrome only injects content scripts into pages loaded after the extension. A Meet tab
 // open when the extension is installed, reloaded or updated would otherwise have no
-// ghostmeet button and no speaker log until reloaded by hand (the previous copies of the
+// Louro button and no speaker log until reloaded by hand (the previous copies of the
 // scripts notice they are orphaned and stand down). Every start of this worker checks:
 // after a reload the scripts of the old extension are gone from its view, while a
 // worker merely woken up finds them still running and injects nothing.
@@ -340,7 +340,7 @@ async function ensureMeetScripts() {
     try {
       const [probe] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => Boolean(globalThis.ghostmeetMeet),
+        func: () => Boolean(globalThis.louroMeet),
       });
       if (!probe?.result) {
         await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: scripts.js });

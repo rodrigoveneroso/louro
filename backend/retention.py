@@ -3,7 +3,7 @@
 Opening the side panel by accident, a capture started on the wrong tab or a call left
 after a few seconds all leave a session behind. Those are dropped rather than piling up
 next to real meetings: a session is kept only if something was said in it and it lasted
-at least GHOSTMEET_MIN_DURATION_SEC (default 30 s). 0 turns this off and keeps every
+at least LOURO_MIN_DURATION_SEC (default 30 s). 0 turns this off and keeps every
 capture, silent ones included.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ DEFAULT_MIN_DURATION_SEC = 30.0
 
 
 def min_duration_sec() -> float:
-    raw = os.environ.get("GHOSTMEET_MIN_DURATION_SEC", "").strip()
+    raw = os.environ.get("LOURO_MIN_DURATION_SEC", "").strip()
     try:
         return max(0.0, float(raw)) if raw else DEFAULT_MIN_DURATION_SEC
     except ValueError:

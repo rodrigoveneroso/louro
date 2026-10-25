@@ -19,22 +19,22 @@ def isolate_storage(monkeypatch, tmp_path):
     recordings = tmp_path / "recordings"
     recordings.mkdir(exist_ok=True)
     monkeypatch.setattr(app_module, "RECORDINGS_DIR", recordings)
-    monkeypatch.setattr(app_module, "DB_PATH", recordings / "ghostmeet.db")
-    monkeypatch.setenv("GHOSTMEET_EXPORT_DIR", str(tmp_path / "export"))
+    monkeypatch.setattr(app_module, "DB_PATH", recordings / "louro.db")
+    monkeypatch.setenv("LOURO_EXPORT_DIR", str(tmp_path / "export"))
     # the stub recordings are a couple of seconds long, so keep everything; tests about
     # dropping short captures set their own minimum
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "0")
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", "0")
     # a developer's own vocabulary must not leak into the tests
-    monkeypatch.delenv("GHOSTMEET_VOCABULARY", raising=False)
-    monkeypatch.delenv("GHOSTMEET_VOCABULARY_FILE", raising=False)
-    monkeypatch.delenv("GHOSTMEET_FINAL_MODEL", raising=False)
-    monkeypatch.delenv("GHOSTMEET_ON_EXPORT", raising=False)
+    monkeypatch.delenv("LOURO_VOCABULARY", raising=False)
+    monkeypatch.delenv("LOURO_VOCABULARY_FILE", raising=False)
+    monkeypatch.delenv("LOURO_FINAL_MODEL", raising=False)
+    monkeypatch.delenv("LOURO_ON_EXPORT", raising=False)
     # Starlette's TestClient calls itself "testserver"
     monkeypatch.setattr(app_module, "ALLOWED_HOSTS", app_module.ALLOWED_HOSTS | {"testserver"})
     # captions on the live interval, watched or not, unless a test says otherwise
     monkeypatch.setattr(app_module, "IDLE_INTERVAL", 0.0)
     # tests never load a real Whisper model
-    monkeypatch.setenv("GHOSTMEET_PRELOAD", "0")
+    monkeypatch.setenv("LOURO_PRELOAD", "0")
     yield
     assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS
     assert app_module.DB_PATH != _REAL_DB

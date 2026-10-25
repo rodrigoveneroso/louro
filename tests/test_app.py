@@ -92,7 +92,7 @@ def test_health_reports_the_active_configuration(client):
 def test_the_model_is_loaded_when_the_backend_starts(monkeypatch):
     """So the first capture of the day starts at once instead of waiting for Whisper."""
     loaded = []
-    monkeypatch.setenv("GHOSTMEET_PRELOAD", "1")
+    monkeypatch.setenv("LOURO_PRELOAD", "1")
     monkeypatch.setattr(app_module, "get_model", lambda *config: loaded.append(config))
 
     with TestClient(app_module.app):
@@ -346,7 +346,7 @@ def test_a_bad_resume_value_is_a_normal_start(client, webm):
 
 
 def test_a_capture_too_short_to_be_a_meeting_is_discarded(client, webm, monkeypatch, tmp_path):
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "30")
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", "30")
     (tmp_path / "short.speakers.jsonl").write_text("{}\n")
 
     with client.websocket_connect("/ws/audio?session=short") as ws:
@@ -363,7 +363,7 @@ def test_a_capture_too_short_to_be_a_meeting_is_discarded(client, webm, monkeypa
 
 
 def test_a_silent_capture_is_discarded_whatever_its_length(client, webm, monkeypatch):
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "1")
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", "1")
     monkeypatch.setattr(app_module, "_make_transcribe_fn", lambda language=None: lambda audio: [])
 
     stream(client, webm, query="?session=quiet")
@@ -372,7 +372,7 @@ def test_a_silent_capture_is_discarded_whatever_its_length(client, webm, monkeyp
 
 
 def test_a_long_enough_capture_is_kept_and_exported(client, webm, monkeypatch, tmp_path):
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "1")
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", "1")
 
     stream(client, webm, query="?session=kept")
 
@@ -402,7 +402,7 @@ def test_meeting_info_is_validated(client, webm):
 
 def test_your_vocabulary_reaches_the_transcriber(client, webm, built, monkeypatch):
     made, _ = built
-    monkeypatch.setenv("GHOSTMEET_VOCABULARY", "ClickHouse, Metabase")
+    monkeypatch.setenv("LOURO_VOCABULARY", "ClickHouse, Metabase")
 
     stream(client, webm, query="?session=vocab")
 
@@ -413,7 +413,7 @@ def test_participants_named_by_the_meeting_page_join_the_vocabulary(
     client, webm, built, monkeypatch
 ):
     made, _ = built
-    monkeypatch.setenv("GHOSTMEET_VOCABULARY", "RPA")
+    monkeypatch.setenv("LOURO_VOCABULARY", "RPA")
 
     with client.websocket_connect("/ws/audio?session=names") as ws:
         ws.receive_json()
@@ -478,8 +478,8 @@ def _wait_for(probe, seconds=5.0):
 def test_your_command_runs_once_the_transcript_is_written(client, webm, monkeypatch, tmp_path):
     out = tmp_path / "hook.txt"
     monkeypatch.setenv(
-        "GHOSTMEET_ON_EXPORT",
-        'printf "%s|%s|%s" "$GHOSTMEET_SESSION_ID" "$GHOSTMEET_TITLE" "$GHOSTMEET_TRANSCRIPT"'
+        "LOURO_ON_EXPORT",
+        'printf "%s|%s|%s" "$LOURO_SESSION_ID" "$LOURO_TITLE" "$LOURO_TRANSCRIPT"'
         f" > {out}",
     )
 
@@ -495,8 +495,8 @@ def test_your_command_runs_once_the_transcript_is_written(client, webm, monkeypa
 
 def test_a_discarded_capture_runs_no_command(client, webm, monkeypatch, tmp_path):
     out = tmp_path / "hook.txt"
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "30")
-    monkeypatch.setenv("GHOSTMEET_ON_EXPORT", f"touch {out}")
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", "30")
+    monkeypatch.setenv("LOURO_ON_EXPORT", f"touch {out}")
 
     stream(client, webm, query="?session=junk")
     time.sleep(0.3)
@@ -517,7 +517,7 @@ def test_a_second_pass_replaces_the_live_transcript(client, webm, monkeypatch, t
         finals.append(Refined(language=language))
         return finals[-1]
 
-    monkeypatch.setenv("GHOSTMEET_FINAL_MODEL", "large-v3")
+    monkeypatch.setenv("LOURO_FINAL_MODEL", "large-v3")
     monkeypatch.setattr(app_module, "_make_final_transcribe_fn", final_transcriber)
 
     with client.websocket_connect("/ws/audio?session=better") as ws:
@@ -542,7 +542,7 @@ def test_a_failed_second_pass_keeps_the_live_transcript(client, webm, monkeypatc
         def __call__(self, audio):
             raise RuntimeError("out of memory")
 
-    monkeypatch.setenv("GHOSTMEET_FINAL_MODEL", "large-v3")
+    monkeypatch.setenv("LOURO_FINAL_MODEL", "large-v3")
     monkeypatch.setattr(app_module, "_make_final_transcribe_fn", lambda language=None: Broken())
 
     stream(client, webm, query="?session=kept-live")

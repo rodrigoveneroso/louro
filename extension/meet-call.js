@@ -3,7 +3,7 @@
 // participants; and says whether you are muted, so nothing of yours is kept meanwhile.
 (() => {
   const { extensionAlive, isInCall, isMicMuted, meetingCode, meetingTitle, participantNames } =
-    globalThis.ghostmeetMeet;
+    globalThis.louroMeet;
   const CHECK_MS = 2000;
 
   let inCall = null; // unknown until the first check

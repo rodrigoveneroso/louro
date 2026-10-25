@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "ghostmeet",
-  "version": "0.13.0",
+  "name": "Louro",
+  "version": "1.0.0",
   "description": "__MSG_extDescription__",
   "default_locale": "pt_BR",
   "permissions": [
@@ -41,6 +41,13 @@
       "description": "__MSG_commandMark__"
     }
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/icon32.png"],
+      "matches": ["https://meet.google.com/*"],
+      "use_dynamic_url": true
+    }
+  ],
   "side_panel": {
     "default_path": "sidepanel.html"
   },

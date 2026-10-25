@@ -1,4 +1,4 @@
-// What the ghostmeet button in Meet's control bar should show, from the capture's state.
+// What the Louro button in Meet's control bar should show, from the capture's state.
 // Pure, so the content script that draws it and the tests share it. A classic script
 // (content scripts are not modules), so it publishes on globalThis.
 (() => {
@@ -45,5 +45,5 @@
     return { kind: 'idle', label: '', tip: t('buttonIdle') };
   }
 
-  globalThis.ghostmeetOverlay = { buttonState, clock, DONE_VISIBLE_MS };
+  globalThis.louroOverlay = { buttonState, clock, DONE_VISIBLE_MS };
 })();

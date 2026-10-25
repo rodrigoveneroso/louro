@@ -2,7 +2,7 @@
  * Verifies, in a real browser, that capture can follow a Google Meet call: the extension
  * sees you join and leave, names the session after the meeting, hands the participants'
  * names to the transcriber, keeps nothing of yours while you are muted, stops when you
- * leave, and drops a capture too short to be a meeting; and that the ghostmeet button
+ * leave, and drops a capture too short to be a meeting; and that the Louro button
  * in Meet's control bar says, at each step, whether the call is being recorded, and
  * takes marks and notes while it is.
  *
@@ -27,9 +27,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const LEGACY = path.resolve(HERE, '..', '..');
-const EXTENSION = path.join(LEGACY, 'extension');
-const PYTHON = process.env.GHOSTMEET_PYTHON || path.resolve(LEGACY, '..', '.venv', 'bin', 'python');
+const ROOT = path.resolve(HERE, '..', '..');
+const EXTENSION = path.join(ROOT, 'extension');
+const PYTHON = process.env.LOURO_PYTHON || path.resolve(ROOT, '.venv', 'bin', 'python');
 const PORT = 8877; // the extension's background talks to the default port
 const BACKEND = `127.0.0.1:${PORT}`;
 const CDP_PORT = 9413;
@@ -86,7 +86,7 @@ async function until(probe, ms = 10000) {
   return null;
 }
 
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-data-'));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-data-'));
 let backend = null;
 let backendLog = '';
 
@@ -95,14 +95,14 @@ async function startBackend() {
     throw new Error(`port ${PORT} is busy: stop your own backend (./stop.sh) for this run`);
   }
   backend = spawn(PYTHON, ['-m', 'backend'], {
-    cwd: LEGACY,
+    cwd: ROOT,
     env: {
       ...process.env,
-      GHOSTMEET_PORT: String(PORT),
-      GHOSTMEET_DATA_DIR: dataDir,
-      GHOSTMEET_EXPORT_DIR: '',
-      GHOSTMEET_MIN_DURATION_SEC: '30',
-      GHOSTMEET_MODEL: process.env.GHOSTMEET_MODEL || 'base',
+      LOURO_PORT: String(PORT),
+      LOURO_DATA_DIR: dataDir,
+      LOURO_EXPORT_DIR: '',
+      LOURO_MIN_DURATION_SEC: '30',
+      LOURO_MODEL: process.env.LOURO_MODEL || 'base',
     },
   });
   backend.stdout.on('data', (d) => (backendLog += d));
@@ -139,7 +139,7 @@ function cdp(wsUrl) {
   };
 }
 
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'ghostmeet-verify-'));
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-verify-'));
 let context = null;
 let offscreen = null;
 
@@ -175,7 +175,7 @@ try {
     worker.evaluate(`chrome.storage.session.get('inCall').then((s) => (s.inCall || {})[${tabId}] === true)`);
   const badge = () => worker.evaluate(`chrome.action.getBadgeText({ tabId: ${tabId} })`);
 
-  const button = page.locator('ghostmeet-button .button');
+  const button = page.locator('louro-button .button');
   const buttonKind = async () => {
     if (!(await button.isVisible())) return null;
     return (await button.getAttribute('class')).replace('button', '').trim();
@@ -184,7 +184,7 @@ try {
   console.log('joining the call');
   await sleep(2500);
   check((await inCall()) === false, 'the lobby is not taken for a call');
-  check((await buttonKind()) === null, 'the lobby has no ghostmeet button');
+  check((await buttonKind()) === null, 'the lobby has no Louro button');
   await page.click('#join');
   check(Boolean(await until(inCall)), 'joining the call is noticed');
   check(
@@ -193,18 +193,18 @@ try {
   );
   check(
     (await until(async () => (await buttonKind()) === 'idle')) !== null,
-    "and Meet's control bar gets a ghost that says the call is not being recorded",
+    "and Meet's control bar gets a button that says the call is not being recorded",
   );
   const slot = await page.evaluate(() => {
-    const host = document.querySelector('ghostmeet-button');
+    const host = document.querySelector('louro-button');
     const next = host?.nextElementSibling;
     const leave = '[aria-label="Sair da chamada"]';
     return next && (next.matches(leave) || next.querySelector(leave)) ? 'leave' : null;
   });
   check(slot === 'leave', 'right before the leave button');
   await button.click();
-  const hint = await page.locator('ghostmeet-button .idle-view').textContent();
-  check(/clique no 👻/.test(hint), 'clicking it says where to click to record');
+  const hint = await page.locator('louro-button .idle-view').textContent();
+  check(/clique no 🦜/.test(hint), 'clicking it says where to click to record');
   await page.mouse.click(5, 5);
 
   console.log('\nrecording, named after the meeting');
@@ -239,19 +239,19 @@ try {
     Boolean(await until(async () => (await buttonKind()) === 'recording')),
     'the button now shows the recording',
   );
-  const elapsed = await page.locator('ghostmeet-button .label').textContent();
+  const elapsed = await page.locator('louro-button .label').textContent();
   check(/^00:\d\d$/.test(elapsed), `with its time (${elapsed})`);
 
   console.log('\nmarks and notes from the call');
   await button.click();
-  await page.locator('ghostmeet-button .mark').click();
-  const feedback = page.locator('ghostmeet-button .feedback');
+  await page.locator('louro-button .mark').click();
+  const feedback = page.locator('louro-button .feedback');
   check(
     Boolean(await until(async () => /^📌 Momento marcado em 00:\d\d$/.test(await feedback.textContent()))),
     `a moment is marked from the button (${await feedback.textContent()})`,
   );
-  await page.locator('ghostmeet-button input').fill('decidir na sexta');
-  await page.locator('ghostmeet-button input').press('Enter');
+  await page.locator('louro-button input').fill('decidir na sexta');
+  await page.locator('louro-button input').press('Enter');
   check(
     Boolean(await until(async () => /^📝 Nota salva em/.test(await feedback.textContent()))),
     'and a note taken',

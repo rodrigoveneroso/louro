@@ -170,7 +170,7 @@ function openSocket(resumeAt) {
     ws.addEventListener(
       'error',
       () => {
-        const error = new Error(`cannot reach the ghostmeet backend at ${target?.backend}`);
+        const error = new Error(`cannot reach the Louro backend at ${target?.backend}`);
         reject(Object.assign(error, { code: 'backend_unreachable' }));
       },
       { once: true },

@@ -17,7 +17,7 @@ from backend.store import SessionStore
 
 @pytest.fixture
 def store(tmp_path):
-    s = SessionStore(tmp_path / "ghostmeet.db")
+    s = SessionStore(tmp_path / "louro.db")
     yield s
     s.close()
 
@@ -114,7 +114,7 @@ def test_adding_no_segments_is_harmless(store):
 
 def test_everything_survives_reopening_the_database(tmp_path):
     """The actual point: restarting the backend must not lose a meeting."""
-    path = tmp_path / "ghostmeet.db"
+    path = tmp_path / "louro.db"
     first = SessionStore(path)
     first.save_session(make_session("s1"))
     first.add_segments("s1", [Segment(text="we decided to ship", start=0.0, end=2.0)])
@@ -149,7 +149,7 @@ def test_writes_from_several_threads_all_land(store):
 
 
 def test_reopening_an_existing_database_does_not_wipe_it(tmp_path):
-    path = tmp_path / "ghostmeet.db"
+    path = tmp_path / "louro.db"
     first = SessionStore(path)
     first.save_session(make_session("s1"))
     first.close()
@@ -165,10 +165,10 @@ def test_reopening_an_existing_database_does_not_wipe_it(tmp_path):
 def test_data_dir_can_be_moved_out_of_the_checkout(monkeypatch, tmp_path):
     from backend.store import default_data_dir
 
-    monkeypatch.setenv("GHOSTMEET_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("LOURO_DATA_DIR", str(tmp_path / "data"))
     assert default_data_dir() == tmp_path / "data"
 
-    monkeypatch.delenv("GHOSTMEET_DATA_DIR")
+    monkeypatch.delenv("LOURO_DATA_DIR")
     assert default_data_dir().name == "recordings"
 
 

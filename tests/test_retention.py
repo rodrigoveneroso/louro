@@ -12,7 +12,7 @@ SPEECH = [Segment(text="olá", start=0.0, end=1.0)]
 @pytest.fixture(autouse=True)
 def default_minimum(monkeypatch):
     # the shared test setup lowers the minimum to 0 for stub recordings
-    monkeypatch.delenv("GHOSTMEET_MIN_DURATION_SEC", raising=False)
+    monkeypatch.delenv("LOURO_MIN_DURATION_SEC", raising=False)
 
 
 def session(seconds: float) -> Session:
@@ -35,12 +35,12 @@ def test_a_long_capture_where_nobody_spoke_is_dropped():
     ("raw", "expected"), [("", 30.0), ("90", 90.0), ("0", 0.0), ("-5", 0.0), ("soon", 30.0)]
 )
 def test_the_minimum_comes_from_the_environment(monkeypatch, raw, expected):
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", raw)
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", raw)
     assert min_duration_sec() == expected
 
 
 def test_a_zero_minimum_turns_the_filter_off(monkeypatch):
-    monkeypatch.setenv("GHOSTMEET_MIN_DURATION_SEC", "0")
+    monkeypatch.setenv("LOURO_MIN_DURATION_SEC", "0")
     assert worth_keeping(session(2), SPEECH)
     assert worth_keeping(session(2), [])
 
