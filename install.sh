@@ -165,8 +165,11 @@ RestartSec=5
 WantedBy=default.target
 EOF
     systemctl --user daemon-reload
-    systemctl --user enable --now louro >/dev/null 2>&1
-    ok "the backend now starts at login (systemctl --user status louro)"
+    if systemctl --user enable --now louro >/dev/null 2>&1; then
+      ok "the backend now starts at login (systemctl --user status louro)"
+    else
+      fail "could not start the service: see systemctl --user status louro"
+    fi
   else
     ok "no systemd user session here: start the backend with ./start.sh"
   fi
