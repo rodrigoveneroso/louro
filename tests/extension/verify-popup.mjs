@@ -181,7 +181,7 @@ try {
   console.log('\nstopping');
   await sleep(3000);
   await popup.click('#stopBtn');
-  const finishing = await until(async () => (await text('#headline')) === 'Finalizando a transcrição…', 3000);
+  const finishing = await until(async () => (await text('#headline')) === 'Finalizando a transcrição…');
   check(Boolean(finishing), 'it says the transcription is being finished');
   check(!(await visible('#startBtn')) && !(await visible('#stopBtn')), 'with nothing to click meanwhile');
 
