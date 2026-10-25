@@ -1,0 +1,80 @@
+# Lint and unit suites first (no model, no network), then the real-browser checks:
+# Chromium with the extension loaded against a real backend and a real Whisper model
+# (base, cached between runs). No secrets; actions are pinned to commits.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements-dev.txt
+          npm ci
+      - name: Lint
+        run: |
+          .venv/bin/ruff check
+          .venv/bin/ruff format --check
+          shellcheck run.sh start.sh stop.sh install.sh doctor.sh
+      - name: Backend tests
+        run: .venv/bin/python -m pytest -q
+      - name: Extension tests
+        run: npm test
+
+  browser:
+    needs: unit
+    runs-on: ubuntu-latest
+    env:
+      LOURO_MODEL: base
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/huggingface
+          key: whisper-base-v1
+      - name: Install
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements.txt
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Download the Whisper model
+        run: .venv/bin/python -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='auto')"
+      - name: Real-browser checks
+        run: xvfb-run -a npm run verify
