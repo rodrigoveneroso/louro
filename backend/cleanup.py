@@ -15,12 +15,13 @@
 The stored transcript is left as it was: this only shapes the exported copy, so better
 rules can be applied again to old meetings by re-exporting them.
 """
+
 from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import replace
-from typing import List, Sequence
 
 from .incremental import Segment
 
@@ -38,9 +39,9 @@ CREDITS = re.compile(
 )
 
 
-def clean(segments: Sequence[Segment]) -> List[Segment]:
+def clean(segments: Sequence[Segment]) -> list[Segment]:
     """The segments to export, in order: credits dropped, edge repetitions trimmed."""
-    kept: List[Segment] = []
+    kept: list[Segment] = []
     for segment in segments:
         if _is_credit(segment):
             continue
@@ -56,7 +57,7 @@ def _is_credit(segment: Segment) -> bool:
     return segment.end - segment.start <= CREDIT_MAX_SEC and bool(CREDITS.search(segment.text))
 
 
-def _words(text: str) -> List[str]:
+def _words(text: str) -> list[str]:
     folded = unicodedata.normalize("NFKD", text.lower())
     folded = "".join(ch for ch in folded if not unicodedata.combining(ch))
     return re.findall(r"\w+", folded)
@@ -82,5 +83,5 @@ def _drop_words(text: str, count: int) -> str:
     matches = list(re.finditer(r"\w+", text))
     if count >= len(matches):
         return ""
-    rest = text[matches[count - 1].end():]
+    rest = text[matches[count - 1].end() :]
     return rest.lstrip(" ,.;:!?…-").strip()

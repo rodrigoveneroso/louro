@@ -3,6 +3,7 @@
 This is the component that makes 4+ hour sessions possible: audio accumulates on
 disk, and transcription only ever pulls a small tail window into RAM.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -36,9 +37,7 @@ def test_append_then_read_returns_normalized_float32(store):
     audio = store.read(0)
 
     assert audio.dtype == np.float32
-    np.testing.assert_allclose(
-        audio, [0.0, 0.5, -0.5, 32767 / 32768], rtol=0, atol=1e-6
-    )
+    np.testing.assert_allclose(audio, [0.0, 0.5, -0.5, 32767 / 32768], rtol=0, atol=1e-6)
 
 
 def test_total_samples_and_duration_track_appends(store):

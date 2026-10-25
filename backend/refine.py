@@ -6,11 +6,11 @@ recording is transcribed again with it after Stop, and its transcript replaces t
 live one; the audio is deleted only afterwards. A larger model on CPU takes a good
 fraction of the meeting's length to run, which is why this is off by default.
 """
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import List
 
 from .incremental import IncrementalTranscriber, Segment, TranscribeFn
 from .pcm_store import PcmStore
@@ -28,7 +28,7 @@ def final_beam_size() -> int:
     return int(raw) if raw.isdigit() and int(raw) > 0 else 1
 
 
-def transcribe_recording(pcm_path: Path, transcribe: TranscribeFn) -> List[Segment]:
+def transcribe_recording(pcm_path: Path, transcribe: TranscribeFn) -> list[Segment]:
     """The whole recording, window after window, as one finished transcript."""
     pcm = PcmStore(pcm_path)
     try:

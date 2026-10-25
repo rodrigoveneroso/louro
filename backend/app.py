@@ -1,4 +1,5 @@
 """The HTTP and WebSocket API: captures in, transcripts out."""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +10,6 @@ import threading
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
-from typing import Dict, List
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -42,18 +42,18 @@ _MAX_PARTICIPANTS = 100
 _MAX_NOTE = 1000
 
 # state
-sessions: Dict[str, Session] = {}
-pipelines: Dict[str, SessionPipeline] = {}
-transcript_subscribers: Dict[str, List[WebSocket]] = {}
+sessions: dict[str, Session] = {}
+pipelines: dict[str, SessionPipeline] = {}
+transcript_subscribers: dict[str, list[WebSocket]] = {}
 # set once a capture handler is completely done, so a resumed capture can wait for it
-capture_done: Dict[str, asyncio.Event] = {}
+capture_done: dict[str, asyncio.Event] = {}
 # sessions continued after a dropped connection: their transcript spans several pipelines
 resumed: set[str] = set()
 # per live session: the transcriber, your vocabulary and the participants seen so far
-vocabularies: Dict[str, dict] = {}
+vocabularies: dict[str, dict] = {}
 # per live session: the meeting page's speaker events so far, to name captions as they
 # come instead of re-reading the whole log on every pass
-live_events: Dict[str, List[dict]] = {}
+live_events: dict[str, list[dict]] = {}
 store: SessionStore | None = None
 
 
@@ -87,7 +87,7 @@ security.install(app)
 def _preload_model() -> None:
     try:
         get_model(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE)
-    except Exception:  # noqa: BLE001 - the first capture will try again and say why
+    except Exception:
         logger.exception("Could not preload the Whisper model %s", config.WHISPER_MODEL)
 
 
@@ -110,7 +110,9 @@ def health():
         "service": "louro",
         "model": config.WHISPER_MODEL,
         # false until Whisper is in memory: a capture started now waits for it
-        "model_ready": is_loaded(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE),
+        "model_ready": is_loaded(
+            config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE
+        ),
         "chunk_interval_sec": config.CHUNK_INTERVAL,
     }
 
@@ -130,7 +132,7 @@ def get_session(session_id: str):
     return sessions[session_id].to_dict()
 
 
-def _segments_for(session_id: str) -> List[Segment]:
+def _segments_for(session_id: str) -> list[Segment]:
     """Live sessions answer from the pipeline producing them, finished ones from disk."""
     if session_id in pipelines and session_id not in resumed:
         return pipelines[session_id].transcriber.transcript
@@ -198,7 +200,7 @@ async def set_meeting_info(session_id: str, request: Request):
     return {"title": session.title, "meeting_code": session.meeting_code}
 
 
-def _hint_participants(session_id: str, names: List[str]) -> None:
+def _hint_participants(session_id: str, names: list[str]) -> None:
     """Tell the live transcriber who is in the meeting, so it spells their names."""
     vocabulary = vocabularies.get(session_id)
     if vocabulary is None:
@@ -270,7 +272,7 @@ async def ws_transcript(websocket: WebSocket, session_id: str):
             subscribers.remove(websocket)
 
 
-async def _broadcast_segments(session_id: str, offset: float, segments: List[Segment]) -> None:
+async def _broadcast_segments(session_id: str, offset: float, segments: list[Segment]) -> None:
     # A resumed capture starts a new recording, timed from zero. Moving its segments to
     # the session clock keeps one timeline across reconnections (and the speaker log,
     # which uses wall time, lined up with it).
@@ -283,7 +285,8 @@ async def _broadcast_segments(session_id: str, offset: float, segments: List[Seg
     session = sessions.get(session_id)
     events = live_events.get(session_id)
     if session is not None and events:
-        for segment, speaker in zip(segments, attribute(segments, events, session.started_at)):
+        speakers = attribute(segments, events, session.started_at)
+        for segment, speaker in zip(segments, speakers, strict=True):
             segment.speaker = speaker
 
     # persist first: captions are nice to have, a lost transcript is not recoverable
@@ -468,7 +471,7 @@ async def ws_audio(websocket: WebSocket):
     )
 
 
-def _export(session: Session, segments: List[Segment]) -> Path | None:
+def _export(session: Session, segments: list[Segment]) -> Path | None:
     try:
         return export_session(
             session,
@@ -476,7 +479,7 @@ def _export(session: Session, segments: List[Segment]) -> Path | None:
             speaker_events=config.DATA_DIR / f"{session.session_id}.speakers.jsonl",
             notes=store.load_notes(session.session_id),
         )
-    except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
+    except Exception:
         logger.exception("Could not export transcript for %s", session.session_id)
         return None
 
@@ -516,7 +519,7 @@ async def _refine(session: Session, pcm_path: Path, language: str | None) -> Non
                 (dt.datetime.now() - started).total_seconds(),
                 len(segments),
             )
-    except Exception:  # noqa: BLE001 - the live transcript stays, which is fine
+    except Exception:
         logger.exception("Second pass failed for %s, keeping the live transcript", session_id)
     finally:
         pcm_path.unlink(missing_ok=True)

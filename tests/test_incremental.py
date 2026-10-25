@@ -4,6 +4,7 @@ This is the component that replaces "re-transcribe the whole accumulated file ev
 interval". The invariant that matters: the amount of audio handed to Whisper per pass
 is bounded by the window, no matter how long the meeting has been running.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -236,9 +237,7 @@ def test_segments_expose_a_speaker_slot_for_diarization(store):
 
 
 def test_transcript_and_full_text_preserve_order(store):
-    whisper = Whisper(
-        script=[[RawSeg(0.0, 1.0, "first")], [RawSeg(0.0, 1.0, "second")]]
-    )
+    whisper = Whisper(script=[[RawSeg(0.0, 1.0, "first")], [RawSeg(0.0, 1.0, "second")]])
     transcriber = IncrementalTranscriber(store, whisper, window_sec=30.0, overlap_sec=0.0)
 
     store.grow(10.0)
@@ -393,7 +392,9 @@ def test_speech_cut_by_the_window_edge_is_not_committed_twice():
     """Live passes: a sentence still being spoken at the edge waits for the next pass."""
     script = [(1.0, 6.0, "one"), (7.0, 13.0, "two"), (14.0, 18.5, "three"), (21.0, 28.0, "four")]
     store = TimelineStore()
-    transcriber = IncrementalTranscriber(store, TimelineWhisper(script), window_sec=30.0, overlap_sec=2.0)
+    transcriber = IncrementalTranscriber(
+        store, TimelineWhisper(script), window_sec=30.0, overlap_sec=2.0
+    )
 
     run_live(store, transcriber, 30.0)
 
@@ -405,7 +406,9 @@ def test_a_long_segment_spanning_the_overlap_is_not_re_emitted():
     """Backlog passes: the sentence crossing the 30 s edge appears once, whole."""
     script = [(2.0, 12.0, "a"), (14.0, 26.0, "b"), (27.0, 35.0, "c"), (37.0, 50.0, "d")]
     store = TimelineStore()
-    transcriber = IncrementalTranscriber(store, TimelineWhisper(script), window_sec=30.0, overlap_sec=2.0)
+    transcriber = IncrementalTranscriber(
+        store, TimelineWhisper(script), window_sec=30.0, overlap_sec=2.0
+    )
 
     store.grow(60.0)
     for _ in range(10):
@@ -421,7 +424,9 @@ def test_a_held_back_tail_is_committed_by_the_final_forced_pass():
     """Holding back the edge must never lose it: the session's last words still land."""
     script = [(1.0, 5.0, "x"), (6.0, 9.8, "y")]
     store = TimelineStore()
-    transcriber = IncrementalTranscriber(store, TimelineWhisper(script), window_sec=30.0, overlap_sec=2.0)
+    transcriber = IncrementalTranscriber(
+        store, TimelineWhisper(script), window_sec=30.0, overlap_sec=2.0
+    )
 
     store.grow(10.0)
     assert [s.text for s in transcriber.step()] == ["x"]  # y runs into the edge

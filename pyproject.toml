@@ -1,0 +1,23 @@
+[project]
+name = "louro"
+version = "1.0.0"
+description = "Local meeting transcription, without the bot in your call."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".*", "build", "dist", "node_modules"]
+addopts = "-p no:cacheprovider --strict-markers"
+asyncio_mode = "auto"
+filterwarnings = ["error", "default::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "BLE", "UP", "SIM", "RUF"]
+# try/except/pass, if/else and nested with read better than their one-line forms here
+ignore = ["SIM105", "SIM108", "SIM117"]

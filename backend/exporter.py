@@ -3,13 +3,14 @@ an agent without going through the API or the SQLite database.
 
     python -m backend.exporter            # (re)export every stored session
 """
+
 from __future__ import annotations
 
 import datetime as dt
 import logging
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 from .cleanup import clean
 from .incremental import Segment

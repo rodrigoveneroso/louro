@@ -7,6 +7,7 @@ element that changes most often, and each transcript segment goes to the partici
 whose meter moved the most while it was being said. When nobody clearly dominates the
 segment is left without a speaker rather than guessed.
 """
+
 from __future__ import annotations
 
 import bisect
@@ -14,8 +15,8 @@ import datetime as dt
 import json
 import re
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
 
 from .incremental import Segment
 
@@ -34,7 +35,7 @@ MIN_EVENTS = 3  # fewer meter changes than this is noise, not speech
 DOMINANCE = 1.5  # the top participant needs this many times the runner-up's activity
 
 
-def load_events(path: Path) -> List[dict]:
+def load_events(path: Path) -> list[dict]:
     if not path.exists():
         return []
     events = []
@@ -49,8 +50,8 @@ def load_events(path: Path) -> List[dict]:
     return events
 
 
-def _tile_names(events: Sequence[dict]) -> Dict[str, str]:
-    seen: Dict[str, Counter] = defaultdict(Counter)
+def _tile_names(events: Sequence[dict]) -> dict[str, str]:
+    seen: dict[str, Counter] = defaultdict(Counter)
     for event in events:
         name = str(event.get("name") or "").strip()
         if name and not _NOT_A_NAME.search(name):
@@ -58,14 +59,14 @@ def _tile_names(events: Sequence[dict]) -> Dict[str, str]:
     return {tile: names.most_common(1)[0][0] for tile, names in seen.items()}
 
 
-def _meter_element(events: Sequence[dict]) -> Optional[str]:
+def _meter_element(events: Sequence[dict]) -> str | None:
     counts = Counter(e["el"] for e in events if e["el"] not in _TAGS)
     return counts.most_common(1)[0][0] if counts else None
 
 
 def attribute(
     segments: Sequence[Segment], events: Sequence[dict], started_at: str
-) -> List[Optional[str]]:
+) -> list[str | None]:
     """One speaker name (or None) per segment, in order."""
     names = _tile_names(events)
     meter = _meter_element(events)
@@ -74,20 +75,22 @@ def attribute(
 
     origin = dt.datetime.fromisoformat(started_at).timestamp()
     activity = sorted(
-        ((e["t"] / 1000.0 - origin, names[e["tile"]]) for e in events
-         if e["el"] == meter and e["tile"] in names),
+        (
+            (e["t"] / 1000.0 - origin, names[e["tile"]])
+            for e in events
+            if e["el"] == meter and e["tile"] in names
+        ),
         key=lambda item: item[0],
     )
     times = [t for t, _ in activity]
 
-    speakers: List[Optional[str]] = []
+    speakers: list[str | None] = []
     for segment in segments:
         lo = bisect.bisect_left(times, segment.start - PAD_SEC)
         hi = bisect.bisect_right(times, segment.end + PAD_SEC)
         ranked = Counter(name for _, name in activity[lo:hi]).most_common(2)
-        if not ranked or ranked[0][1] < MIN_EVENTS:
-            speakers.append(None)
-        elif len(ranked) > 1 and ranked[0][1] < DOMINANCE * ranked[1][1]:
+        contested = len(ranked) > 1 and ranked[0][1] < DOMINANCE * ranked[1][1]
+        if not ranked or ranked[0][1] < MIN_EVENTS or contested:
             speakers.append(None)
         else:
             speakers.append(ranked[0][0])

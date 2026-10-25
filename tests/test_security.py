@@ -4,6 +4,7 @@ The backend serves meeting transcripts with no authentication, so the only thing
 keeping them private is who can reach it. Binding every interface and echoing any
 Origin put that on the network for anyone nearby.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -45,9 +46,7 @@ def test_the_extension_origin_is_allowed(client):
 
 def test_a_website_origin_is_not_allowed(client):
     """Regression: allow_origins=["*"] let any page a user visited read their meetings."""
-    response = client.get(
-        "/api/health", headers={"Origin": "https://evil.example"}
-    )
+    response = client.get("/api/health", headers={"Origin": "https://evil.example"})
 
     assert "access-control-allow-origin" not in response.headers
 
@@ -77,9 +76,7 @@ def test_preflight_from_the_extension_is_accepted(client):
 
 def test_a_local_dashboard_origin_is_allowed(client):
     """Leaves room for a local web UI without reopening the door to the internet."""
-    response = client.get(
-        "/api/health", headers={"Origin": "http://127.0.0.1:8877"}
-    )
+    response = client.get("/api/health", headers={"Origin": "http://127.0.0.1:8877"})
 
     assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:8877"
 

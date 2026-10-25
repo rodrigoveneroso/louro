@@ -4,6 +4,7 @@ Everything used to live in module-level dicts, so restarting the backend threw a
 every transcript and summary. That also broke the OpenClaw skill's whole premise of
 asking about a meeting after the fact.
 """
+
 from __future__ import annotations
 
 import threading

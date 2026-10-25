@@ -3,6 +3,7 @@
 Audio accumulates on disk so a session's memory footprint stays flat regardless of
 length — transcription only ever reads a short tail window back into RAM.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

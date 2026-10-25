@@ -5,14 +5,15 @@ through a long meeting loses at most the transcript of the newest window instead
 whole transcript: up to `window_sec` of speech held back or not yet committed, plus the
 audio that arrived since the last pass. The audio itself is already on disk (PcmStore).
 """
+
 from __future__ import annotations
 
 import logging
 import os
 import sqlite3
 import threading
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, List, Sequence
 
 from .incremental import Segment
 from .models import Note, Session
@@ -145,21 +146,16 @@ class SessionStore:
                 INSERT INTO segments (session_id, text, start_sec, end_sec, speaker, created_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                [
-                    (session_id, s.text, s.start, s.end, s.speaker, s.timestamp)
-                    for s in segments
-                ],
+                [(session_id, s.text, s.start, s.end, s.speaker, s.timestamp) for s in segments],
             )
             self._conn.commit()
 
-    def load_sessions(self) -> Dict[str, Session]:
+    def load_sessions(self) -> dict[str, Session]:
         with self._lock:
-            rows = self._conn.execute(
-                "SELECT * FROM sessions ORDER BY started_at"
-            ).fetchall()
+            rows = self._conn.execute("SELECT * FROM sessions ORDER BY started_at").fetchall()
         return {row["session_id"]: _row_to_session(row) for row in rows}
 
-    def load_segments(self, session_id: str) -> List[Segment]:
+    def load_segments(self, session_id: str) -> list[Segment]:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT * FROM segments WHERE session_id = ? ORDER BY id", (session_id,)
@@ -178,19 +174,15 @@ class SessionStore:
     def replace_segments(self, session_id: str, segments: Sequence[Segment]) -> None:
         """Swap a session's whole transcript for another, in one transaction: a reader
         sees either the old one or the new one, never a mix or nothing."""
-        with self._lock:
-            with self._conn:
-                self._conn.execute("DELETE FROM segments WHERE session_id = ?", (session_id,))
-                self._conn.executemany(
-                    """
+        with self._lock, self._conn:
+            self._conn.execute("DELETE FROM segments WHERE session_id = ?", (session_id,))
+            self._conn.executemany(
+                """
                     INSERT INTO segments (session_id, text, start_sec, end_sec, speaker, created_at)
                     VALUES (?, ?, ?, ?, ?, ?)
                     """,
-                    [
-                        (session_id, s.text, s.start, s.end, s.speaker, s.timestamp)
-                        for s in segments
-                    ],
-                )
+                [(session_id, s.text, s.start, s.end, s.speaker, s.timestamp) for s in segments],
+            )
 
     def add_note(self, session_id: str, note: Note) -> None:
         with self._lock:
@@ -200,7 +192,7 @@ class SessionStore:
             )
             self._conn.commit()
 
-    def load_notes(self, session_id: str) -> List[Note]:
+    def load_notes(self, session_id: str) -> list[Note]:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT at_sec, text FROM notes WHERE session_id = ? ORDER BY at_sec, id",

@@ -6,10 +6,11 @@ next to real meetings: a session is kept only if something was said in it and it
 at least LOURO_MIN_DURATION_SEC (default 30 s). 0 turns this off and keeps every
 capture, silent ones included.
 """
+
 from __future__ import annotations
 
 import os
-from typing import Sequence
+from collections.abc import Sequence
 
 from .incremental import Segment
 from .models import Session

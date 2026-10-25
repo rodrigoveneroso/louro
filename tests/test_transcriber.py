@@ -6,6 +6,7 @@ Two things matter here:
   2. Language is a per-call argument, so one shared model can serve sessions in
      different languages — which is what makes a per-session language picker possible.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace

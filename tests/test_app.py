@@ -3,6 +3,7 @@
 Uses a stub transcribe function so the suite never downloads a Whisper model, but the
 audio path is real — actual opus bytes through the actual decoder.
 """
+
 from __future__ import annotations
 
 import time
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from backend import app as app_module
 from backend import config
+
 from .test_decoder import make_webm_opus
 
 
@@ -51,7 +53,7 @@ def built():
 
 @pytest.fixture
 def client(monkeypatch, tmp_path, built):
-    made, factory = built
+    _made, factory = built
     monkeypatch.setattr(app_module, "_make_transcribe_fn", factory)
     monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     monkeypatch.setattr(app_module, "sessions", {})
@@ -273,9 +275,7 @@ def test_sessions_go_through_the_shared_model_cache(monkeypatch):
 def test_transcribe_factory_applies_the_requested_language(monkeypatch):
     from backend import transcriber as transcriber_module
 
-    monkeypatch.setattr(
-        transcriber_module, "_load_whisper", lambda *a, **k: object()
-    )
+    monkeypatch.setattr(transcriber_module, "_load_whisper", lambda *a, **k: object())
     transcriber_module.reset_model_cache()
     try:
         assert app_module._make_transcribe_fn("ko").language == "ko"
@@ -480,8 +480,7 @@ def test_your_command_runs_once_the_transcript_is_written(client, webm, monkeypa
     out = tmp_path / "hook.txt"
     monkeypatch.setenv(
         "LOURO_ON_EXPORT",
-        'printf "%s|%s|%s" "$LOURO_SESSION_ID" "$LOURO_TITLE" "$LOURO_TRANSCRIPT"'
-        f" > {out}",
+        f'printf "%s|%s|%s" "$LOURO_SESSION_ID" "$LOURO_TITLE" "$LOURO_TRANSCRIPT" > {out}',
     )
 
     stream(client, webm, query="?session=hooked")
@@ -576,8 +575,14 @@ def test_live_captions_say_who_is_speaking(client, webm, monkeypatch):
             started_at = client.get("/api/sessions/named-live").json()["started_at"]
             # the meter of Ana's tile moves through the first seconds of the session
             events = [
-                {"t": _epoch_ms(started_at, i / 10), "tile": "tile-a", "name": "Ana Souza",
-                 "el": "MeterX", "from": "l1", "to": "l2"}
+                {
+                    "t": _epoch_ms(started_at, i / 10),
+                    "tile": "tile-a",
+                    "name": "Ana Souza",
+                    "el": "MeterX",
+                    "from": "l1",
+                    "to": "l2",
+                }
                 for i in range(30)
             ]
             client.post("/api/sessions/named-live/speaker-events", json={"events": events})

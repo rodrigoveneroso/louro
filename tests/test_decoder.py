@@ -6,6 +6,7 @@ ONE demuxer open over the whole growing stream and emits PCM as it goes. That is
 keeps cost linear: without it, every transcription pass would re-decode the session
 from byte zero, which is unusable for the 4+ hour meetings users asked for.
 """
+
 from __future__ import annotations
 
 import io

@@ -12,6 +12,7 @@ activity filter, no carried-over context) and reports the model's load time, how
 recording took to transcribe (RTF: seconds of work per second of audio, lower is faster)
 and the word error rate against the reference.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -67,11 +68,14 @@ def main() -> None:
     from faster_whisper import WhisperModel
 
     audio = load_audio(args.audio)
-    reference = open(args.reference, encoding="utf-8").read()
+    with open(args.reference, encoding="utf-8") as f:
+        reference = f.read()
     seconds = len(audio) / RATE
     windows = [audio[i : i + WINDOW_SEC * RATE] for i in range(0, len(audio), WINDOW_SEC * RATE)]
     print(f"{seconds:.0f} s of audio, {len(words(reference))} words\n")
-    header = f"{'model':8} {'compute':8} {'beam':>4} {'vocab':>5} | {'load':>6} {'work':>7} {'RTF':>5}"
+    header = (
+        f"{'model':8} {'compute':8} {'beam':>4} {'vocab':>5} | {'load':>6} {'work':>7} {'RTF':>5}"
+    )
     print(f"{header} | WER")
 
     for size in args.models.split(","):

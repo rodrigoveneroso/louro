@@ -1,4 +1,5 @@
 """Tidying the exported transcript. Every line here is made up."""
+
 from __future__ import annotations
 
 from backend.cleanup import clean
@@ -36,7 +37,9 @@ def test_a_single_repeated_word_is_left_alone():
 
 def test_a_reply_that_echoes_the_previous_words_is_kept():
     """A question, then its answer, back to back: no time overlap, so no edge."""
-    assert texts(Segment("Pode ser amanhã?", 38, 40.3), Segment("Pode ser amanhã, sim.", 40, 42)) == [
+    question = Segment("Pode ser amanhã?", 38, 40.3)
+    answer = Segment("Pode ser amanhã, sim.", 40, 42)
+    assert texts(question, answer) == [
         "Pode ser amanhã?",
         "Pode ser amanhã, sim.",
     ]

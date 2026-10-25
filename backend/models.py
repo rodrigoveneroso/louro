@@ -1,9 +1,10 @@
 """Session and transcript data models."""
+
 from __future__ import annotations
 
 import datetime as dt
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 
 @dataclass
@@ -24,7 +25,7 @@ class Session:
     title: str | None = None  # the meeting's name, when the meeting page shows one
     meeting_code: str | None = None  # e.g. the Google Meet code in the URL
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "session_id": self.session_id,
             "chunks": self.chunks,

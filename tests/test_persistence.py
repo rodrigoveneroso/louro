@@ -4,6 +4,7 @@ Entering the TestClient context runs the app's startup, so leaving and re-enteri
 is a genuine restart: in-memory state is dropped and everything has to come back from
 disk. Without this the OpenClaw skill cannot answer "summarise my last meeting".
 """
+
 from __future__ import annotations
 
 import time
@@ -14,6 +15,7 @@ from fastapi.testclient import TestClient
 
 from backend import app as app_module
 from backend import config
+
 from .test_decoder import make_webm_opus
 
 

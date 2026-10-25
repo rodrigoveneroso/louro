@@ -10,6 +10,7 @@ read over HTTP, so the rest is enforced here:
 - WebSockets, which CORS does not cover at all: see refuse_websocket;
 - session ids become file names, so they are checked before they reach the disk.
 """
+
 from __future__ import annotations
 
 import re

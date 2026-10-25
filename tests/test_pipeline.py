@@ -4,6 +4,7 @@ The old design ran transcription inline in the WebSocket receive loop, so audio 
 piled up unread for as long as a pass took. Here the socket only ever hands bytes to the
 decoder, and transcription runs off the event loop on its own schedule.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +13,6 @@ import time
 from dataclasses import dataclass
 
 import numpy as np
-import pytest
 
 from backend.incremental import IncrementalTranscriber
 from backend.pipeline import SessionPipeline
@@ -203,9 +203,7 @@ async def test_stop_transcribes_audio_that_arrived_after_the_last_pass():
 async def test_stop_drains_a_backlog_larger_than_one_window():
     """If transcription fell behind, stopping must still process everything captured."""
     whisper = Whisper()
-    pipeline, _, _ = build(
-        whisper, interval=100.0, seconds_per_chunk=30.0, window_sec=30.0
-    )
+    pipeline, _, _ = build(whisper, interval=100.0, seconds_per_chunk=30.0, window_sec=30.0)
     await pipeline.start()
 
     for _ in range(5):  # 150s of audio, no pass yet
@@ -269,9 +267,7 @@ async def test_stop_commits_speech_running_into_the_end_without_spinning():
     """Hold-back meets hangup: the held tail is committed by one drain pass, not lost
     and not re-read up to the pass limit."""
     whisper = StillTalking()
-    pipeline, _, collector = build(
-        whisper, interval=100.0, seconds_per_chunk=5.0, holdback_sec=1.0
-    )
+    pipeline, _, collector = build(whisper, interval=100.0, seconds_per_chunk=5.0, holdback_sec=1.0)
     await pipeline.start()
 
     pipeline.feed(b"chunk")

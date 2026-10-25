@@ -3,11 +3,11 @@
 Keeps every test off the real recordings directory. Those files are actual meeting
 audio and transcripts; a test run must never read, write, or delete anything there.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from backend import app as app_module
 from backend import config, security
 
 _REAL_RECORDINGS = config.DATA_DIR

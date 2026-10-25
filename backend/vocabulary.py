@@ -10,12 +10,13 @@ Two sources, combined per session:
 They reach faster-whisper as `hotwords`, a hint rather than a constraint: a term that
 is not said is not forced into the transcript.
 """
+
 from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, List
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ MAX_CHARS = 600
 MAX_TERM = 80
 
 
-def configured_terms() -> List[str]:
+def configured_terms() -> list[str]:
     terms = _split(os.environ.get("LOURO_VOCABULARY", ""), ",")
     path = os.environ.get("LOURO_VOCABULARY_FILE", "").strip()
     if path:
@@ -37,7 +38,7 @@ def configured_terms() -> List[str]:
     return clean(terms)
 
 
-def clean(terms: Iterable[object]) -> List[str]:
+def clean(terms: Iterable[object]) -> list[str]:
     """Trimmed, de-duplicated (case-insensitively), short strings, in their order."""
     seen, kept = set(), []
     for term in terms:
@@ -62,5 +63,5 @@ def hotwords(*sources: Iterable[str]) -> str | None:
     return text or None
 
 
-def _split(raw: str, separator: str) -> List[str]:
+def _split(raw: str, separator: str) -> list[str]:
     return [part for chunk in raw.splitlines() for part in chunk.split(separator)]

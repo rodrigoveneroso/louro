@@ -11,12 +11,14 @@ so nothing is re-read and nothing can be emitted twice. Only when the cursor had
 cut blindly (silence, or speech filling a whole window) does the next pass rewind by
 `overlap_sec` to catch words straddling the cut.
 """
+
 from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Callable, List, Protocol, Sequence
+from typing import Protocol
 
 import numpy as np
 
@@ -81,7 +83,7 @@ class IncrementalTranscriber:
         self._cursor = 0  # samples consumed
         self._blind_cut = False  # cursor sits at a window edge, not at the end of speech
         self._emitted_until = 0.0  # absolute seconds covered by emitted segments
-        self.transcript: List[Segment] = []
+        self.transcript: list[Segment] = []
 
     @property
     def window_samples(self) -> int:
@@ -93,7 +95,7 @@ class IncrementalTranscriber:
         """Audio that has arrived but not been consumed yet."""
         return max(0, self._source.total_samples - self._cursor)
 
-    def step(self, force: bool = False) -> List[Segment]:
+    def step(self, force: bool = False) -> list[Segment]:
         """Transcribe the oldest audio not yet consumed.
 
         Set `force` once no more audio is coming: the threshold is skipped and speech
@@ -117,7 +119,7 @@ class IncrementalTranscriber:
         offset = start / SAMPLE_RATE
         try:
             raw = list(self._transcribe(audio))
-        except Exception as exc:  # noqa: BLE001 - one bad pass must not end the meeting
+        except Exception as exc:
             logger.error("Transcription pass failed at %.1fs: %s", offset, exc, exc_info=True)
             self._cursor, self._blind_cut = end, True
             return []
@@ -146,7 +148,7 @@ class IncrementalTranscriber:
         # window starts at the same cursor and is still capped at window_sec.
         return new
 
-    def _committable(self, spoken: List[tuple], window_end: float, final: bool) -> List[tuple]:
+    def _committable(self, spoken: list[tuple], window_end: float, final: bool) -> list[tuple]:
         """Segments safe to commit: all of them on the final pass, otherwise those ending
         before the hold-back margin. Order is kept, so the first one held holds the rest."""
         if final:
@@ -159,9 +161,9 @@ class IncrementalTranscriber:
             ready.append(seg)
         return ready
 
-    def _accept(self, spoken: Sequence[tuple]) -> List[Segment]:
+    def _accept(self, spoken: Sequence[tuple]) -> list[Segment]:
         """Keep segments whose midpoint falls after everything already emitted."""
-        new: List[Segment] = []
+        new: list[Segment] = []
         for start, end, text in spoken:
             if (start + end) / 2 <= self._emitted_until:
                 continue
@@ -174,5 +176,5 @@ class IncrementalTranscriber:
     def full_text(self) -> str:
         return " ".join(s.text for s in self.transcript)
 
-    def snapshot(self) -> List[dict]:
+    def snapshot(self) -> list[dict]:
         return [s.to_dict() for s in self.transcript]

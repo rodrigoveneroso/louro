@@ -4,11 +4,13 @@ The model is expensive to load and safe to share, so it is cached per configurat
 the life of the process. Language, by contrast, is a per-call argument — so a single
 shared model can serve concurrent sessions transcribing different languages.
 """
+
 from __future__ import annotations
 
 import logging
 import threading
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 ModelFactory = Callable[..., Any]
 
-_models: Dict[Tuple[str, str, str], Any] = {}
+_models: dict[tuple[str, str, str], Any] = {}
 _lock = threading.Lock()
 
 
@@ -35,7 +37,7 @@ def get_model(
     model_size: str = "base",
     device: str = "auto",
     compute_type: str = "auto",
-    factory: Optional[ModelFactory] = None,
+    factory: ModelFactory | None = None,
 ):
     """Return the shared model for this configuration, loading it at most once."""
     key = (model_size, device, compute_type)
@@ -75,8 +77,8 @@ class WhisperTranscriber:
         # as participants join
         self.hotwords = hotwords
 
-    def __call__(self, audio: np.ndarray) -> List[Any]:
-        segments, info = self._model.transcribe(
+    def __call__(self, audio: np.ndarray) -> list[Any]:
+        segments, _info = self._model.transcribe(
             audio,
             language=self.language,
             hotwords=self.hotwords or None,

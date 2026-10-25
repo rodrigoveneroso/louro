@@ -9,12 +9,14 @@ watching, audio only piles up on disk (cheap) and is transcribed in one batch ev
 `idle_interval_sec`, so the machine stays quiet during the meeting; a viewer arriving
 calls `nudge()`, and the backlog is caught up at once and kept live from then on.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
 from concurrent.futures import ThreadPoolExecutor
-from typing import Awaitable, Callable, List, Optional, Protocol
+from typing import Protocol
 
 from .incremental import IncrementalTranscriber, Segment
 
@@ -32,7 +34,7 @@ class Decoder(Protocol):
     def close(self, timeout: float = ...) -> None: ...
 
 
-OnSegments = Callable[[List[Segment]], Awaitable[None]]
+OnSegments = Callable[[list[Segment]], Awaitable[None]]
 
 
 class SessionPipeline:
@@ -44,8 +46,8 @@ class SessionPipeline:
         transcriber: IncrementalTranscriber,
         on_segments: OnSegments,
         interval_sec: float = 10.0,
-        idle_interval_sec: Optional[float] = None,
-        watched: Optional[Callable[[], bool]] = None,
+        idle_interval_sec: float | None = None,
+        watched: Callable[[], bool] | None = None,
     ):
         self.decoder = decoder
         self.transcriber = transcriber
@@ -142,10 +144,8 @@ class SessionPipeline:
     async def _pass(self, force: bool = False) -> None:
         loop = asyncio.get_running_loop()
         try:
-            segments = await loop.run_in_executor(
-                self._executor, self.transcriber.step, force
-            )
-        except Exception as exc:  # noqa: BLE001 - a bad pass must not end the session
+            segments = await loop.run_in_executor(self._executor, self.transcriber.step, force)
+        except Exception as exc:
             logger.error("Transcription pass failed: %s", exc, exc_info=True)
             return
 

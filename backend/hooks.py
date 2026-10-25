@@ -17,6 +17,7 @@ For example, have your AI agent write the summary:
 
 Its output goes to on-export.log in the data folder.
 """
+
 from __future__ import annotations
 
 import logging
@@ -53,7 +54,7 @@ def run_on_export(
         log.flush()
         try:
             # the user's own command, from their own configuration: a shell is expected
-            process = subprocess.Popen(  # noqa: S602
+            process = subprocess.Popen(
                 command,
                 shell=True,
                 env=env,

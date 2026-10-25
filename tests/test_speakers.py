@@ -1,4 +1,5 @@
 """Speaker attribution from the Google Meet UI log. All names here are made up."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -18,8 +19,14 @@ TILES = {"tile-a": "Ana Souza", "tile-b": "Bruno Lima"}
 def meter(tile: str, at_sec: float, count: int, el: str = "MeterX") -> list[dict]:
     """`count` level changes on a tile's meter, a tenth of a second apart."""
     return [
-        {"t": ORIGIN_MS + (at_sec + i / 10) * 1000, "tile": tile, "name": TILES[tile],
-         "el": el, "from": "l1", "to": "l2"}
+        {
+            "t": ORIGIN_MS + (at_sec + i / 10) * 1000,
+            "tile": tile,
+            "name": TILES[tile],
+            "el": el,
+            "from": "l1",
+            "to": "l2",
+        }
         for i in range(count)
     ]
 
@@ -96,8 +103,13 @@ def test_export_without_a_log_keeps_plain_lines(tmp_path):
 
 
 def test_export_puts_the_meeting_name_in_the_title(tmp_path):
-    session = Session(session_id="s", started_at=STARTED, duration_sec=10,
-                      title="Weekly sync", meeting_code="abc-defg-hij")
+    session = Session(
+        session_id="s",
+        started_at=STARTED,
+        duration_sec=10,
+        title="Weekly sync",
+        meeting_code="abc-defg-hij",
+    )
 
     text = export_session(session, [Segment("olá", 1.0, 2.0)], target=tmp_path).read_text()
 

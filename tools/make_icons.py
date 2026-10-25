@@ -7,6 +7,7 @@ button, only its head with the headphones, which stays recognisable where the wh
 bird would be a smudge. Needs Pillow; regenerate the icons with this script instead of
 editing them by hand.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

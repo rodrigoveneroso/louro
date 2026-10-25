@@ -6,6 +6,7 @@ growing file on every transcription pass (cost grows with session length), we ke
 single demuxer open over the stream for the life of the session and push PCM out as
 frames arrive. Cost stays linear, which is what long meetings require.
 """
+
 from __future__ import annotations
 
 import io
@@ -37,7 +38,7 @@ class _QueueReader(io.RawIOBase):
     def readable(self) -> bool:
         return True
 
-    def readinto(self, target) -> int:  # noqa: ANN001 - buffer protocol
+    def readinto(self, target) -> int:
         while not self._buf:
             if self._eof:
                 return 0
@@ -62,9 +63,7 @@ class StreamingWebmDecoder:
         self._queue: queue.Queue = queue.Queue()
         self._closing = threading.Event()
         self.error: BaseException | None = None
-        self._thread = threading.Thread(
-            target=self._run, name="louro-decoder", daemon=True
-        )
+        self._thread = threading.Thread(target=self._run, name="louro-decoder", daemon=True)
         self._thread.start()
 
     def feed(self, chunk: bytes) -> None:
@@ -90,13 +89,11 @@ class StreamingWebmDecoder:
         try:
             reader = _QueueReader(self._queue)
             with av.open(reader, format="webm", buffer_size=_PROBE_BUFFER_BYTES) as container:
-                resampler = av.AudioResampler(
-                    format="s16", layout="mono", rate=self._sample_rate
-                )
+                resampler = av.AudioResampler(format="s16", layout="mono", rate=self._sample_rate)
                 for frame in container.decode(audio=0):
                     self._emit(resampler.resample(frame))
                 self._emit(resampler.resample(None))  # flush
-        except BaseException as exc:  # noqa: BLE001 - recorded, not swallowed
+        except BaseException as exc:
             self.error = exc
             logger.error("Audio decoding stopped: %s", exc, exc_info=True)
 

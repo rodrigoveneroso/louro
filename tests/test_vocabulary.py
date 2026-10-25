@@ -1,4 +1,5 @@
 """Terms Whisper should expect. Names here are made up."""
+
 from __future__ import annotations
 
 from backend.vocabulary import MAX_CHARS, clean, configured_terms, hotwords
