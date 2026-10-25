@@ -2,9 +2,8 @@
 // (it is foreground only) and has no MediaRecorder, so it hands a stream id to an
 // offscreen document and lets that do the recording.
 import { t } from './i18n.js';
-import { newSessionId } from './shared.js';
+import { BACKEND, newSessionId } from './shared.js';
 
-const BACKEND = '127.0.0.1:8877';
 const OFFSCREEN_URL = 'offscreen.html';
 
 // A Manifest V3 service worker is shut down when idle, so in-memory state does not survive

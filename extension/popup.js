@@ -1,8 +1,7 @@
 // The toolbar popup: shows what the capture is doing and offers the one action that fits.
 import { t, translatePage } from './i18n.js';
-import { formatClock } from './shared.js';
+import { BACKEND, formatClock } from './shared.js';
 
-const BACKEND = '127.0.0.1:8877';
 const TICK_MS = 1000;
 const SEGMENTS_EVERY_MS = 3000;
 

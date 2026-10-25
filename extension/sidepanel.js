@@ -1,7 +1,6 @@
+// The side panel: live captions of the capture in progress, named by speaker.
 import { t, translatePage } from './i18n.js';
-import { formatClock } from './shared.js';
-
-const BACKEND_URL = '127.0.0.1:8877';
+import { BACKEND, formatClock } from './shared.js';
 
 let ws = null;
 let segmentCount = 0;
@@ -96,7 +95,7 @@ function stopDurationTimer() {
 async function loadHistory(sessionId) {
   // Opening the panel mid-meeting used to show nothing until the next segment arrived.
   try {
-    const resp = await fetch(`http://${BACKEND_URL}/api/sessions/${sessionId}/transcript`);
+    const resp = await fetch(`http://${BACKEND}/api/sessions/${sessionId}/transcript`);
     if (!resp.ok) return;
     const data = await resp.json();
     for (const seg of data.segments || []) addSegment(seg, { highlight: false });
@@ -118,7 +117,7 @@ async function connectTranscript(sessionId, { keep = false } = {}) {
     await loadHistory(sessionId);
   }
 
-  ws = new WebSocket(`ws://${BACKEND_URL}/ws/transcript/${sessionId}`);
+  ws = new WebSocket(`ws://${BACKEND}/ws/transcript/${sessionId}`);
 
   ws.onopen = () => {
     setStatus('connected', `${t('panelLive')} — ${sessionId}`);

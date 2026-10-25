@@ -1,6 +1,9 @@
 // Pure helpers shared by the popup, side panel and offscreen document.
 // No chrome.* access in here, so it can be unit tested outside the browser.
 
+/** The local backend. host_permissions in the manifest name the same address. */
+export const BACKEND = '127.0.0.1:8877';
+
 export function audioSocketUrl(backend, sessionId, language, resumeAt = null) {
   const session = `session=${encodeURIComponent(sessionId)}`;
   const lang = language ? `&lang=${encodeURIComponent(language)}` : '';
