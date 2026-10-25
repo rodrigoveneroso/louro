@@ -1,0 +1,15 @@
+{
+  "name": "louro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local meeting transcription, without the bot in your call.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/extension/*.test.mjs",
+    "verify": "for f in tests/extension/verify-*.mjs; do echo \"== $f\"; node \"$f\" || exit 1; done"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1",
+    "ws": "8.22.0"
+  }
+}

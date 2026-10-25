@@ -3,52 +3,28 @@
  * reloaded or updated: the content scripts left behind used to throw "Extension context
  * invalidated" every second or two, and the tab had no working ones until reloaded.
  *
- *   1. npm install playwright ws && npx playwright install chromium
+ *   1. npm install && npx playwright install chromium
  *   2. node tests/extension/verify-extension-reload.mjs
  *
  * meet.google.com is a stand-in page that is in a call. No backend is needed. The
  * reload is the one a user does, the button on chrome://extensions: in this automated
  * Chromium, chrome.runtime.reload() unloads the extension instead.
  */
-import { chromium } from 'playwright';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { check, launch, sleep, verify } from './harness.mjs';
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const EXTENSION = path.resolve(HERE, '..', '..', 'extension');
 const IN_A_CALL = `<!doctype html><html><head><title>Meet - abc-defg-hij</title></head><body>
   <button aria-label="Sair da chamada">leave</button>
   <div data-participant-id="spaces/x/devices/1"><span>Ana Souza</span></div>
 </body></html>`;
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const failures = [];
-function check(ok, label) {
-  console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${label}`);
-  if (!ok) failures.push(label);
-}
+let browser = null;
 
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'louro-verify-'));
-let context = null;
-
-try {
-  context = await chromium.launchPersistentContext(profile, {
-    channel: 'chromium',
-    headless: false,
-    args: [
-      `--disable-extensions-except=${EXTENSION}`,
-      `--load-extension=${EXTENSION}`,
-      '--window-position=-2400,-2400',
-    ],
-  });
+await verify(async () => {
+  browser = await launch();
+  const { context, extensionId } = browser;
   await context.route('https://meet.google.com/**', (route) =>
     route.fulfill({ status: 200, contentType: 'text/html', body: IN_A_CALL }),
   );
-  let [worker] = context.serviceWorkers();
-  if (!worker) worker = await context.waitForEvent('serviceworker', { timeout: 20000 });
-  const extensionId = worker.url().split('/')[2];
 
   const page = await context.newPage();
   // content scripts run in an isolated world, so their errors only show up over CDP
@@ -93,12 +69,6 @@ try {
   await sleep(1500);
   const kind = await pill.getAttribute('class');
   check(/recording/.test(kind), `following the reloaded extension (${kind})`);
-} catch (error) {
-  console.error('ERROR:', error.message);
-  failures.push(error.message);
-} finally {
-  if (context) await context.close();
-  fs.rmSync(profile, { recursive: true, force: true });
-  console.log(`\n${failures.length ? `FAIL (${failures.length})` : 'PASS'}`);
-  process.exit(failures.length ? 1 : 0);
-}
+}, async () => {
+  await browser?.close();
+});
