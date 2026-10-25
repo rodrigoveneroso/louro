@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import app as app_module
+from backend import config
 from .test_decoder import make_webm_opus
 
 
@@ -34,8 +35,8 @@ def stub_factory(language=None):
 def wired(monkeypatch, tmp_path):
     """Point the app at a temp recordings dir and database."""
     monkeypatch.setattr(app_module, "_make_transcribe_fn", stub_factory)
-    monkeypatch.setattr(app_module, "RECORDINGS_DIR", tmp_path)
-    monkeypatch.setattr(app_module, "DB_PATH", tmp_path / "louro.db")
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "louro.db")
     return tmp_path
 
 
@@ -123,7 +124,7 @@ def test_notes_survive_a_restart(wired, webm):
 
 def test_segments_are_written_during_the_meeting_not_only_at_the_end(wired, webm, monkeypatch):
     """A crash four hours in should not cost the whole transcript."""
-    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
 
     with TestClient(app_module.app) as client:
         with client.websocket_connect("/ws/audio?session=live") as ws:
@@ -146,7 +147,7 @@ def test_unknown_session_is_still_a_404_after_a_restart(wired):
 
 def test_a_live_session_is_served_from_memory_not_the_database(wired, webm, monkeypatch):
     """While a meeting runs, captions come from the pipeline that is producing them."""
-    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
 
     with TestClient(app_module.app) as client:
         with client.websocket_connect("/ws/audio?session=live") as ws:

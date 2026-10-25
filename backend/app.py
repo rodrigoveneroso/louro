@@ -1,12 +1,10 @@
-"""Louro backend — audio capture + incremental STT."""
+"""The HTTP and WebSocket API: captures in, transcripts out."""
 from __future__ import annotations
 
 import asyncio
 import datetime as dt
 import json
 import logging
-import os
-import re
 import threading
 from contextlib import asynccontextmanager
 from functools import partial
@@ -15,9 +13,8 @@ from typing import Dict, List
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 
+from . import config, security
 from .decoder import StreamingWebmDecoder
 from .exporter import export_session, remove_export
 from .hooks import run_on_export
@@ -28,7 +25,7 @@ from .pipeline import SessionPipeline
 from .refine import final_beam_size, final_model, transcribe_recording
 from .retention import should_discard, worth_keeping
 from .speakers import attribute, load_events
-from .store import SessionStore, default_data_dir
+from .store import SessionStore
 from .transcriber import WhisperTranscriber, get_model, is_loaded
 from .vocabulary import clean as clean_terms
 from .vocabulary import configured_terms, hotwords
@@ -36,23 +33,13 @@ from .vocabulary import configured_terms, hotwords
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-RECORDINGS_DIR = default_data_dir()
-RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-DB_PATH = RECORDINGS_DIR / "louro.db"
-
-# config from env
-WHISPER_MODEL = os.environ.get("LOURO_MODEL", "base")
-WHISPER_DEVICE = os.environ.get("LOURO_DEVICE", "auto")
-# "auto" lets CTranslate2 pick the fastest type the hardware supports: int8 on a CPU,
-# twice as fast as float32 there with the same accuracy
-WHISPER_COMPUTE = os.environ.get("LOURO_COMPUTE_TYPE", "auto")
-WHISPER_LANGUAGE = os.environ.get("LOURO_LANGUAGE") or None
-CHUNK_INTERVAL = float(os.environ.get("LOURO_CHUNK_INTERVAL", "10"))
-# With the live captions closed, transcribe in one batch this often instead (0: always
-# live). Keeps the machine quiet during the meeting; Stop still finishes everything.
-IDLE_INTERVAL = float(os.environ.get("LOURO_IDLE_INTERVAL", "300"))
 # how long a resumed capture waits for the dropped one to finish its final pass
 RESUME_WAIT_SEC = 120.0
+# what one request may carry
+_MAX_SPEAKER_EVENTS = 500
+_MAX_MEETING_FIELD = 200
+_MAX_PARTICIPANTS = 100
+_MAX_NOTE = 1000
 
 # state
 sessions: Dict[str, Session] = {}
@@ -73,7 +60,8 @@ store: SessionStore | None = None
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     global store
-    store = SessionStore(DB_PATH)
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    store = SessionStore(config.DB_PATH)
     pipelines.clear()
     sessions.clear()
     sessions.update(store.load_sessions())
@@ -81,9 +69,9 @@ async def lifespan(_app: FastAPI):
     for session in sessions.values():
         if session.status in ("streaming", "transcribing"):
             session.status = "interrupted"
-    logger.info("Loaded %d session(s) from %s", len(sessions), DB_PATH)
-    if os.environ.get("LOURO_PRELOAD", "1") != "0":
-        # load Whisper now, off the event loop, so the first capture does not wait for it
+    logger.info("Loaded %d session(s) from %s", len(sessions), config.DB_PATH)
+    if config.PRELOAD:
+        # off the event loop: the API answers while Whisper loads
         threading.Thread(target=_preload_model, name="preload", daemon=True).start()
     try:
         yield
@@ -92,87 +80,26 @@ async def lifespan(_app: FastAPI):
         store = None
 
 
-app = FastAPI(title="louro", version="0.5.0", lifespan=lifespan)
-
-# The API has no authentication, so the browser extension is the only intended caller.
-# Echoing back any Origin let any page the user visited read their meeting transcripts.
-ALLOWED_ORIGINS = re.compile(
-    r"^(chrome-extension://[a-z]+|moz-extension://[0-9a-f-]+|http://(127\.0\.0\.1|localhost)(:\d+)?)$"
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=ALLOWED_ORIGINS.pattern,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# CORS only governs what a web page may read over HTTP. The rest of the local-only
-# posture is enforced here, against what any page the user visits could still do:
-# - DNS rebinding: a hostile domain resolving to 127.0.0.1 is same-origin to the page,
-#   so requests must name this machine (LOURO_ALLOWED_HOSTS adds names, for a
-#   deliberate exposure with LOURO_HOST);
-# - "simple" POSTs: a text/plain body skips the CORS preflight but was parsed as JSON
-#   anyway, so a body must be declared JSON, which makes the browser ask first;
-# - WebSockets, which CORS does not cover at all: see _refuse_websocket.
-_EXTRA_HOSTS = os.environ.get("LOURO_ALLOWED_HOSTS", "")
-ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"} | {
-    host.strip().lower() for host in _EXTRA_HOSTS.split(",") if host.strip()
-}
-
-
-def _host_allowed(host_header: str) -> bool:
-    host = host_header.strip().lower()
-    if host.startswith("["):  # [::1]:8877
-        host = host.split("]")[0] + "]"
-    else:
-        host = host.split(":")[0]
-    return host in ALLOWED_HOSTS
-
-
-@app.middleware("http")
-async def local_only(request: Request, call_next):
-    if not _host_allowed(request.headers.get("host", "")):
-        return JSONResponse({"detail": "unknown host"}, status_code=400)
-    if request.method in ("POST", "PUT", "PATCH") and request.headers.get("content-length") != "0":
-        content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()
-        if content_type != "application/json":
-            return JSONResponse({"detail": "expected application/json"}, status_code=415)
-    return await call_next(request)
-
-
-async def _refuse_websocket(websocket: WebSocket, session_id: str | None = None) -> bool:
-    """Close a WebSocket that a web page opened, or one aimed outside the data folder.
-
-    Browsers always send an Origin on a WebSocket; tools like curl send none and are fine.
-    """
-    origin = websocket.headers.get("origin")
-    if not _host_allowed(websocket.headers.get("host", "")) or (
-        origin is not None and not ALLOWED_ORIGINS.match(origin)
-    ):
-        await websocket.close(code=4403, reason="origin not allowed")
-        return True
-    if session_id is not None and not _SESSION_ID.match(session_id):
-        await websocket.close(code=4400, reason="invalid session id")
-        return True
-    return False
+app = FastAPI(title="louro", version="1.0.0", lifespan=lifespan)
+security.install(app)
 
 
 def _preload_model() -> None:
     try:
-        get_model(WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE)
+        get_model(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE)
     except Exception:  # noqa: BLE001 - the first capture will try again and say why
-        logger.exception("Could not preload the Whisper model %s", WHISPER_MODEL)
+        logger.exception("Could not preload the Whisper model %s", config.WHISPER_MODEL)
 
 
 def _make_final_transcribe_fn(language: str | None) -> WhisperTranscriber:
     """The transcriber of the second pass after the meeting (see refine.py)."""
-    model = get_model(final_model(), WHISPER_DEVICE, WHISPER_COMPUTE)
+    model = get_model(final_model(), config.WHISPER_DEVICE, config.WHISPER_COMPUTE)
     return WhisperTranscriber(model, language=language, beam_size=final_beam_size())
 
 
 def _make_transcribe_fn(language: str | None) -> WhisperTranscriber:
     """Build a per-session transcriber over the process-wide shared model."""
-    model = get_model(WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE)
+    model = get_model(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE)
     return WhisperTranscriber(model, language=language)
 
 
@@ -181,10 +108,10 @@ def health():
     return {
         "ok": True,
         "service": "louro",
-        "model": WHISPER_MODEL,
+        "model": config.WHISPER_MODEL,
         # false until Whisper is in memory: a capture started now waits for it
-        "model_ready": is_loaded(WHISPER_MODEL, WHISPER_DEVICE, WHISPER_COMPUTE),
-        "chunk_interval_sec": CHUNK_INTERVAL,
+        "model_ready": is_loaded(config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE),
+        "chunk_interval_sec": config.CHUNK_INTERVAL,
     }
 
 
@@ -223,10 +150,6 @@ def get_transcript(session_id: str):
     }
 
 
-_SESSION_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
-_MAX_SPEAKER_EVENTS = 500
-
-
 @app.post("/api/sessions/{session_id}/speaker-events")
 async def add_speaker_events(session_id: str, request: Request):
     """Raw per-participant UI changes seen in the meeting page, kept as JSON lines.
@@ -234,13 +157,13 @@ async def add_speaker_events(session_id: str, request: Request):
     Nothing is interpreted here: speakers.py works out which change means "is speaking"
     when captions are named, live and again at export.
     """
-    if not _SESSION_ID.match(session_id):
+    if not security.SESSION_ID.match(session_id):
         raise HTTPException(status_code=400, detail="invalid session id")
     body = await request.json()
     events = body.get("events") if isinstance(body, dict) else None
     if not isinstance(events, list) or len(events) > _MAX_SPEAKER_EVENTS:
         raise HTTPException(status_code=400, detail="expected a list of at most 500 events")
-    path = RECORDINGS_DIR / f"{session_id}.speakers.jsonl"
+    path = config.DATA_DIR / f"{session_id}.speakers.jsonl"
     kept = [event for event in events if isinstance(event, dict)]
     with path.open("a", encoding="utf-8") as out:
         for event in kept:
@@ -248,9 +171,6 @@ async def add_speaker_events(session_id: str, request: Request):
     if session_id in live_events:
         live_events[session_id] += [e for e in kept if {"t", "tile", "el"} <= e.keys()]
     return {"stored": len(events)}
-
-
-_MAX_MEETING_FIELD = 200
 
 
 @app.post("/api/sessions/{session_id}/meeting")
@@ -278,9 +198,6 @@ async def set_meeting_info(session_id: str, request: Request):
     return {"title": session.title, "meeting_code": session.meeting_code}
 
 
-_MAX_PARTICIPANTS = 100
-
-
 def _hint_participants(session_id: str, names: List[str]) -> None:
     """Tell the live transcriber who is in the meeting, so it spells their names."""
     vocabulary = vocabularies.get(session_id)
@@ -299,9 +216,6 @@ def _apply_vocabulary(vocabulary: dict) -> None:
             len(vocabulary["terms"]),
             len(vocabulary["participants"]),
         )
-
-
-_MAX_NOTE = 1000
 
 
 @app.post("/api/sessions/{session_id}/notes")
@@ -338,7 +252,7 @@ def get_notes(session_id: str):
 
 @app.websocket("/ws/transcript/{session_id}")
 async def ws_transcript(websocket: WebSocket, session_id: str):
-    if await _refuse_websocket(websocket, session_id):
+    if await security.refuse_websocket(websocket, session_id):
         return
     await websocket.accept()
     transcript_subscribers.setdefault(session_id, []).append(websocket)
@@ -396,10 +310,10 @@ async def ws_audio(websocket: WebSocket):
     session_id = websocket.query_params.get("session") or dt.datetime.now().strftime(
         "%Y%m%d-%H%M%S"
     )
-    if await _refuse_websocket(websocket, session_id):
+    if await security.refuse_websocket(websocket, session_id):
         return
     await websocket.accept()
-    language = websocket.query_params.get("lang") or WHISPER_LANGUAGE
+    language = websocket.query_params.get("lang") or config.LANGUAGE
     resume_ms = _resume_param(websocket.query_params.get("resume"))
     previous = sessions.get(session_id)
 
@@ -418,7 +332,7 @@ async def ws_audio(websocket: WebSocket):
         await websocket.close(code=4409, reason="session already capturing")
         return
 
-    pcm_path = RECORDINGS_DIR / f"{session_id}.pcm"
+    pcm_path = config.DATA_DIR / f"{session_id}.pcm"
     # a re-used id starts fresh: appending to a previous recording corrupts both files
     pcm_path.unlink(missing_ok=True)
 
@@ -443,7 +357,7 @@ async def ws_audio(websocket: WebSocket):
     decoder = StreamingWebmDecoder(pcm)
     transcribe = _make_transcribe_fn(language)
     # a resumed session already has a speaker log on disk
-    live_events[session_id] = load_events(RECORDINGS_DIR / f"{session_id}.speakers.jsonl")
+    live_events[session_id] = load_events(config.DATA_DIR / f"{session_id}.speakers.jsonl")
     vocabulary = vocabularies.setdefault(session_id, {"participants": []})
     vocabulary.update(transcribe=transcribe, terms=configured_terms())
     _apply_vocabulary(vocabulary)
@@ -451,8 +365,8 @@ async def ws_audio(websocket: WebSocket):
         decoder=decoder,
         transcriber=IncrementalTranscriber(pcm, transcribe),
         on_segments=partial(_broadcast_segments, session_id, offset),
-        interval_sec=CHUNK_INTERVAL,
-        idle_interval_sec=IDLE_INTERVAL or None,
+        interval_sec=config.CHUNK_INTERVAL,
+        idle_interval_sec=config.IDLE_INTERVAL or None,
         watched=lambda: bool(transcript_subscribers.get(session_id)),
     )
     pipelines[session_id] = pipeline
@@ -559,7 +473,7 @@ def _export(session: Session, segments: List[Segment]) -> Path | None:
         return export_session(
             session,
             segments,
-            speaker_events=RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl",
+            speaker_events=config.DATA_DIR / f"{session.session_id}.speakers.jsonl",
             notes=store.load_notes(session.session_id),
         )
     except Exception:  # noqa: BLE001 - the markdown copy must never lose the session
@@ -568,7 +482,7 @@ def _export(session: Session, segments: List[Segment]) -> Path | None:
 
 
 def _on_export(session: Session, path: Path | None) -> None:
-    run_on_export(session, path, log_dir=RECORDINGS_DIR)
+    run_on_export(session, path, log_dir=config.DATA_DIR)
 
 
 # tasks running after their capture handler returned; kept so they are not collected
@@ -631,7 +545,7 @@ def _discard(session: Session) -> None:
     pipelines.pop(session.session_id, None)
     vocabularies.pop(session.session_id, None)
     resumed.discard(session.session_id)
-    (RECORDINGS_DIR / f"{session.session_id}.speakers.jsonl").unlink(missing_ok=True)
+    (config.DATA_DIR / f"{session.session_id}.speakers.jsonl").unlink(missing_ok=True)
     try:
         remove_export(session)
     except OSError:
@@ -661,11 +575,5 @@ def _resume_offset(session: Session, resume_ms: float) -> float:
     return max(resume_ms / 1000.0 - started, last_end, 0.0)
 
 
-def default_host() -> str:
-    """Loopback unless asked otherwise — the API is unauthenticated."""
-    return os.environ.get("LOURO_HOST", "127.0.0.1")
-
-
 def run() -> None:
-    port = int(os.environ.get("LOURO_PORT", "8877"))
-    uvicorn.run(app, host=default_host(), port=port)
+    uvicorn.run(app, host=config.host(), port=config.PORT)

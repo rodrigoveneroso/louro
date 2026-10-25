@@ -8,9 +8,10 @@ from __future__ import annotations
 import pytest
 
 from backend import app as app_module
+from backend import config, security
 
-_REAL_RECORDINGS = app_module.RECORDINGS_DIR
-_REAL_DB = app_module.DB_PATH
+_REAL_RECORDINGS = config.DATA_DIR
+_REAL_DB = config.DB_PATH
 
 
 @pytest.fixture(autouse=True)
@@ -18,8 +19,8 @@ def isolate_storage(monkeypatch, tmp_path):
     """Redirect the app's storage at a temp directory for the duration of each test."""
     recordings = tmp_path / "recordings"
     recordings.mkdir(exist_ok=True)
-    monkeypatch.setattr(app_module, "RECORDINGS_DIR", recordings)
-    monkeypatch.setattr(app_module, "DB_PATH", recordings / "louro.db")
+    monkeypatch.setattr(config, "DATA_DIR", recordings)
+    monkeypatch.setattr(config, "DB_PATH", recordings / "louro.db")
     monkeypatch.setenv("LOURO_EXPORT_DIR", str(tmp_path / "export"))
     # the stub recordings are a couple of seconds long, so keep everything; tests about
     # dropping short captures set their own minimum
@@ -30,11 +31,11 @@ def isolate_storage(monkeypatch, tmp_path):
     monkeypatch.delenv("LOURO_FINAL_MODEL", raising=False)
     monkeypatch.delenv("LOURO_ON_EXPORT", raising=False)
     # Starlette's TestClient calls itself "testserver"
-    monkeypatch.setattr(app_module, "ALLOWED_HOSTS", app_module.ALLOWED_HOSTS | {"testserver"})
+    monkeypatch.setattr(security, "ALLOWED_HOSTS", security.ALLOWED_HOSTS | {"testserver"})
     # captions on the live interval, watched or not, unless a test says otherwise
-    monkeypatch.setattr(app_module, "IDLE_INTERVAL", 0.0)
+    monkeypatch.setattr(config, "IDLE_INTERVAL", 0.0)
     # tests never load a real Whisper model
-    monkeypatch.setenv("LOURO_PRELOAD", "0")
+    monkeypatch.setattr(config, "PRELOAD", False)
     yield
-    assert app_module.RECORDINGS_DIR != _REAL_RECORDINGS
-    assert app_module.DB_PATH != _REAL_DB
+    assert config.DATA_DIR != _REAL_RECORDINGS
+    assert config.DB_PATH != _REAL_DB

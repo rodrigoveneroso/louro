@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import app as app_module
+from backend import config
 from .test_decoder import make_webm_opus
 
 
@@ -52,7 +53,7 @@ def built():
 def client(monkeypatch, tmp_path, built):
     made, factory = built
     monkeypatch.setattr(app_module, "_make_transcribe_fn", factory)
-    monkeypatch.setattr(app_module, "RECORDINGS_DIR", tmp_path)
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
     monkeypatch.setattr(app_module, "sessions", {})
     monkeypatch.setattr(app_module, "pipelines", {})
     monkeypatch.setattr(app_module, "capture_done", {})
@@ -92,8 +93,8 @@ def test_health_reports_the_active_configuration(client):
 def test_the_model_is_loaded_when_the_backend_starts(monkeypatch):
     """So the first capture of the day starts at once instead of waiting for Whisper."""
     loaded = []
-    monkeypatch.setenv("LOURO_PRELOAD", "1")
-    monkeypatch.setattr(app_module, "get_model", lambda *config: loaded.append(config))
+    monkeypatch.setattr(config, "PRELOAD", True)
+    monkeypatch.setattr(app_module, "get_model", lambda *args: loaded.append(args))
 
     with TestClient(app_module.app):
         for _ in range(100):
@@ -101,8 +102,8 @@ def test_the_model_is_loaded_when_the_backend_starts(monkeypatch):
                 break
             time.sleep(0.01)
 
-    config = (app_module.WHISPER_MODEL, app_module.WHISPER_DEVICE, app_module.WHISPER_COMPUTE)
-    assert loaded == [config]
+    expected = (config.WHISPER_MODEL, config.WHISPER_DEVICE, config.WHISPER_COMPUTE)
+    assert loaded == [expected]
 
 
 def test_audio_stream_produces_a_transcript(client, webm):
@@ -233,7 +234,7 @@ def test_unknown_session_returns_404(client):
 
 
 def test_live_subscriber_receives_captions_during_the_session(client, webm, monkeypatch):
-    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
 
     with client.websocket_connect("/ws/transcript/live-test") as sub:
         with client.websocket_connect("/ws/audio?session=live-test") as ws:
@@ -567,7 +568,7 @@ def test_without_a_final_model_there_is_no_second_pass(client, webm, tmp_path):
 
 def test_live_captions_say_who_is_speaking(client, webm, monkeypatch):
     """The meeting page reports a tile's audio meter moving; the caption takes its name."""
-    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
 
     with client.websocket_connect("/ws/transcript/named-live") as sub:
         with client.websocket_connect("/ws/audio?session=named-live") as ws:
@@ -599,8 +600,8 @@ def test_without_a_meeting_page_captions_have_no_speaker(client, webm):
 
 
 def test_with_the_live_captions_closed_nothing_is_transcribed_until_stop(client, webm, monkeypatch):
-    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
-    monkeypatch.setattr(app_module, "IDLE_INTERVAL", 300.0)
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(config, "IDLE_INTERVAL", 300.0)
 
     with client.websocket_connect("/ws/audio?session=quiet-meeting") as ws:
         ws.receive_json()
@@ -615,8 +616,8 @@ def test_with_the_live_captions_closed_nothing_is_transcribed_until_stop(client,
 
 
 def test_opening_the_live_captions_transcribes_at_once(client, webm, monkeypatch):
-    monkeypatch.setattr(app_module, "CHUNK_INTERVAL", 0.05)
-    monkeypatch.setattr(app_module, "IDLE_INTERVAL", 300.0)
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
+    monkeypatch.setattr(config, "IDLE_INTERVAL", 300.0)
 
     with client.websocket_connect("/ws/audio?session=opened") as ws:
         ws.receive_json()

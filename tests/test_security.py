@@ -10,12 +10,13 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend import app as app_module
+from backend import config
 
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
-    monkeypatch.setattr(app_module, "RECORDINGS_DIR", tmp_path)
-    monkeypatch.setattr(app_module, "DB_PATH", tmp_path / "louro.db")
+    monkeypatch.setattr(config, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(config, "DB_PATH", tmp_path / "louro.db")
     with TestClient(app_module.app) as c:
         yield c
 
@@ -24,14 +25,14 @@ def test_default_bind_address_is_loopback(monkeypatch):
     """Regression: the default was 0.0.0.0, which exposed transcripts to the LAN."""
     monkeypatch.delenv("LOURO_HOST", raising=False)
 
-    assert app_module.default_host() == "127.0.0.1"
+    assert config.host() == "127.0.0.1"
 
 
 def test_bind_address_can_still_be_overridden(monkeypatch):
     """Deliberate exposure stays possible, it just is not the default."""
     monkeypatch.setenv("LOURO_HOST", "0.0.0.0")
 
-    assert app_module.default_host() == "0.0.0.0"
+    assert config.host() == "0.0.0.0"
 
 
 def test_the_extension_origin_is_allowed(client):
