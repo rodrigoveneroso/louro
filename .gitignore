@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node (only the browser tests use it)
+node_modules/
+
+# Local configuration: may hold paths and commands of yours
+.env
+
+# Meetings: the database, speaker logs and any working audio never leave this machine
+recordings/
+*.webm
+*.pcm
+*.wav
+
+# Tooling
+.pytest_cache/
+.vscode/
+.idea/
+.DS_Store
