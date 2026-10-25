@@ -1,7 +1,8 @@
 """Keeping a local, unauthenticated API out of reach of the web pages you visit.
 
-The browser extension is the only intended caller. CORS only governs what a page may
-read over HTTP, so the rest is enforced here:
+Louro's own extension is the only intended caller: not web pages, and not the other
+extensions you have installed. CORS only governs what a page may read over HTTP, so the
+rest is enforced here:
 
 - DNS rebinding: a hostile domain resolving to 127.0.0.1 is same-origin to its page,
   so every request must name this machine in its Host header;
@@ -21,9 +22,11 @@ from fastapi.responses import JSONResponse
 
 from . import config
 
-ALLOWED_ORIGINS = re.compile(
-    r"^(chrome-extension://[a-z]+|moz-extension://[0-9a-f-]+|http://(127\.0\.0\.1|localhost)(:\d+)?)$"
-)
+ALLOWED_ORIGINS = {
+    f"chrome-extension://{extension_id.strip()}"
+    for extension_id in [config.EXTENSION_ID, *config.EXTRA_EXTENSION_IDS.split(",")]
+    if extension_id.strip()
+}
 ALLOWED_HOSTS = {"127.0.0.1", "localhost", "[::1]"} | {
     host.strip().lower() for host in config.EXTRA_HOSTS.split(",") if host.strip()
 }
@@ -43,7 +46,7 @@ def install(app: FastAPI) -> None:
     """Add the CORS policy and the local-only checks to every HTTP request."""
     app.add_middleware(
         CORSMiddleware,
-        allow_origin_regex=ALLOWED_ORIGINS.pattern,
+        allow_origins=sorted(ALLOWED_ORIGINS),
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -67,7 +70,7 @@ async def refuse_websocket(websocket: WebSocket, session_id: str | None = None) 
     """
     origin = websocket.headers.get("origin")
     if not host_allowed(websocket.headers.get("host", "")) or (
-        origin is not None and not ALLOWED_ORIGINS.match(origin)
+        origin is not None and origin not in ALLOWED_ORIGINS
     ):
         await websocket.close(code=4403, reason="origin not allowed")
         return True

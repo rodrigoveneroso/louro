@@ -36,8 +36,11 @@ def test_bind_address_can_still_be_overridden(monkeypatch):
     assert config.host() == "0.0.0.0"
 
 
+LOURO = f"chrome-extension://{config.EXTENSION_ID}"
+
+
 def test_the_extension_origin_is_allowed(client):
-    origin = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+    origin = LOURO
 
     response = client.get("/api/health", headers={"Origin": origin})
 
@@ -64,7 +67,7 @@ def test_preflight_from_a_website_origin_is_refused(client):
 
 
 def test_preflight_from_the_extension_is_accepted(client):
-    origin = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+    origin = LOURO
 
     response = client.options(
         "/api/sessions/x/notes",
@@ -74,11 +77,36 @@ def test_preflight_from_the_extension_is_accepted(client):
     assert response.headers.get("access-control-allow-origin") == origin
 
 
-def test_a_local_dashboard_origin_is_allowed(client):
-    """Leaves room for a local web UI without reopening the door to the internet."""
-    response = client.get("/api/health", headers={"Origin": "http://127.0.0.1:8877"})
+def test_another_extension_is_not_allowed(client):
+    """Any extension you installed could otherwise read your meetings."""
+    other = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
 
-    assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:8877"
+    response = client.get("/api/health", headers={"Origin": other})
+
+    assert "access-control-allow-origin" not in response.headers
+    assert _rejected(client, "/ws/transcript/any", other) == 4403
+
+
+def test_a_local_page_is_not_allowed(client):
+    """Whatever a local dev server or notebook serves is a web page too."""
+    response = client.get("/api/health", headers={"Origin": "http://127.0.0.1:8000"})
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_the_manifest_key_gives_the_allowed_extension_id():
+    """Chrome derives an unpacked extension's id from the manifest key: the two must agree."""
+    import base64
+    import hashlib
+    import json
+    from pathlib import Path
+
+    manifest = Path(__file__).resolve().parent.parent / "extension" / "manifest.json"
+    key = base64.b64decode(json.loads(manifest.read_text(encoding="utf-8"))["key"])
+    digest = hashlib.sha256(key).hexdigest()[:32]
+    extension_id = digest.translate(str.maketrans("0123456789abcdef", "abcdefghijklmnop"))
+
+    assert extension_id == config.EXTENSION_ID
 
 
 def test_the_backend_never_calls_out():
@@ -111,7 +139,7 @@ def test_the_backend_never_calls_out():
 # send "simple" POSTs to it, and DNS rebinding makes a hostile domain resolve to it.
 
 EVIL = "https://evil.example"
-EXTENSION = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+EXTENSION = LOURO
 
 
 def _rejected(client, url, origin):

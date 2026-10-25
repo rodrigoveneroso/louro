@@ -29,6 +29,10 @@ CHUNK_INTERVAL = float(os.environ.get("LOURO_CHUNK_INTERVAL", "10"))
 IDLE_INTERVAL = float(os.environ.get("LOURO_IDLE_INTERVAL", "300"))
 
 PORT = int(os.environ.get("LOURO_PORT", "8877"))
+# The only origins allowed to use the API: this repository's extension, whose id is fixed
+# by the "key" in its manifest, plus any listed here (a copy with another key).
+EXTENSION_ID = "pnpdkmacoeiiphjphpidllimlodhnibf"
+EXTRA_EXTENSION_IDS = os.environ.get("LOURO_EXTENSION_IDS", "")
 # extra Host names to accept, for a deliberate exposure with LOURO_HOST
 EXTRA_HOSTS = os.environ.get("LOURO_ALLOWED_HOSTS", "")
 
