@@ -395,10 +395,10 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The host remains mounted under `document.documentElement` while enabled and is not inserted into Meet's React-managed control row.
-- [ ] Position updates follow the leave-call control using coalesced mutation/resize observation; state rendering skips unchanged DOM writes.
-- [ ] The control stays visible at the measured adjacent or floating fallback position and is removed when disabled.
-- [ ] `node --check extension/meet-overlay.js` and the phase Build gate pass.
+- [x] The host remains mounted under `document.documentElement` while enabled and is not inserted into Meet's React-managed control row.
+- [x] Position updates follow the leave-call control using coalesced mutation/resize observation; state rendering skips unchanged DOM writes.
+- [x] The control stays visible at the measured adjacent or floating fallback position and is removed when disabled.
+- [x] `node --check extension/meet-overlay.js` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Quick

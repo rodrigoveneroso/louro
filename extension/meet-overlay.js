@@ -1,8 +1,5 @@
-// Content script for Google Meet: a Louro button in the call's control bar, beside
-// Meet's own. It shows whether the call is being recorded, which catches the case that
-// is easy to miss (in a call the extension was never clicked on), and while recording it
-// opens a small panel to mark the moment or take a note. Drawn in a shadow root, so
-// Meet's styles and ours never touch.
+// A Louro control positioned beside Meet's leave-call button. Its host stays outside
+// Meet's React-owned toolbar so Meet cannot remove and recreate it during toolbar renders.
 (() => {
   const { buttonState } = globalThis.louroOverlay;
   const { extensionAlive, isInCall } = globalThis.louroMeet;
@@ -18,36 +15,47 @@
   ];
   const TICK_MS = 1000;
   const LEAVE_CALL = /leave call|sair da chamada|sair da ligação|deixar a chamada/i;
+  const VIEWPORT_MARGIN = 8;
+  const ADJACENT_GAP = 8;
 
   let state = {};
   let tabId = null; // ours, from the service worker: content scripts cannot ask Chrome
   let shown = null;
+  let observedLeaveButton = null;
+  let observedControlRow = null;
+  let resizeFrame = 0;
+  let renderFrame = 0;
+  let hostWasObserved = false;
 
   chrome.runtime
     .sendMessage({ target: 'background', action: 'whoami' })
-    .then((reply) => (tabId = reply?.tabId ?? null))
+    .then((reply) => {
+      tabId = reply?.tabId ?? null;
+      scheduleRender();
+    })
     .catch(() => {});
   chrome.storage.local.get(STATE_KEYS).then((stored) => {
     state = stored;
-    render();
+    scheduleRender();
   });
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== 'local') return;
     for (const [key, { newValue }] of Object.entries(changes)) state[key] = newValue;
-    render();
+    scheduleRender();
   });
 
   // --- the button and its panel ------------------------------------------------------------
 
-  // a button left by a previous copy of this script (the extension was reloaded)
+  // A button left by an earlier copy of this content script after an extension reload.
   document.querySelectorAll('louro-button').forEach((old) => old.remove());
   const host = document.createElement('louro-button');
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
-      :host { all: initial; display: inline-flex; position: relative; margin: 0 6px;
+      :host { all: initial; display: inline-flex; position: fixed; left: 0; top: 0;
+              z-index: 2147483647; margin: 0;
               font: 500 14px/1 'Google Sans', Roboto, system-ui, sans-serif; }
-      :host(.floating) { position: fixed; left: 16px; bottom: 20px; z-index: 2147483647; }
+      :host(.floating) { left: 16px; top: auto; bottom: 20px; }
       .button {
         all: unset; box-sizing: border-box; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -127,7 +135,6 @@
       </div>
     </div>`;
   const button = root.querySelector('.button');
-  // the extension's own image; web_accessible_resources lets Meet's page load it
   root.querySelector('.logo img').src = chrome.runtime.getURL('icons/icon32.png');
   const label = root.querySelector('.label');
   const panel = root.querySelector('.panel');
@@ -146,28 +153,34 @@
     t('buttonIdleHint'),
   );
 
+  function setHidden(element, hidden) {
+    if (element.hidden !== hidden) element.hidden = hidden;
+  }
+
+  function setStyle(element, property, value) {
+    if (element.style[property] !== value) element.style[property] = value;
+  }
+
+  function fit() {
+    const margin = VIEWPORT_MARGIN;
+    const needsBelow = panel.getBoundingClientRect().top < margin;
+    if (panel.classList.contains('below') !== needsBelow) panel.classList.toggle('below', needsBelow);
+    let box = panel.getBoundingClientRect();
+    let shift = 0;
+    if (box.left < margin) shift = margin - box.left;
+    else if (box.right > innerWidth - margin) shift = innerWidth - margin - box.right;
+    setStyle(panel, 'marginLeft', shift ? `${shift}px` : '0px');
+  }
+
   function openPanel(open) {
-    panel.hidden = !open;
-    button.setAttribute('aria-expanded', String(open));
+    setHidden(panel, !open);
+    const expanded = String(open);
+    if (button.getAttribute('aria-expanded') !== expanded) {
+      button.setAttribute('aria-expanded', expanded);
+    }
     if (!open) return;
     fit();
     if (shown?.kind === 'recording') input.focus();
-  }
-
-  /** Above the button as Meet's own menus open, unless that runs off the screen. */
-  function fit() {
-    const margin = 8;
-    panel.classList.remove('below');
-    panel.style.marginLeft = '0px';
-    let box = panel.getBoundingClientRect();
-    if (box.top < margin) {
-      panel.classList.add('below');
-      box = panel.getBoundingClientRect();
-    }
-    if (box.left < margin) panel.style.marginLeft = `${margin - box.left}px`;
-    else if (box.right > innerWidth - margin) {
-      panel.style.marginLeft = `${innerWidth - margin - box.right}px`;
-    }
   }
 
   button.addEventListener('click', (event) => {
@@ -209,54 +222,126 @@
     addNote(text);
   });
 
-  // --- where it goes ------------------------------------------------------------------------
+  // --- positioning outside Meet's React-owned controls ------------------------------------
 
-  /** The element of Meet's control bar to put the button before: the leave button's slot. */
-  function anchor() {
-    const leave = [...document.querySelectorAll('button[aria-label]')].find((b) =>
-      LEAVE_CALL.test(b.getAttribute('aria-label') || ''),
-    );
-    if (!leave) return null;
-    // climb out of the wrappers Meet puts around a single button, up to the bar's row
-    let slot = leave;
-    while (slot.parentElement && slot.parentElement.children.length === 1) {
-      slot = slot.parentElement;
-    }
-    return slot.parentElement ? slot : null;
+  function findLeaveButton() {
+    return [...document.querySelectorAll('button[aria-label]')].find((candidate) =>
+      LEAVE_CALL.test(candidate.getAttribute('aria-label') || ''),
+    ) || null;
   }
 
-  function place() {
-    const slot = anchor();
-    if (slot) {
-      host.classList.remove('floating');
-      if (host.nextElementSibling !== slot) slot.before(host);
-    } else {
-      host.classList.add('floating'); // no bar found: float in the corner instead
-      if (host.parentElement !== document.documentElement) document.documentElement.append(host);
+  function observeAnchorGeometry(nextButton) {
+    const nextRow = nextButton?.parentElement || null;
+    if (nextButton === observedLeaveButton && nextRow === observedControlRow) return;
+    geometryObserver.disconnect();
+    resizeObserver.disconnect();
+    observedLeaveButton = nextButton;
+    observedControlRow = nextRow;
+    if (nextButton) {
+      geometryObserver.observe(nextButton, { attributes: true, attributeFilter: ['class', 'style'] });
+      for (let ancestor = nextButton.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        geometryObserver.observe(ancestor, { attributes: true, attributeFilter: ['class', 'style'] });
+        if (ancestor === document.documentElement) break;
+      }
+      resizeObserver.observe(nextButton);
+      if (observedControlRow) resizeObserver.observe(observedControlRow);
+    }
+    if (hostWasObserved) resizeObserver.observe(host);
+  }
+
+  function setFloating(floating) {
+    if (host.classList.contains('floating') !== floating) host.classList.toggle('floating', floating);
+    if (floating) {
+      setStyle(host, 'left', '');
+      setStyle(host, 'top', '');
     }
   }
 
-  // --- keeping it current ----------------------------------------------------------------
+  function positionHost() {
+    if (host.parentElement !== document.documentElement) document.documentElement.append(host);
+    if (!hostWasObserved) {
+      resizeObserver.observe(host);
+      hostWasObserved = true;
+    }
+
+    const leave = findLeaveButton();
+    observeAnchorGeometry(leave);
+    if (!leave) {
+      setFloating(true);
+      return;
+    }
+
+    const rect = leave.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    const width = hostRect.width;
+    const height = hostRect.height;
+    let left = rect.left - width - ADJACENT_GAP;
+    if (left < VIEWPORT_MARGIN && rect.right + width + ADJACENT_GAP <= innerWidth - VIEWPORT_MARGIN) {
+      left = rect.right + ADJACENT_GAP;
+    }
+    const top = rect.top + (rect.height - height) / 2;
+    const fits =
+      width > 0 &&
+      height > 0 &&
+      left >= VIEWPORT_MARGIN &&
+      left + width <= innerWidth - VIEWPORT_MARGIN &&
+      top >= VIEWPORT_MARGIN &&
+      top + height <= innerHeight - VIEWPORT_MARGIN;
+
+    if (!fits) {
+      setFloating(true);
+      return;
+    }
+    setFloating(false);
+    setStyle(host, 'left', `${Math.round(left)}px`);
+    setStyle(host, 'top', `${Math.round(top)}px`);
+    if (!panel.hidden) fit();
+  }
+
+  function schedulePosition() {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(() => {
+      resizeFrame = 0;
+      if (shown) positionHost();
+    });
+  }
+
+  function scheduleRender() {
+    if (renderFrame) return;
+    renderFrame = requestAnimationFrame(() => {
+      renderFrame = 0;
+      render();
+    });
+  }
+
+  // --- rendering ---------------------------------------------------------------------------
+
+  function stop() {
+    clearInterval(timer);
+    if (resizeFrame) cancelAnimationFrame(resizeFrame);
+    if (renderFrame) cancelAnimationFrame(renderFrame);
+    resizeObserver.disconnect();
+    geometryObserver.disconnect();
+    pageObserver.disconnect();
+    host.remove();
+  }
 
   function render() {
     try {
       renderOnce();
     } catch (error) {
       if (extensionAlive()) throw error;
-      clearInterval(timer); // went away mid-render (chrome.i18n throws too)
-      host.remove();
+      stop(); // extension reload invalidated chrome.* while this script was running
     }
   }
 
   function renderOnce() {
     if (!extensionAlive()) {
-      // reloaded or updated: take the button away, the new copy of this script adds its own
-      clearInterval(timer);
-      host.remove();
+      stop();
       return;
     }
-    const labels = [...document.querySelectorAll('button[aria-label]')].map((b) =>
-      b.getAttribute('aria-label'),
+    const labels = [...document.querySelectorAll('button[aria-label]')].map((candidate) =>
+      candidate.getAttribute('aria-label'),
     );
     shown =
       state.overlayEnabled !== false &&
@@ -270,18 +355,49 @@
         t,
       );
     if (!shown) {
-      host.remove();
+      if (host.parentElement) host.remove();
+      observeAnchorGeometry(null);
       return;
     }
-    place();
-    button.className = `button ${shown.kind}`;
-    button.title = shown.tip;
-    button.setAttribute('aria-label', shown.tip);
-    label.textContent = shown.label;
-    idleView.hidden = shown.kind !== 'idle';
-    notesView.hidden = shown.kind !== 'recording';
+
+    if (host.parentElement !== document.documentElement) document.documentElement.append(host);
+    if (button.className !== `button ${shown.kind}`) button.className = `button ${shown.kind}`;
+    if (button.title !== shown.tip) button.title = shown.tip;
+    if (button.getAttribute('aria-label') !== shown.tip) button.setAttribute('aria-label', shown.tip);
+    if (label.textContent !== shown.label) label.textContent = shown.label;
+    setHidden(idleView, shown.kind !== 'idle');
+    setHidden(notesView, shown.kind !== 'recording');
     if (shown.kind !== 'idle' && shown.kind !== 'recording') openPanel(false);
+    schedulePosition();
   }
 
-  const timer = setInterval(render, TICK_MS);
+  const resizeObserver = new ResizeObserver(schedulePosition);
+  const geometryObserver = new MutationObserver(schedulePosition);
+  const pageObserver = new MutationObserver((mutations) => {
+    const containsLeaveButton = (node) =>
+      node instanceof Element &&
+      ((node.matches('button[aria-label]') && LEAVE_CALL.test(node.getAttribute('aria-label') || '')) ||
+        [...node.querySelectorAll('button[aria-label]')].some((candidate) =>
+          LEAVE_CALL.test(candidate.getAttribute('aria-label') || ''),
+        ));
+    const isRelevant = mutations.some((mutation) => {
+      if (mutation.attributeName === 'aria-label') return containsLeaveButton(mutation.target);
+      if (observedControlRow?.contains(mutation.target)) return true;
+      return [...mutation.addedNodes, ...mutation.removedNodes].some(containsLeaveButton);
+    });
+    if (isRelevant) {
+      scheduleRender();
+    }
+  });
+  pageObserver.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ['aria-label'],
+  });
+
+  window.addEventListener('resize', schedulePosition);
+  window.addEventListener('scroll', schedulePosition, true);
+  const timer = setInterval(scheduleRender, TICK_MS);
+  scheduleRender();
 })();
