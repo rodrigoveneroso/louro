@@ -14,6 +14,12 @@
   "popupOpenTranscript": {
     "message": "Ver transcrição completa"
   },
+  "popupTagline": {
+    "message": "Seu companheiro de reuniões"
+  },
+  "popupPreferences": {
+    "message": "Preferências"
+  },
   "popupCloseTranscript": {
     "message": "Fechar transcrição"
   },
@@ -87,6 +93,9 @@
   "popupAutoHint": {
     "message": "Com isto marcado, o Louro tentará iniciar ao clicar em “Participar agora” no Meet. Se o Chrome bloquear, use Iniciar gravação no menu da extensão."
   },
+  "popupOverlayHint": {
+    "message": "Exibe o controle do Louro junto aos botões da chamada no Meet."
+  },
   "errorAlreadyCapturing": {
     "message": "Já existe uma gravação em andamento"
   },
@@ -131,6 +140,24 @@
   },
   "panelTitle": {
     "message": "🦜 Louro · legenda ao vivo"
+  },
+  "panelSubtitle": {
+    "message": "Sua reunião em uma linha do tempo"
+  },
+  "panelReady": {
+    "message": "pronto"
+  },
+  "panelGoLive": {
+    "message": "Voltar ao vivo"
+  },
+  "panelItemSpeech": {
+    "message": "Fala"
+  },
+  "panelItemChat": {
+    "message": "Chat"
+  },
+  "panelItemNote": {
+    "message": "Anotação"
   },
   "panelEmpty": {
     "message": "🎧 Comece uma gravação para ver a legenda ao vivo"

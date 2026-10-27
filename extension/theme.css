@@ -1,0 +1,60 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-synthesis: none;
+
+  --louro-bg: #111a14;
+  --louro-surface: #19251c;
+  --louro-surface-raised: #223328;
+  --louro-surface-hover: #2b3d30;
+  --louro-border: #35443a;
+  --louro-text: #f4f5e9;
+  --louro-muted: #aab5a9;
+  --louro-subtle: #8e9b8c;
+  --louro-green: #a6e36a;
+  --louro-green-ink: #17211a;
+  --louro-yellow: #f6cf59;
+  --louro-coral: #ff6b5e;
+  --louro-coral-ink: #2b1714;
+  --louro-self: #a6e36a;
+  --louro-radius-sm: 8px;
+  --louro-radius-md: 12px;
+  --louro-radius-lg: 16px;
+  --louro-focus: #f6cf59;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+button,
+textarea,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--louro-focus);
+  outline-offset: 2px;
+}
+
+::selection {
+  color: var(--louro-green-ink);
+  background: var(--louro-green);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

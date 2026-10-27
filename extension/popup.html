@@ -2,10 +2,17 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
+    <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <header><img src="icons/icon32.png" alt="" width="22" height="22" /> Louro</header>
+    <header>
+      <img class="brand-icon" src="icons/icon32.png" alt="" width="30" height="30" />
+      <div class="brand-copy">
+        <span class="brand-name">Louro</span>
+        <span class="brand-tagline" data-i18n="popupTagline"></span>
+      </div>
+    </header>
 
     <section id="card" class="card idle">
       <div id="headline" class="headline"></div>
@@ -33,22 +40,34 @@
 
     <div id="error" class="error" hidden></div>
 
-    <label class="auto">
-      <input type="checkbox" id="autoCapture" />
-      <span data-i18n="popupAuto"></span>
-    </label>
-    <p class="hint" data-i18n="popupAutoHint"></p>
+    <details class="preferences">
+      <summary data-i18n="popupPreferences"></summary>
+      <div class="settings-list">
+        <label class="setting">
+          <input type="checkbox" id="autoCapture" />
+          <span class="setting-copy">
+            <span data-i18n="popupAuto"></span>
+            <span class="hint" data-i18n="popupAutoHint"></span>
+          </span>
+        </label>
 
-    <label class="auto">
-      <input type="checkbox" id="overlayEnabled" />
-      <span data-i18n="popupOverlay"></span>
-    </label>
+        <label class="setting">
+          <input type="checkbox" id="overlayEnabled" />
+          <span class="setting-copy">
+            <span data-i18n="popupOverlay"></span>
+            <span class="hint" data-i18n="popupOverlayHint"></span>
+          </span>
+        </label>
 
-    <label class="auto">
-      <input type="checkbox" id="includeMeetChat" />
-      <span data-i18n="popupIncludeChat"></span>
-    </label>
-    <p class="hint" data-i18n="popupIncludeChatHint"></p>
+        <label class="setting">
+          <input type="checkbox" id="includeMeetChat" />
+          <span class="setting-copy">
+            <span data-i18n="popupIncludeChat"></span>
+            <span class="hint" data-i18n="popupIncludeChatHint"></span>
+          </span>
+        </label>
+      </div>
+    </details>
 
     <script src="note-input.js"></script>
     <script type="module" src="popup.js"></script>
