@@ -57,7 +57,7 @@
   root.innerHTML = `
     <style>
       :host { all: initial; display: inline-grid; position: relative; place-items: center;
-              width: 48px; height: 48px; margin: 0; padding: 0;
+              width: max-content; min-width: 48px; height: 48px; margin: 0; padding: 0;
               --louro-bg: #111a14; --louro-surface: #19251c; --louro-raised: #223328;
               --louro-hover: #2b3d30; --louro-border: #35443a; --louro-text: #f4f5e9;
               --meet-control: #333537; --meet-control-hover: #444746;
@@ -67,10 +67,11 @@
       .button {
         all: unset; box-sizing: border-box; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-        width: 48px; height: 48px; min-width: 48px; padding: 0; border-radius: 50%;
+        width: auto; height: 48px; min-width: 48px; padding: 0 8px; border-radius: 24px;
         background: var(--meet-control); color: var(--louro-text);
         transition: background-color 0.15s;
       }
+      .button:not(.idle) .logo { display: none; }
       .button:hover { background: var(--meet-control-hover); }
       .button:focus-visible { outline: 2px solid var(--louro-yellow); outline-offset: 2px; }
       .logo { position: relative; display: inline-flex; width: 20px; height: 20px; }

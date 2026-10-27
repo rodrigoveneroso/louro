@@ -86,6 +86,7 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 1. WHILE the call is active and the Louro overlay is enabled, Meet toolbar re-renders SHALL NOT repeatedly remove and reinsert the Louro control (LMT-11).
 2. WHILE the call is active and the Louro overlay is enabled, the Louro control SHALL occupy its own layout slot inside Meet's native call-controls row and SHALL NOT cover or sit outside the row's controls (LMT-12).
 3. WHEN the user disables the Louro overlay THEN the system SHALL remove the Louro control from the Meet page (LMT-13).
+4. WHILE a capture is active, the Louro control SHALL display its recording status fully inside its own toolbar slot, without overlapping the mascot or neighboring controls (LMT-35).
 
 **Independent Test**: Keep the Louro overlay enabled in a live Meet call while Meet's toolbar changes state; verify the control does not blink, jump, or cause the toolbar to revert.
 
@@ -145,6 +146,7 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 - IF the Meet join action is a request to be admitted rather than an immediate join THEN the system SHALL not claim a recording is active before capture succeeds; a failed start SHALL use the normal manual-start reminder (LMT-32).
 - IF the side-panel close API is unavailable THEN the system SHALL retain its existing native panel-close path and SHALL not throw an extension error (LMT-33).
 - IF chat inclusion is disabled while capture is active THEN messages received after the setting changes SHALL not be stored (LMT-34).
+- WHEN temporary capture feedback or a last-capture result is displayed THEN it SHALL disappear after 15 seconds, while speech, chat, and annotation entries remain visible (LMT-36).
 
 ## Requirement Traceability
 
@@ -184,15 +186,19 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 | LMT-32 | P1: Start follow-call capture from Meet | P1 | Verified |
 | LMT-33 | P1: Start follow-call capture from Meet | P1 | Verified |
 | LMT-34 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-35 | P1: Keep the Meet control stable | P1 | Implementing |
+| LMT-36 | P1: Keep capture feedback current | P1 | Implementing |
 
 **ID format:** `LMT-[NUMBER]`
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
-**Coverage:** 34 total, mapped to T1–T13 in `.specs/features/louro-meet-transcript/tasks.md`.
+**Coverage:** 36 total, mapped to T1–T15 in `.specs/features/louro-meet-transcript/tasks.md`.
 
 ## Success Criteria
 
 - [ ] Transcript open/close state, lower note composer, and removal of the top status bar work together.
 - [ ] The Meet control no longer flickers during an active call with the overlay enabled.
+- [ ] The active recording status fits in the Louro toolbar slot without covering the mascot or neighboring controls.
+- [ ] Temporary capture feedback disappears after 15 seconds; transcript content remains.
 - [ ] Long annotations wrap and remain editable in all three annotation entry points.
 - [ ] Speaker labels use stable distinct colors, with green reserved for a reliably identified “Você”.
 - [ ] Opt-in chat appears once in the live and exported transcript with a clear start-of-capture marker for visible history.

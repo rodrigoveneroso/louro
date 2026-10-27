@@ -127,7 +127,12 @@ The `meet_join_clicked` path is an attempt to use the click on Meet's immediate 
 - **Interfaces**: Existing shadow-root button/panel, storage-driven state, translation keys, and note behavior remain unchanged. The host becomes a layout child immediately before Meet's leave-call control.
 - **Dependencies**: Meet's rendered leave-call control and nearest call-controls grid; mutation observation to recover if Meet replaces that grid.
 - **Reuses**: Existing button states, shadow DOM, translation keys, note behavior, and the native grid's own spacing, alignment, and responsive behavior.
-- **Behavior**: Find the nearest visible grid containing Meet's leave-call control and insert the host as its own grid item immediately before that control. Give the host the same 48×48-pixel hit area as Meet's round controls. Do not use fixed coordinates, a floating fallback, or a high-z-index layer. If the toolbar is not available, keep the host hidden until Meet renders it. Reconcile only when the toolbar changes, and use a shared DOM ownership token so an older copy left by extension reload stands down rather than recreating a duplicate.
+- **Behavior**: Find the nearest visible grid containing Meet's leave-call control and insert the host as its own grid item immediately before that control. Keep the idle mascot control 48×48 pixels. During recording and other status states, hide the mascot and let the host and pill grow to the status content while retaining a 48-pixel height. Do not use fixed coordinates, a floating fallback, or a high-z-index layer. If the toolbar is not available, keep the host hidden until Meet renders it. Reconcile only when the toolbar changes, and use a shared DOM ownership token so an older copy left by extension reload stands down rather than recreating a duplicate.
+
+### Temporary Capture Feedback
+
+- **Location**: `extension/sidepanel.js`, `extension/popup.js`.
+- **Behavior**: Remove transient system feedback from the transcript timeline after 15 seconds. Show a last-capture result in the popup only while its timestamp is within that same window. Keep persisted capture data and transcript entries untouched.
 
 ---
 

@@ -7,7 +7,7 @@ Implement these tasks with the `tlc-spec-driven` skill: activate it by name and 
 The current task instruction does not authorize adding or running tests. Do not add or run tests unless the user explicitly asks to test or verify this implementation. Use only the syntax and diff checks listed below. If the user later asks for tests, revise this plan's matrix and task fields first.
 
 **Design**: `.specs/features/louro-meet-transcript/design.md`
-**Status**: Approved; all 13 tasks implemented; syntax/diff gates passed; runtime verification pending
+**Status**: Approved; T1–T14 implemented; T15 in progress; runtime verification pending
 
 ---
 
@@ -67,6 +67,12 @@ T2 -> T12
 T9 -> T12
 T11 -> T12
 T10 -> T13
+```
+
+### Phase 4: Active status and temporary feedback
+
+```
+T13 -> T14 -> T15
 ```
 
 ---
@@ -405,12 +411,48 @@ T10 -> T13
 **Gate**: Quick
 **Commit**: `fix(extension): stabilize louro meet overlay placement`
 
+### T14: Fit active recording status inside the Meet toolbar
+
+**What**: Keep the idle mascot button round and render active/status states as a compact content-sized pill so the timer does not overlap the Louro icon or adjacent controls.
+**Where**: `extension/meet-overlay.js`
+**Depends on**: T13
+**Requirement**: LMT-35
+
+**Done when**:
+
+- [x] Idle remains a 48×48 mascot control; active status has a 48-pixel height and enough width for its dot and elapsed time.
+- [x] The mascot is hidden while the status pill is visible, preventing icon/timer overlap.
+- [x] `node --check extension/meet-overlay.js` and `git diff --check` pass.
+- [ ] Visual confirmation in a live Meet call remains pending.
+
+**Tests**: none (not authorized by the approved execution plan)
+**Gate**: Quick
+**Commit**: `fix(extension): fit recording status in meet toolbar`
+
+### T15: Expire temporary capture feedback
+
+**What**: Remove transient system feedback from the transcript after 15 seconds and stop showing stale last-capture results in the popup.
+**Where**: `extension/sidepanel.js`, `extension/popup.js`
+**Depends on**: T14
+**Requirement**: LMT-36
+
+**Done when**:
+
+- [ ] System feedback entries remove themselves from the live timeline after 15 seconds, without removing speech, chat, or notes.
+- [ ] The popup shows the last-capture result only when its timestamp is between 0 and 15 seconds old.
+- [ ] `node --check` passes for both changed JavaScript files and `git diff --check` passes.
+- [ ] Visual confirmation of expiry in the popup and side panel remains pending.
+
+**Tests**: none (not authorized by the approved execution plan)
+**Gate**: Build
+**Commit**: `fix(extension): expire temporary capture feedback`
+
 ---
 
 ## Phase Execution Map
 
 ```text
-Phase 1 → Phase 2 → Phase 3
+Phase 1 → Phase 2 → Phase 3 → Phase 4
 
 Phase 1: T1 -> T2
          T1 -> T3
@@ -428,6 +470,8 @@ Phase 3: T9 -> T10
          T9 -> T12
          T11 -> T12
          T10 -> T13
+
+Phase 4: T13 -> T14 -> T15
 ```
 
 The diagram abbreviates independent tasks within each phase. Task execution remains sequential as listed.
@@ -449,6 +493,8 @@ The diagram abbreviates independent tasks within each phase. Task execution rema
 | T11 | One transcript-panel lifecycle and chrome component | ✅ Cohesive popup/panel component |
 | T12 | One unified transcript renderer | ✅ Cohesive panel component |
 | T13 | One overlay placement controller | ✅ Granular |
+| T14 | One active toolbar status layout | ✅ Granular |
+| T15 | One temporary feedback lifecycle | ✅ Granular |
 
 ## Diagram-Definition Cross-Check
 
@@ -467,6 +513,8 @@ The diagram abbreviates independent tasks within each phase. Task execution rema
 | T11 | None | No incoming edge | ✅ Match |
 | T12 | T2, T9, T11 | T2 -> T12; T9 -> T12; T11 -> T12 | ✅ Match |
 | T13 | T10 | T10 -> T13 | ✅ Match |
+| T14 | T13 | T13 -> T14 | ✅ Match |
+| T15 | T14 | T14 -> T15 | ✅ Match |
 
 ## Test Co-location Validation
 
@@ -485,5 +533,7 @@ The diagram abbreviates independent tasks within each phase. Task execution rema
 | T11 | Extension panel lifecycle/UI | none | none | ✅ Matches current instruction |
 | T12 | Extension timeline rendering | none | none | ✅ Matches current instruction |
 | T13 | Extension overlay controller | none | none | ✅ Matches current instruction |
+| T14 | Extension overlay controller | none | none | ✅ Matches current instruction |
+| T15 | Extension popup and side panel | none | none | ✅ Matches current instruction |
 
 **Gate note**: These are plan validations, not a claim that behavior has been verified. The test suite is not part of the authorized gates unless the user explicitly asks for tests or verification.
