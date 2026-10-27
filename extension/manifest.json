@@ -62,7 +62,8 @@
         "overlay-state.js",
         "meet-overlay.js",
         "meet-call.js",
-        "meet-speakers.js"
+        "meet-speakers.js",
+        "meet-chat.js"
       ],
       "run_at": "document_idle"
     }

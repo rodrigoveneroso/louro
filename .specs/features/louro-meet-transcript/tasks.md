@@ -214,13 +214,13 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] Observation runs only while capture is active and chat inclusion is enabled.
-- [ ] A visible start snapshot is marked historical; later observations carry observation time and a stable client ID.
-- [ ] The script does not open Meet chat or read hidden/unrendered history; when chat is closed it waits for rendered messages.
-- [ ] Unknown authors use a neutral label, and repeated DOM observation is deduplicated using stable DOM metadata where available plus per-session node tracking.
-- [ ] Turning the setting off stops new messages; turning it on mid-capture does not relabel earlier content as start history.
-- [ ] `manifest.json` loads the collector in the correct content-script order.
-- [ ] `node --check extension/meet-chat.js` and the phase Build gate pass.
+- [x] Observation runs only while capture is active and chat inclusion is enabled.
+- [x] A visible start snapshot is marked historical; later observations carry observation time and a stable client ID.
+- [x] The script does not open Meet chat or read hidden/unrendered history; when chat is closed it waits for rendered messages.
+- [x] Unknown authors use a neutral label, and repeated DOM observation is deduplicated using stable DOM metadata where available plus per-session node tracking.
+- [x] Turning the setting off stops new messages; turning it on mid-capture does not relabel earlier content as start history.
+- [x] `manifest.json` loads the collector in the correct content-script order.
+- [x] `node --check extension/meet-chat.js` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Quick
