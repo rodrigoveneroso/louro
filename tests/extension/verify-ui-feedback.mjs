@@ -84,7 +84,9 @@ await verify(async () => {
     toolbarStatus.dot?.right <= toolbarStatus.button?.right &&
     toolbarStatus.dot?.top >= toolbarStatus.button?.top &&
     toolbarStatus.dot?.bottom <= toolbarStatus.button?.bottom &&
+    toolbarStatus.button?.left >= toolbarStatus.host?.left - 1 &&
     toolbarStatus.button?.right <= toolbarStatus.host?.right + 1 &&
+    toolbarStatus.button?.top >= toolbarStatus.host?.top - 1 &&
     toolbarStatus.button?.bottom <= toolbarStatus.host?.bottom + 1 &&
     toolbarStatus.button?.height === 48;
   check(timeFits, `the recording dot and timer fit inside the 48px-high control (${JSON.stringify(toolbarStatus)})`);
