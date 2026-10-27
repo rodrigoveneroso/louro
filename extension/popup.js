@@ -45,10 +45,8 @@ async function render() {
 
   startBtn.hidden = recording || finishing;
   stopBtn.hidden = !recording;
-  panelBtn.hidden = !recording;
   notesEl.hidden = !recording;
-  if (recording) await renderPanelButton();
-  else panelHint.hidden = true;
+  await renderPanelButton();
 
   if (recording) {
     card.className = 'card recording';
@@ -79,10 +77,15 @@ async function render() {
 
 async function renderPanelButton() {
   const window = await chrome.windows.getCurrent().catch(() => null);
-  const { openPanelWindowIds = [] } = await chrome.storage.session.get('openPanelWindowIds');
+  const [{ openPanelWindowIds = [] }, { activeSessionId, finishingSessionId }] = await Promise.all([
+    chrome.storage.session.get('openPanelWindowIds'),
+    chrome.storage.local.get(['activeSessionId', 'finishingSessionId']),
+  ]);
   const isOpen = Number.isInteger(window?.id) && openPanelWindowIds.includes(window.id);
+  panelBtn.hidden = !isOpen && !activeSessionId && !finishingSessionId;
   panelBtn.textContent = t(isOpen ? 'popupCloseTranscript' : 'popupOpenTranscript');
   panelHint.hidden = !isOpen || typeof chrome.sidePanel.close === 'function';
+  return isOpen;
 }
 
 let statusOf = { id: null, at: 0, value: null };
