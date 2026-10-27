@@ -54,17 +54,21 @@
     <style>
       :host { all: initial; display: inline-flex; position: fixed; left: 0; top: 0;
               z-index: 2147483647; margin: 0;
+              --louro-bg: #111a14; --louro-surface: #19251c; --louro-raised: #223328;
+              --louro-hover: #2b3d30; --louro-border: #35443a; --louro-text: #f4f5e9;
+              --louro-muted: #aab5a9; --louro-green: #a6e36a; --louro-green-ink: #17211a;
+              --louro-yellow: #f6cf59; --louro-coral: #ff6b5e; --louro-coral-ink: #2b1714;
               font: 500 14px/1 'Google Sans', Roboto, system-ui, sans-serif; }
       :host(.floating) { left: 16px; top: auto; bottom: 20px; }
       .button {
         all: unset; box-sizing: border-box; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
         height: 40px; min-width: 40px; padding: 0 10px; border-radius: 20px;
-        background: #333537; color: #e3e3e3;
+        background: var(--louro-raised); color: var(--louro-text);
         transition: background-color 0.15s;
       }
-      .button:hover { background: #444746; }
-      .button:focus-visible { outline: 2px solid #a8c7fa; outline-offset: 2px; }
+      .button:hover { background: var(--louro-hover); }
+      .button:focus-visible { outline: 2px solid var(--louro-yellow); outline-offset: 2px; }
       .logo { position: relative; display: inline-flex; }
       .logo img { display: block; image-rendering: auto; }
       .label { font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -73,21 +77,22 @@
 
       .idle .logo::after {
         content: ''; position: absolute; right: -3px; top: -2px; width: 8px; height: 8px;
-        border-radius: 50%; background: #fdd663; box-shadow: 0 0 0 2px #333537;
+        border-radius: 50%; background: var(--louro-yellow); box-shadow: 0 0 0 2px var(--louro-raised);
       }
-      .recording { background: #3c2f2f; }
-      .recording:hover { background: #4d3a3a; }
+      .recording { background: #3b2924; }
+      .recording:hover { background: #50352d; }
       .recording .dot, .finishing .dot {
         display: block; animation: pulse 1.6s ease-in-out infinite;
       }
-      .recording .dot { background: #f28b82; }
-      .finishing .dot { background: #a8c7fa; animation-duration: 1s; }
-      .done .dot { display: block; background: #6dd58c; }
+      .recording .dot { background: var(--louro-coral); }
+      .finishing .dot { background: var(--louro-yellow); animation-duration: 1s; }
+      .done .dot { display: block; background: var(--louro-green); }
 
       .panel {
         position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%);
         width: 280px; box-sizing: border-box; padding: 12px;
-        border-radius: 12px; background: #303134; color: #e3e3e3;
+        border: 1px solid var(--louro-border); border-radius: 12px;
+        background: var(--louro-surface); color: var(--louro-text);
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
         display: flex; flex-direction: column; gap: 10px;
         font: 400 13px/1.4 'Google Sans', Roboto, system-ui, sans-serif;
@@ -96,24 +101,25 @@
       :host(.floating) .panel { left: 0; transform: none; }
       .panel.below { bottom: auto; top: calc(100% + 12px); }
       .panel[hidden] { display: none; }
-      .panel .text { color: #c4c7c5; }
-      .panel .text strong { color: #e3e3e3; font-weight: 500; }
+      .panel .text { color: var(--louro-muted); }
+      .panel .text strong { color: var(--louro-text); font-weight: 650; }
       .mark {
         all: unset; box-sizing: border-box; cursor: pointer; text-align: center;
-        padding: 9px; border-radius: 20px; background: #a8c7fa; color: #062e6f; font-weight: 500;
+        min-height: 40px; padding: 10px 14px; border-radius: 20px;
+        background: var(--louro-yellow); color: var(--louro-green-ink); font-weight: 700;
       }
-      .mark:hover { background: #c2d7fb; }
-      .mark:focus-visible { outline: 2px solid #fff; }
+      .mark:hover { background: #ffe17a; }
+      .mark:focus-visible { outline: 2px solid var(--louro-text); outline-offset: 2px; }
       textarea {
         all: unset; box-sizing: border-box; display: block; width: 100%; min-height: 36px;
-        padding: 9px 12px; border-radius: 8px; background: #202124; color: #e3e3e3;
-        border: 1px solid #5f6368; font: inherit; line-height: 1.4; white-space: pre-wrap;
+        padding: 9px 12px; border-radius: 8px; background: var(--louro-bg); color: var(--louro-text);
+        border: 1px solid var(--louro-border); font: inherit; line-height: 1.4; white-space: pre-wrap;
         overflow-wrap: anywhere; resize: none;
       }
-      textarea:focus { border-color: #a8c7fa; }
-      textarea::placeholder { color: #9aa0a6; }
-      .feedback { color: #6dd58c; font-size: 12px; min-height: 1em; }
-      .feedback.error { color: #f28b82; }
+      textarea:focus { border-color: var(--louro-green); outline: 2px solid var(--louro-green); outline-offset: 1px; }
+      textarea::placeholder { color: var(--louro-muted); }
+      .feedback { color: var(--louro-green); font-size: 12px; min-height: 1em; }
+      .feedback.error { color: #ffaaa1; }
 
       @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
       @keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
