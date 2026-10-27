@@ -52,14 +52,23 @@ await verify(async () => {
       .find((candidate) => candidate.getAttribute('aria-label') === 'Leave call');
     const rect = (element) => {
       const box = element?.getBoundingClientRect();
-      return box && { left: box.left, right: box.right, width: box.width, height: box.height };
+      return box && {
+        left: box.left,
+        right: box.right,
+        top: box.top,
+        bottom: box.bottom,
+        width: box.width,
+        height: box.height,
+      };
     };
+    const previous = host?.previousElementSibling;
     return {
       state: button?.className,
       logoDisplay: logo && getComputedStyle(logo).display,
       label: label?.textContent,
       button: rect(button),
       host: rect(host),
+      previous: rect(previous),
       dot: rect(dot),
       labelRect: rect(label),
       leave: rect(leave),
@@ -69,15 +78,21 @@ await verify(async () => {
     /^\d{2}:\d{2}$/.test(toolbarStatus.label || '') &&
     toolbarStatus.labelRect?.left >= toolbarStatus.button?.left &&
     toolbarStatus.labelRect?.right <= toolbarStatus.button?.right &&
+    toolbarStatus.labelRect?.top >= toolbarStatus.button?.top &&
+    toolbarStatus.labelRect?.bottom <= toolbarStatus.button?.bottom &&
     toolbarStatus.dot?.left >= toolbarStatus.button?.left &&
     toolbarStatus.dot?.right <= toolbarStatus.button?.right &&
+    toolbarStatus.dot?.top >= toolbarStatus.button?.top &&
+    toolbarStatus.dot?.bottom <= toolbarStatus.button?.bottom &&
     toolbarStatus.button?.right <= toolbarStatus.host?.right + 1 &&
+    toolbarStatus.button?.bottom <= toolbarStatus.host?.bottom + 1 &&
     toolbarStatus.button?.height === 48;
   check(timeFits, `the recording dot and timer fit inside the 48px-high control (${JSON.stringify(toolbarStatus)})`);
   check(toolbarStatus.logoDisplay === 'none', 'the mascot gives the active timer its own space');
   check(
-    toolbarStatus.host?.right <= toolbarStatus.leave?.left,
-    'the status control keeps its grid slot clear of Meet’s leave button',
+    toolbarStatus.host?.left >= toolbarStatus.previous?.right &&
+      toolbarStatus.host?.right <= toolbarStatus.leave?.left,
+    'the status control stays between its neighboring toolbar controls',
   );
 
   console.log('\ntemporary feedback');
