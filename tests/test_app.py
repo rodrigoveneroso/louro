@@ -448,10 +448,10 @@ def test_a_mark_lands_on_the_session_clock_and_in_the_export(client, webm, tmp_p
         ws.send_text("stop")
         ws.receive_json()
 
-    assert mark.json() == {"at_sec": 0.2, "text": ""}
+    assert mark.json() == {"id": 1, "at_sec": 0.2, "text": ""}
     listed = client.get("/api/sessions/marked/notes").json()["notes"]
     assert [n["text"] for n in listed] == ["", "decide on friday"]
-    assert note.json() == {"at_sec": 5.0, "text": "decide on friday"}
+    assert note.json() == {"id": 2, "at_sec": 5.0, "text": "decide on friday"}
     text = next((tmp_path / "export").glob("*marked.md")).read_text()
     lines = text.splitlines()
     assert "[00:00] 📌 Momento marcado" in lines

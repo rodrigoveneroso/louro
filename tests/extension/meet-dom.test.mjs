@@ -13,8 +13,11 @@ const { isInCall, isMicMuted, meetingCode, titleFromTabTitle, meetingTitle, part
 
 /** A participant tile whose leaf elements show `texts`, as Meet renders them. */
 function tile(...texts) {
-  const leaves = texts.map((textContent) => ({ children: [], textContent }));
-  return { querySelectorAll: () => leaves };
+  const leaves = texts.map((textContent) => ({ children: [], textContent, getAttribute: () => null }));
+  return {
+    getAttribute: () => null,
+    querySelectorAll: (selector) => (selector === '[aria-label]' ? [] : leaves),
+  };
 }
 
 test('the leave button means you are in the call, in either language', () => {

@@ -28,8 +28,11 @@ const SESSION = `verify-${Date.now()}`;
 const MEET_URL = 'https://meet.google.com/abc-defg-hij';
 
 const FAKE_MEET = `<!doctype html><html><head><title>Meet - Weekly sync</title></head><body>
-  <button id="mic" aria-label="Desativar microfone (ctrl + d)">mic</button>
-  <button id="join" aria-label="Participar agora">Participar agora</button>
+  <div style="display:grid;grid-template-columns:repeat(3,48px);gap:8px">
+    <button id="mic" aria-label="Desativar microfone (ctrl + d)" style="width:48px;height:48px">mic</button>
+    <button id="camera" aria-label="Desativar câmera" style="width:48px;height:48px">camera</button>
+    <button id="join" aria-label="Participar agora" style="width:48px;height:48px">Participar agora</button>
+  </div>
   <div data-participant-id="spaces/x/devices/1"><span>Desativar som</span><span>Ana Souza</span></div>
   <div data-participant-id="spaces/x/devices/2"><span>Mais opções</span><span>Bruno Lima</span></div>
   <script>
@@ -42,8 +45,9 @@ const FAKE_MEET = `<!doctype html><html><head><title>Meet - Weekly sync</title><
       const leave = document.createElement('button');
       leave.id = 'leave';
       leave.setAttribute('aria-label', 'Sair da chamada');
+      leave.style.cssText = 'width:48px;height:48px';
       leave.onclick = () => leave.remove();
-      document.body.appendChild(leave);
+      document.getElementById('join').replaceWith(leave);
     };
   </script>
 </body></html>`;
@@ -89,7 +93,7 @@ await verify(async () => {
   await page.click('#join');
   check(Boolean(await until(inCall)), 'joining the call is noticed');
   check(
-    (await until(async () => (await badge()) === 'REC')) !== null,
+    (await until(async () => (await badge()) === '!')) !== null,
     'without the click Chrome requires, the extension asks for it on its icon',
   );
   check(
@@ -139,8 +143,8 @@ await verify(async () => {
     Boolean(await until(async () => /^📌 Momento marcado em 00:\d\d$/.test(await feedback.textContent()))),
     `a moment is marked from the button (${await feedback.textContent()})`,
   );
-  await page.locator('louro-button input').fill('decidir na sexta');
-  await page.locator('louro-button input').press('Enter');
+  await page.locator('louro-button textarea').fill('decidir na sexta');
+  await page.locator('louro-button textarea').press('Enter');
   check(
     Boolean(await until(async () => /^📝 Nota salva em/.test(await feedback.textContent()))),
     'and a note taken',

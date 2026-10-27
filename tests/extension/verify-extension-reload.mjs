@@ -13,7 +13,11 @@
 import { check, launch, sleep, verify } from './harness.mjs';
 
 const IN_A_CALL = `<!doctype html><html><head><title>Meet - abc-defg-hij</title></head><body>
-  <button aria-label="Sair da chamada">leave</button>
+  <div style="display:grid;grid-template-columns:repeat(3,48px);gap:8px">
+    <button aria-label="Microfone" style="width:48px;height:48px">mic</button>
+    <button aria-label="Câmera" style="width:48px;height:48px">camera</button>
+    <button aria-label="Sair da chamada" style="width:48px;height:48px">leave</button>
+  </div>
   <div data-participant-id="spaces/x/devices/1"><span>Ana Souza</span></div>
 </body></html>`;
 
