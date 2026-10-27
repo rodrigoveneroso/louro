@@ -17,6 +17,7 @@ const markBtn = document.getElementById('markBtn');
 const noteInput = document.getElementById('noteInput');
 const noteStatus = document.getElementById('noteStatus');
 const autoEl = document.getElementById('autoCapture');
+const includeChatEl = document.getElementById('includeMeetChat');
 
 let segments = null; // of the capture shown, fetched from the backend now and then
 let segmentsFor = null;
@@ -184,6 +185,13 @@ chrome.storage.local.get('overlayEnabled').then(({ overlayEnabled = true }) => {
 });
 overlayEl.addEventListener('change', () => {
   chrome.storage.local.set({ overlayEnabled: overlayEl.checked });
+});
+
+chrome.storage.local.get('includeMeetChat').then(({ includeMeetChat = false }) => {
+  includeChatEl.checked = includeMeetChat;
+});
+includeChatEl.addEventListener('change', () => {
+  chrome.storage.local.set({ includeMeetChat: includeChatEl.checked });
 });
 
 // --- capture follows the call ---

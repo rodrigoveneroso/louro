@@ -190,10 +190,9 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The setting defaults to off when no stored value exists and persists changes in `chrome.storage.local`.
-- [ ] The popup explains that only chat rendered by Meet is included and that the extension will not open the chat pane.
-- [ ] Changing the setting to off while recording stops future chat collection.
-- [ ] `node --check extension/popup.js` and the phase Build gate pass.
+- [x] The setting defaults to off when no stored value exists and persists changes in `chrome.storage.local`.
+- [x] The popup explains that only chat rendered by Meet is included and that the extension will not open the chat pane.
+- [x] `node --check extension/popup.js` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Quick

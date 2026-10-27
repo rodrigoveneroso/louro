@@ -270,6 +270,12 @@
   "popupOverlay": {
     "message": "Mostrar o botão do Louro na barra do Meet"
   },
+  "popupIncludeChat": {
+    "message": "Incluir o chat do Meet na transcrição"
+  },
+  "popupIncludeChatHint": {
+    "message": "Inclui apenas mensagens exibidas pelo Meet. O Louro não abrirá o painel de chat."
+  },
   "buttonIdle": {
     "message": "Louro: esta chamada não está sendo gravada"
   },
