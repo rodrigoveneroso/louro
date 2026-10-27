@@ -140,9 +140,9 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The retention decision accepts chat presence without changing the default 30-second minimum.
-- [ ] Existing speech-only and zero-minimum behavior remains represented in the same retention path.
-- [ ] `python3 -m py_compile backend/retention.py` and the phase Build gate pass.
+- [x] The retention decision accepts chat presence without changing the default 30-second minimum.
+- [x] Existing speech-only and zero-minimum behavior remains represented in the same retention path.
+- [x] `python3 -m py_compile backend/retention.py` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Full
