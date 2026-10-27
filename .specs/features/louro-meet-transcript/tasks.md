@@ -89,10 +89,10 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] `ChatMessage` carries the session ID, unique client ID, author, plain-text message, capture-relative time, and historical flag.
-- [ ] Existing databases gain the new table on open without altering or deleting `segments` or `notes`.
-- [ ] Store methods insert idempotently, preserve same-time snapshot order, load by session, and delete chat rows with their session.
-- [ ] `python3 -m py_compile backend/models.py backend/store.py` and the phase Build gate pass.
+- [x] `ChatMessage` carries the session ID, unique client ID, author, plain-text message, capture-relative time, and historical flag.
+- [x] Existing databases gain the new table on open without altering or deleting `segments` or `notes`.
+- [x] Store methods insert idempotently, preserve same-time snapshot order, load by session, and delete chat rows with their session.
+- [x] `python3 -m py_compile backend/models.py backend/store.py` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Full

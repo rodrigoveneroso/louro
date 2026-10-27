@@ -52,3 +52,16 @@ class Note:
 
     at_sec: float
     text: str = ""
+
+
+@dataclass
+class ChatMessage:
+    """A rendered Meet chat message captured during a session."""
+
+    session_id: str
+    client_id: str
+    author: str
+    text: str
+    at_sec: float
+    historical: bool = False
+    id: int | None = None

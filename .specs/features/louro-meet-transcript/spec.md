@@ -148,40 +148,40 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| LMT-01 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-02 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-03 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-04 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-05 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-06 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-07 | P1: Toggle and use transcript panel | Tasks | In Tasks |
-| LMT-08 | P1: Keep annotations readable | Tasks | In Tasks |
-| LMT-09 | P1: Keep annotations readable | Tasks | In Tasks |
-| LMT-10 | P1: Keep annotations readable | Tasks | In Tasks |
-| LMT-11 | P1: Keep the Meet control stable | Tasks | In Tasks |
-| LMT-12 | P1: Keep the Meet control stable | Tasks | In Tasks |
-| LMT-13 | P1: Keep the Meet control stable | Tasks | In Tasks |
-| LMT-14 | P1: Identify speakers by color | Tasks | In Tasks |
-| LMT-15 | P1: Identify speakers by color | Tasks | In Tasks |
-| LMT-16 | P1: Identify speakers by color | Tasks | In Tasks |
-| LMT-17 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-18 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-19 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-20 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-21 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-22 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-23 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-24 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-25 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-26 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-27 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-28 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-29 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-30 | P1: Include optional Meet chat messages | Tasks | In Tasks |
-| LMT-31 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-32 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-33 | P1: Start follow-call capture from Meet | Tasks | In Tasks |
-| LMT-34 | P1: Include optional Meet chat messages | Tasks | In Tasks |
+| LMT-01 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-02 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-03 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-04 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-05 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-06 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-07 | P1: Toggle and use transcript panel | Implementing | Implementing |
+| LMT-08 | P1: Keep annotations readable | Implementing | Implementing |
+| LMT-09 | P1: Keep annotations readable | Implementing | Implementing |
+| LMT-10 | P1: Keep annotations readable | Implementing | Implementing |
+| LMT-11 | P1: Keep the Meet control stable | Implementing | Implementing |
+| LMT-12 | P1: Keep the Meet control stable | Implementing | Implementing |
+| LMT-13 | P1: Keep the Meet control stable | Implementing | Implementing |
+| LMT-14 | P1: Identify speakers by color | Implementing | Implementing |
+| LMT-15 | P1: Identify speakers by color | Implementing | Implementing |
+| LMT-16 | P1: Identify speakers by color | Implementing | Implementing |
+| LMT-17 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-18 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-19 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-20 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-21 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-22 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-23 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-24 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-25 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-26 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-27 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-28 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-29 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-30 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-31 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-32 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-33 | P1: Start follow-call capture from Meet | Implementing | Implementing |
+| LMT-34 | P1: Include optional Meet chat messages | Implementing | Implementing |
 
 **ID format:** `LMT-[NUMBER]`
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified

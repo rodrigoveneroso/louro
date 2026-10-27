@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from .incremental import Segment
-from .models import Note, Session
+from .models import ChatMessage, Note, Session
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notes_session ON notes(session_id, at_sec);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    client_id  TEXT NOT NULL,
+    author     TEXT NOT NULL,
+    text       TEXT NOT NULL,
+    at_sec     REAL NOT NULL,
+    historical INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(session_id, client_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session
+    ON chat_messages(session_id, at_sec, id);
 
 """
 
@@ -200,10 +214,71 @@ class SessionStore:
             ).fetchall()
         return [Note(at_sec=row["at_sec"], text=row["text"]) for row in rows]
 
+    def add_chat_messages(self, messages: Sequence[ChatMessage]) -> list[ChatMessage]:
+        """Insert new messages in input order and ignore retries for the session."""
+        inserted: list[ChatMessage] = []
+        if not messages:
+            return inserted
+        with self._lock:
+            for message in messages:
+                cursor = self._conn.execute(
+                    """
+                    INSERT OR IGNORE INTO chat_messages
+                        (session_id, client_id, author, text, at_sec, historical)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        message.session_id,
+                        message.client_id,
+                        message.author,
+                        message.text,
+                        message.at_sec,
+                        int(message.historical),
+                    ),
+                )
+                if cursor.rowcount == 1:
+                    inserted.append(
+                        ChatMessage(
+                            id=cursor.lastrowid,
+                            session_id=message.session_id,
+                            client_id=message.client_id,
+                            author=message.author,
+                            text=message.text,
+                            at_sec=message.at_sec,
+                            historical=message.historical,
+                        )
+                    )
+            self._conn.commit()
+        return inserted
+
+    def load_chat_messages(self, session_id: str) -> list[ChatMessage]:
+        with self._lock:
+            rows = self._conn.execute(
+                """
+                SELECT id, session_id, client_id, author, text, at_sec, historical
+                FROM chat_messages
+                WHERE session_id = ?
+                ORDER BY at_sec, id
+                """,
+                (session_id,),
+            ).fetchall()
+        return [
+            ChatMessage(
+                id=row["id"],
+                session_id=row["session_id"],
+                client_id=row["client_id"],
+                author=row["author"],
+                text=row["text"],
+                at_sec=row["at_sec"],
+                historical=bool(row["historical"]),
+            )
+            for row in rows
+        ]
+
     def delete_session(self, session_id: str) -> None:
         """Remove a session and everything stored for it."""
         with self._lock:
-            for table in ("segments", "notes", "sessions"):
+            for table in ("segments", "notes", "chat_messages", "sessions"):
                 self._conn.execute(f"DELETE FROM {table} WHERE session_id = ?", (session_id,))
             self._conn.commit()
 
