@@ -92,7 +92,7 @@ The popup, side panel, and Meet control use separate visual treatments, and the 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
 | UX-01 | P1: Quick capture controls | Execute | Implemented |
-| UX-02 | P1: Live transcript workspace | Execute | Pending |
+| UX-02 | P1: Live transcript workspace | Execute | Implemented |
 | UX-03 | P1: Louro visual identity and accessible states | Execute | Pending |
 
 **ID format:** `UX-NN`.
@@ -103,5 +103,5 @@ The popup, side panel, and Meet control use separate visual treatments, and the 
 
 - [x] Capture actions remain visible before settings in the popup.
 - [ ] All three surfaces use the same semantic colors and typography rhythm.
-- [ ] A reader can leave the live edge and return without losing their scroll position.
+- [x] A reader can leave the live edge and return without losing their scroll position.
 - [ ] No capture or persistence behavior changes.

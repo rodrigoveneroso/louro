@@ -3,16 +3,16 @@ import { t, translatePage } from './i18n.js';
 import { BACKEND, formatClock } from './shared.js';
 
 const SPEAKER_PALETTE = [
-  '#a5b4fc',
-  '#f9a8d4',
-  '#67e8f9',
-  '#fdba74',
   '#c4b5fd',
-  '#bef264',
+  '#f9a8d4',
+  '#67d5e8',
+  '#fdba74',
+  '#b8c8ff',
+  '#d3e982',
   '#fca5a5',
-  '#5eead4',
+  '#5ee0c2',
 ];
-const SELF_COLOR = '#4ade80';
+const SELF_COLOR = '#a6e36a';
 const timelineItems = new Map();
 const speakerColors = new Map();
 const usedSpeakerColors = new Set([SELF_COLOR]);
@@ -30,6 +30,7 @@ const statusEl = document.getElementById('status');
 const transcriptEl = document.getElementById('transcript');
 const transcriptContainer = document.getElementById('transcript-container');
 const emptyStateEl = document.getElementById('empty-state');
+const liveBtn = document.getElementById('liveBtn');
 const segmentCountEl = document.getElementById('segment-count');
 const durationEl = document.getElementById('duration');
 const composerEl = document.getElementById('note-composer');
@@ -65,6 +66,12 @@ function scrollToBottom() {
   transcriptContainer.scrollTop = transcriptContainer.scrollHeight;
 }
 
+function updateLiveButton() {
+  liveBtn.hidden = !(
+    activeSessionId && timelineItems.size > 0 && !isNearBottom()
+  );
+}
+
 function clearTimeline() {
   timelineItems.clear();
   speakerColors.clear();
@@ -76,6 +83,7 @@ function clearTimeline() {
   transcriptEl.replaceChildren();
   segmentCountEl.textContent = t('panelSegments', 0);
   emptyStateEl.classList.remove('hidden');
+  liveBtn.hidden = true;
 }
 
 function keyForSegment(segment) {
@@ -162,7 +170,7 @@ function hashSpeaker(name) {
 function speakerColor(name, isSelf = false) {
   if (isSelf) return SELF_COLOR;
   const key = normalizedSpeakerName(name);
-  if (!key || key === 'participante desconhecido') return '#a5b4fc';
+  if (!key || key === 'participante desconhecido') return '#c4b5fd';
   if (speakerColors.has(key)) return speakerColors.get(key);
 
   const start = hashSpeaker(key) % SPEAKER_PALETTE.length;
@@ -202,7 +210,17 @@ function makeTimelineElement(item, highlight) {
     return element;
   }
 
-  const time = document.createElement('div');
+  const meta = document.createElement('div');
+  meta.className = 'entry-meta';
+
+  const kindLabel = document.createElement('span');
+  kindLabel.className = 'kind-label';
+  kindLabel.textContent = t(
+    item.kind === 'segment' ? 'panelItemSpeech' : item.kind === 'chat' ? 'panelItemChat' : 'panelItemNote',
+  );
+  meta.appendChild(kindLabel);
+
+  const time = document.createElement('span');
   time.className = item.kind === 'chat' && item.historical ? 'time historical-label' : 'time';
   if (item.kind === 'segment') {
     time.textContent = `${formatClock(item.startSec)} → ${formatClock(item.endSec)}`;
@@ -211,7 +229,8 @@ function makeTimelineElement(item, highlight) {
   } else {
     time.textContent = formatClock(item.atSec);
   }
-  element.appendChild(time);
+  meta.appendChild(time);
+  element.appendChild(meta);
 
   const body = document.createElement('div');
   body.className = 'text';
@@ -267,6 +286,7 @@ function addTimelineItem(item, highlight = true) {
   const next = ordered[ordered.indexOf(entry) + 1];
   transcriptEl.insertBefore(entry.element, next?.element || null);
   if (shouldScroll) scrollToBottom();
+  updateLiveButton();
 }
 
 function clearTimelineForSession() {
@@ -429,7 +449,14 @@ function setCaptureActive(sessionId) {
     noteStatusEl.textContent = '';
     noteStatusEl.classList.remove('error');
   }
+  updateLiveButton();
 }
+
+transcriptContainer.addEventListener('scroll', updateLiveButton, { passive: true });
+liveBtn.addEventListener('click', () => {
+  scrollToBottom();
+  updateLiveButton();
+});
 
 async function saveNote(text) {
   noteStatusEl.textContent = '';
