@@ -85,7 +85,7 @@ async def lifespan(_app: FastAPI):
         store = None
 
 
-app = FastAPI(title="louro", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="louro", version="1.1.1", lifespan=lifespan)
 security.install(app)
 
 

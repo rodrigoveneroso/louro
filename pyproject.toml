@@ -1,6 +1,6 @@
 [project]
 name = "louro"
-version = "1.1.0"
+version = "1.1.1"
 description = "Local meeting transcription, without the bot in your call."
 readme = "README.md"
 license = "MIT"
