@@ -380,12 +380,12 @@ T10 -> T13
 **Gate**: Build
 **Commit**: `feat(extension): merge chat and color transcript speakers`
 
-### T13: Keep the Meet overlay outside the React-owned toolbar
+### T13: Integrate the Meet overlay into the native toolbar layout
 
-**What**: Mount the Louro overlay host under the document root and position it from Meet control geometry without repeated reparenting or one-second toolbar writes.
+**What**: Render the Louro overlay as a regular grid item before Meet's leave-call control, using Meet's spacing and avoiding coordinate positioning or a floating fallback.
 **Where**: `extension/meet-overlay.js`
 **Depends on**: T10
-**Reuses**: Existing shadow-root button, overlay state, fallback position, and note helper from T9.
+**Reuses**: Existing shadow-root button, overlay state, and note helper from T9.
 **Requirement**: LMT-11, LMT-12, LMT-13
 
 **Tools**:
@@ -395,10 +395,11 @@ T10 -> T13
 
 **Done when**:
 
-- [x] The host remains mounted under `document.documentElement` while enabled and is not inserted into Meet's React-managed control row.
-- [x] Position updates follow the leave-call control using coalesced mutation/resize observation; state rendering skips unchanged DOM writes.
-- [x] The control stays visible at the measured adjacent or floating fallback position and is removed when disabled.
+- [x] The host is a 48×48-pixel grid item in Meet's call-controls row immediately before the leave-call control.
+- [x] The browser's grid flow reserves its space; no viewport coordinates or overlapping fallback are used.
+- [x] Toolbar changes reattach the single owned host when needed; the control is removed when disabled.
 - [x] `node --check extension/meet-overlay.js` and the phase Build gate pass.
+- [ ] Confirm the loaded Chrome profile has one active Louro installation and verify the button in the live Meet toolbar.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Quick

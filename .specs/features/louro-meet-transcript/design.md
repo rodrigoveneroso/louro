@@ -7,7 +7,7 @@
 
 ## Architecture Overview
 
-Keep the current audio, segment, and note flows. Add a local chat-capture path from Meet's rendered DOM to a dedicated SQLite table, then merge segments, notes, and chat into one ordered side-panel/export timeline. Separate the Meet overlay's visual host from Meet's React-owned toolbar and keep its state updates independent from its position updates.
+Keep the current audio, segment, and note flows. Add a local chat-capture path from Meet's rendered DOM to a dedicated SQLite table, then merge segments, notes, and chat into one ordered side-panel/export timeline. Render the Meet overlay as an in-flow child of Meet's call-controls layout so it gets a real control slot instead of a separately positioned visual approximation.
 
 ```mermaid
 sequenceDiagram
@@ -122,12 +122,12 @@ The `meet_join_clicked` path is an attempt to use the click on Meet's immediate 
 
 ### Stable Meet Overlay Host
 
-- **Purpose**: Keep the Louro control outside Meet's React-managed toolbar while visually aligning it beside the Meet controls.
+- **Purpose**: Make the Louro control participate in Meet's call-controls layout as a normal control, with a dedicated slot and no overlap.
 - **Location**: `extension/meet-overlay.js`.
-- **Interfaces**: Existing shadow-root button/panel and storage-driven overlay state remain unchanged; a positioning controller updates host coordinates independently.
-- **Dependencies**: Meet leave-call control rectangle, resize/mutation observers, animation-frame scheduling.
-- **Reuses**: Existing button states, shadow DOM, translation keys, note behavior, and floating fallback.
-- **Behavior**: Mount the host under `document.documentElement` once; position it using the leave-call button's viewport rectangle. A `ResizeObserver` and a filtered/coalesced `MutationObserver` recalculate position as the toolbar moves. State rendering does not reparent the host and skips DOM writes when values did not change. The floating corner remains the fallback if the toolbar cannot be located.
+- **Interfaces**: Existing shadow-root button/panel, storage-driven state, translation keys, and note behavior remain unchanged. The host becomes a layout child immediately before Meet's leave-call control.
+- **Dependencies**: Meet's rendered leave-call control and nearest call-controls grid; mutation observation to recover if Meet replaces that grid.
+- **Reuses**: Existing button states, shadow DOM, translation keys, note behavior, and the native grid's own spacing, alignment, and responsive behavior.
+- **Behavior**: Find the nearest visible grid containing Meet's leave-call control and insert the host as its own grid item immediately before that control. Give the host the same 48×48-pixel hit area as Meet's round controls. Do not use fixed coordinates, a floating fallback, or a high-z-index layer. If the toolbar is not available, keep the host hidden until Meet renders it. Reconcile only when the toolbar changes, and use a shared DOM ownership token so an older copy left by extension reload stands down rather than recreating a duplicate.
 
 ---
 
@@ -188,7 +188,8 @@ This is a read/render projection only. Speech segments and notes retain their ex
 
 | Concern | Location (file:line) | Impact | Mitigation |
 | --- | --- | --- | --- |
-| Overlay is moved into Meet's toolbar every render and render runs on a one-second interval. | `extension/meet-overlay.js:19-280` | Meet's React reconciliation can remove or reset the injected host, causing flicker and toolbar instability. | Keep the host under `document.documentElement`; make state rendering idempotent; position from observed geometry on resize/mutation only. |
+| Meet's call-control grid is undocumented and can change. | `extension/meet-overlay.js` | The native layout integration may not find the control row after a Meet UI change. | Find the nearest visible grid containing the leave-call control, re-scan after relevant toolbar mutations, and hide the overlay when the expected grid is unavailable instead of placing it over unrelated UI. |
+| More than one Louro installation can inject a control into the same Meet tab. | Chrome extension instances; observed during live-tab inspection | Duplicate Louro controls remain visible even when each instance positions itself consistently. | Keep one project installation enabled in Chrome before visually verifying the toolbar. The shared DOM ownership token deduplicates copies running this implementation. |
 | Follow-call currently attempts `tabCapture` from a polled call-state transition, while `startCapture` awaits storage/tab lookups before asking for a stream ID. | `extension/background.js:51-75`, `107-126`; `extension/meet-call.js:28-43` | No valid user gesture may remain when Chrome checks the call; automatic capture may be rejected. | Use the direct Meet join click as the only automatic start trigger and acquire the stream ID before asynchronous preparation. Keep the popup/manual route. Chrome's message-relay gesture propagation remains an implementation uncertainty and must not be presented as guaranteed. |
 | Meet's chat DOM and self-participant labels are undocumented and can change. | `extension/meet-dom.js:41-58`; new `extension/meet-chat.js` | Chat parsing may miss messages; incorrect self detection could misattribute a speaker. | Use visible ARIA/text and structural fallbacks, avoid hidden-history APIs, and only show “Você” for explicit markers. Keep selectors isolated in one content script. |
 | Chat duplicate identity may be ambiguous if a message has no stable DOM ID or visible original time. | New `extension/meet-chat.js`; `backend/store.py` | A rerender may duplicate a message, or a repeated identical message may be collapsed. | Prefer stable DOM IDs and visible timestamps, track message-node identities, and use a unique client ID plus SQLite uniqueness for retry safety. Record the remaining ambiguity in implementation notes. |
@@ -209,7 +210,7 @@ This is a read/render projection only. Speech segments and notes retain their ex
 | Transcript rendering | One merged timeline for speech, chat, and notes in live and markdown output. | Lets the reader follow spoken and written meeting context in one capture-relative sequence. |
 | Self label | Label “Você” only from an explicit local-participant marker. | Participant names alone do not reliably identify the local user. |
 | Panel API compatibility | Feature-detect `sidePanel.close`, `onOpened`, and `onClosed`; do not raise the minimum Chrome version. | The APIs have different Chrome availability: `close` and `onOpened` start at Chrome 141; `onClosed` starts at Chrome 142. Keep a graceful native-close fallback. [Chrome sidePanel reference](https://developer.chrome.com/docs/extensions/reference/api/sidePanel). |
-| Overlay position | Fixed host mounted under the document root; compute visual position from the Meet control geometry. | Meet's toolbar is React-managed and should not own the Louro node. |
+| Overlay position | In-flow custom-element host as a grid item in Meet's call-controls row, before the leave-call control. | The browser's own grid flow reserves space, matches the row spacing, and prevents a Louro layer from overlapping native controls. |
 
 ---
 

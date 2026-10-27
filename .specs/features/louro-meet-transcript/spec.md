@@ -1,6 +1,6 @@
 # Louro Meet Transcript Improvements Specification
 
-**Implementation status**: Code complete; syntax and diff gates passed. Runtime behavior remains unexercised under the approved no-tests plan.
+**Implementation status**: Native toolbar integration implemented; syntax and diff checks pass. Live verification is pending because the inspected Chrome tab currently has three Louro runtime instances, and Chrome's extension-management page is unavailable to browser automation.
 
 ## Problem Statement
 
@@ -84,7 +84,7 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 **Acceptance Criteria**:
 
 1. WHILE the call is active and the Louro overlay is enabled, Meet toolbar re-renders SHALL NOT repeatedly remove and reinsert the Louro control (LMT-11).
-2. WHILE the call is active and the Louro overlay is enabled, the Louro control SHALL remain visible in a stable position adjacent to the Meet controls or in its existing fallback position (LMT-12).
+2. WHILE the call is active and the Louro overlay is enabled, the Louro control SHALL occupy its own layout slot inside Meet's native call-controls row and SHALL NOT cover or sit outside the row's controls (LMT-12).
 3. WHEN the user disables the Louro overlay THEN the system SHALL remove the Louro control from the Meet page (LMT-13).
 
 **Independent Test**: Keep the Louro overlay enabled in a live Meet call while Meet's toolbar changes state; verify the control does not blink, jump, or cause the toolbar to revert.
@@ -160,8 +160,8 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 | LMT-08 | P1: Keep annotations readable | P1 | Verified |
 | LMT-09 | P1: Keep annotations readable | P1 | Verified |
 | LMT-10 | P1: Keep annotations readable | P1 | Verified |
-| LMT-11 | P1: Keep the Meet control stable | P1 | Verified |
-| LMT-12 | P1: Keep the Meet control stable | P1 | Verified |
+| LMT-11 | P1: Keep the Meet control stable | P1 | Implementing |
+| LMT-12 | P1: Keep the Meet control stable | P1 | Implementing |
 | LMT-13 | P1: Keep the Meet control stable | P1 | Verified |
 | LMT-14 | P1: Identify speakers by color | P1 | Verified |
 | LMT-15 | P1: Identify speakers by color | P1 | Verified |

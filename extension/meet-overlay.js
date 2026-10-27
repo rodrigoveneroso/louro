@@ -1,5 +1,4 @@
-// A Louro control positioned beside Meet's leave-call button. Its host stays outside
-// Meet's React-owned toolbar so Meet cannot remove and recreate it during toolbar renders.
+// A Louro control rendered as a regular grid item in Meet's native call toolbar.
 (() => {
   const { buttonState } = globalThis.louroOverlay;
   const { extensionAlive, isInCall } = globalThis.louroMeet;
@@ -14,15 +13,20 @@
     'overlayEnabled',
   ];
   const TICK_MS = 1000;
+  const PANEL_VIEWPORT_MARGIN = 8;
   const LEAVE_CALL = /leave call|sair da chamada|sair da ligação|deixar a chamada/i;
-  const VIEWPORT_MARGIN = 8;
-  const ADJACENT_GAP = 8;
+  const OWNER_ATTRIBUTE = 'data-louro-overlay-owner';
+  const ownerToken = `${Date.now()}-${Math.random()}`;
+
+  // A reload can leave the old content script alive until its next state tick. A DOM
+  // token is shared across isolated worlds so an older copy can stand down cleanly.
+  document.documentElement.setAttribute(OWNER_ATTRIBUTE, ownerToken);
 
   let state = {};
   let tabId = null; // ours, from the service worker: content scripts cannot ask Chrome
   let shown = null;
   let observedLeaveButton = null;
-  let observedControlRow = null;
+  let observedToolbar = null;
   let resizeFrame = 0;
   let renderFrame = 0;
   let hostWasObserved = false;
@@ -52,19 +56,18 @@
   const root = host.attachShadow({ mode: 'open' });
   root.innerHTML = `
     <style>
-      :host { all: initial; display: inline-flex; position: fixed; left: 0; top: 0;
-              z-index: 2147483647; margin: 0;
+      :host { all: initial; display: inline-grid; position: relative; place-items: center;
+              width: 48px; height: 48px; margin: 0; padding: 0;
               --louro-bg: #111a14; --louro-surface: #19251c; --louro-raised: #223328;
               --louro-hover: #2b3d30; --louro-border: #35443a; --louro-text: #f4f5e9;
               --meet-control: #333537; --meet-control-hover: #444746;
               --louro-muted: #aab5a9; --louro-green: #a6e36a; --louro-green-ink: #17211a;
               --louro-yellow: #f6cf59; --louro-coral: #ff6b5e; --louro-coral-ink: #2b1714;
               font: 500 14px/1 'Google Sans', Roboto, system-ui, sans-serif; }
-      :host(.floating) { left: 16px; top: auto; bottom: 88px; }
       .button {
         all: unset; box-sizing: border-box; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-        height: 40px; min-width: 40px; padding: 0 10px; border-radius: 50%;
+        width: 48px; height: 48px; min-width: 48px; padding: 0; border-radius: 50%;
         background: var(--meet-control); color: var(--louro-text);
         transition: background-color 0.15s;
       }
@@ -99,7 +102,6 @@
         font: 400 13px/1.4 'Google Sans', Roboto, system-ui, sans-serif;
         animation: rise 0.15s ease-out;
       }
-      :host(.floating) .panel { left: 0; transform: none; }
       .panel.below { bottom: auto; top: calc(100% + 12px); }
       .panel[hidden] { display: none; }
       .panel .text { color: var(--louro-muted); }
@@ -169,7 +171,7 @@
   }
 
   function fit() {
-    const margin = VIEWPORT_MARGIN;
+    const margin = PANEL_VIEWPORT_MARGIN;
     const needsBelow = panel.getBoundingClientRect().top < margin;
     if (panel.classList.contains('below') !== needsBelow) panel.classList.toggle('below', needsBelow);
     let box = panel.getBoundingClientRect();
@@ -229,7 +231,7 @@
     addNote(text);
   });
 
-  // --- positioning outside Meet's React-owned controls ------------------------------------
+  // --- native toolbar integration ----------------------------------------------------------
 
   function findLeaveButton() {
     return [...document.querySelectorAll('button[aria-label]')].find((candidate) =>
@@ -237,110 +239,56 @@
     ) || null;
   }
 
-  function observeAnchorGeometry(nextButton) {
-    const nextRow = nextButton?.parentElement || null;
-    if (nextButton === observedLeaveButton && nextRow === observedControlRow) return;
-    geometryObserver.disconnect();
-    resizeObserver.disconnect();
-    observedLeaveButton = nextButton;
-    observedControlRow = nextRow;
-    if (nextButton) {
-      geometryObserver.observe(nextButton, { attributes: true, attributeFilter: ['class', 'style'] });
-      for (let ancestor = nextButton.parentElement; ancestor; ancestor = ancestor.parentElement) {
-        geometryObserver.observe(ancestor, { attributes: true, attributeFilter: ['class', 'style'] });
-        if (ancestor === document.documentElement) break;
-      }
-      resizeObserver.observe(nextButton);
-      if (observedControlRow) resizeObserver.observe(observedControlRow);
-    }
-    if (hostWasObserved) resizeObserver.observe(host);
-  }
-
-  function setFloating(floating) {
-    if (host.classList.contains('floating') !== floating) host.classList.toggle('floating', floating);
-    if (floating) {
-      setStyle(host, 'left', '');
-      setStyle(host, 'top', '');
-    }
-  }
-
-  function toolbarControls(leave, leaveRect) {
-    return [...document.querySelectorAll('button[aria-label], [role="button"][aria-label]')]
-      .filter((candidate) => candidate !== leave && !host.contains(candidate))
-      .map((candidate) => candidate.getBoundingClientRect())
-      .filter(
-        (rect) =>
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.top < leaveRect.bottom + ADJACENT_GAP &&
-          rect.bottom > leaveRect.top - ADJACENT_GAP,
-      );
-  }
-
-  function overlapsToolbar(left, top, width, height, controls) {
-    return controls.some(
-      (rect) =>
-        left < rect.right + ADJACENT_GAP &&
-        left + width > rect.left - ADJACENT_GAP &&
-        top < rect.bottom + ADJACENT_GAP &&
-        top + height > rect.top - ADJACENT_GAP,
-    );
-  }
-
-  function findInlineSlot(start, direction, top, width, height, controls) {
-    let left = start;
-    for (let attempt = 0; attempt <= controls.length; attempt += 1) {
-      const collisions = controls.filter((rect) =>
-        overlapsToolbar(left, top, width, height, [rect]),
-      );
-      if (!collisions.length) return left;
-      left = direction < 0
-        ? Math.min(...collisions.map((rect) => rect.left)) - width - ADJACENT_GAP
-        : Math.max(...collisions.map((rect) => rect.right)) + ADJACENT_GAP;
+  function findToolbarSlot(leaveButton) {
+    for (let candidate = leaveButton?.parentElement; candidate; candidate = candidate.parentElement) {
+      if (getComputedStyle(candidate).display !== 'grid') continue;
+      const leaveCell = [...candidate.children].find((child) => child === leaveButton || child.contains(leaveButton));
+      if (!leaveCell) continue;
+      const visibleCells = [...candidate.children].filter((child) => child.getBoundingClientRect().width > 0);
+      if (visibleCells.length >= 3) return { row: candidate, leaveCell };
     }
     return null;
   }
 
+  function observeToolbar(nextToolbar, nextButton) {
+    if (nextButton === observedLeaveButton && nextToolbar === observedToolbar) return;
+    geometryObserver.disconnect();
+    resizeObserver.disconnect();
+    observedLeaveButton = nextButton;
+    observedToolbar = nextToolbar;
+    if (nextButton) {
+      geometryObserver.observe(nextButton, { attributes: true, attributeFilter: ['class', 'style'] });
+    }
+    if (nextToolbar) {
+      resizeObserver.observe(nextToolbar);
+      for (let ancestor = nextToolbar.parentElement; ancestor; ancestor = ancestor.parentElement) {
+        geometryObserver.observe(ancestor, { attributes: true, attributeFilter: ['class', 'style'] });
+        if (ancestor === document.documentElement) break;
+      }
+    }
+    if (hostWasObserved) resizeObserver.observe(host);
+  }
+
   function positionHost() {
-    if (host.parentElement !== document.documentElement) document.documentElement.append(host);
     if (!hostWasObserved) {
       resizeObserver.observe(host);
       hostWasObserved = true;
     }
 
     const leave = findLeaveButton();
-    observeAnchorGeometry(leave);
-    if (!leave) {
-      setFloating(true);
+    const slot = findToolbarSlot(leave);
+    observeToolbar(slot?.row || null, leave);
+    if (!slot) {
+      if (host.parentElement) host.remove();
       return;
     }
 
-    const rect = leave.getBoundingClientRect();
-    const hostRect = host.getBoundingClientRect();
-    const width = hostRect.width;
-    const height = hostRect.height;
-    const top = rect.top + (rect.height - height) / 2;
-    const controls = toolbarControls(leave, rect);
-    let left = findInlineSlot(rect.left - width - ADJACENT_GAP, -1, top, width, height, controls);
-    if (left === null || left < VIEWPORT_MARGIN) {
-      left = findInlineSlot(rect.right + ADJACENT_GAP, 1, top, width, height, controls);
+    // The button occupies a real grid cell, immediately before Meet's leave button.
+    // Meet's grid spacing and responsive layout provide the position; no coordinates
+    // or overlapping layer are needed.
+    if (host.parentElement !== slot.row || host.nextElementSibling !== slot.leaveCell) {
+      slot.leaveCell.before(host);
     }
-    const fits =
-      width > 0 &&
-      height > 0 &&
-      left !== null &&
-      left >= VIEWPORT_MARGIN &&
-      left + width <= innerWidth - VIEWPORT_MARGIN &&
-      top >= VIEWPORT_MARGIN &&
-      top + height <= innerHeight - VIEWPORT_MARGIN;
-
-    if (!fits) {
-      setFloating(true);
-      return;
-    }
-    setFloating(false);
-    setStyle(host, 'left', `${Math.round(left)}px`);
-    setStyle(host, 'top', `${Math.round(top)}px`);
     if (!panel.hidden) fit();
   }
 
@@ -370,6 +318,9 @@
     geometryObserver.disconnect();
     pageObserver.disconnect();
     host.remove();
+    if (document.documentElement.getAttribute(OWNER_ATTRIBUTE) === ownerToken) {
+      document.documentElement.removeAttribute(OWNER_ATTRIBUTE);
+    }
   }
 
   function render() {
@@ -382,7 +333,7 @@
   }
 
   function renderOnce() {
-    if (!extensionAlive()) {
+    if (!extensionAlive() || document.documentElement.getAttribute(OWNER_ATTRIBUTE) !== ownerToken) {
       stop();
       return;
     }
@@ -402,11 +353,10 @@
       );
     if (!shown) {
       if (host.parentElement) host.remove();
-      observeAnchorGeometry(null);
+      observeToolbar(null, null);
       return;
     }
 
-    if (host.parentElement !== document.documentElement) document.documentElement.append(host);
     if (button.className !== `button ${shown.kind}`) button.className = `button ${shown.kind}`;
     if (button.title !== shown.tip) button.title = shown.tip;
     if (button.getAttribute('aria-label') !== shown.tip) button.setAttribute('aria-label', shown.tip);
@@ -428,7 +378,9 @@
         ));
     const isRelevant = mutations.some((mutation) => {
       if (mutation.attributeName === 'aria-label') return containsLeaveButton(mutation.target);
-      if (observedControlRow?.contains(mutation.target)) return true;
+      if (observedToolbar && (mutation.target === observedToolbar || observedToolbar.contains(mutation.target))) {
+        return true;
+      }
       return [...mutation.addedNodes, ...mutation.removedNodes].some(containsLeaveButton);
     });
     if (isRelevant) {
