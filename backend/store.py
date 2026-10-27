@@ -221,10 +221,7 @@ class SessionStore:
                 "SELECT id, at_sec, text FROM notes WHERE session_id = ? ORDER BY at_sec, id",
                 (session_id,),
             ).fetchall()
-        return [
-            {"id": row["id"], "at_sec": row["at_sec"], "text": row["text"]}
-            for row in rows
-        ]
+        return [{"id": row["id"], "at_sec": row["at_sec"], "text": row["text"]} for row in rows]
 
     def add_chat_messages(self, messages: Sequence[ChatMessage]) -> list[ChatMessage]:
         """Insert new messages in input order and ignore retries for the session."""
