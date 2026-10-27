@@ -5,6 +5,8 @@ import { t } from './i18n.js';
 import { BACKEND, newSessionId } from './shared.js';
 
 const OFFSCREEN_URL = 'offscreen.html';
+const CHAT_POST_ATTEMPTS = 5;
+const CHAT_POST_RETRY_MS = 250;
 
 // A Manifest V3 service worker is shut down when idle, so in-memory state does not survive
 // a long meeting. The capture in progress lives in storage instead.
@@ -102,6 +104,54 @@ async function postToBackend(path, body) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   }).catch(() => {});
+}
+
+async function forwardMeetChat(tabId, sessionId, messages) {
+  if (
+    !Number.isInteger(tabId) ||
+    !Array.isArray(messages) ||
+    messages.length > 50 ||
+    typeof sessionId !== 'string'
+  ) {
+    return { ok: false, stored: 0 };
+  }
+  const path = `/api/sessions/${encodeURIComponent(sessionId)}/chat-messages`;
+  for (let attempt = 0; attempt < CHAT_POST_ATTEMPTS; attempt += 1) {
+    const state = await chrome.storage.local.get([
+      'activeSessionId',
+      'meetingTabId',
+      'includeMeetChat',
+    ]);
+    if (
+      state.activeSessionId !== sessionId ||
+      state.meetingTabId !== tabId ||
+      state.includeMeetChat !== true
+    ) {
+      return { ok: false, stored: 0 };
+    }
+
+    let response;
+    try {
+      response = await fetch(`http://${BACKEND}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+      });
+    } catch {
+      // The audio recorder owns its own backend reconnect loop; chat failure is isolated.
+    }
+    if (response?.ok) {
+      const result = await response.json().catch(() => null);
+      return { ok: true, stored: Array.isArray(result?.messages) ? result.messages.length : 0 };
+    }
+    if (response && response.status !== 404 && response.status !== 409) {
+      return { ok: false, stored: 0 };
+    }
+    if (attempt + 1 < CHAT_POST_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, CHAT_POST_RETRY_MS * (attempt + 1)));
+    }
+  }
+  return { ok: false, stored: 0 };
 }
 
 async function startCapture(tabId = null) {
@@ -304,6 +354,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const session = encodeURIComponent(message.sessionId);
       await postToBackend(`/api/sessions/${session}/speaker-events`, { events: message.events });
       sendResponse({ ok: true });
+    } else if (message.action === 'meet_chat_messages' && sender.tab) {
+      const isMeet = sender.tab.url?.startsWith('https://meet.google.com/');
+      sendResponse(
+        isMeet
+          ? await forwardMeetChat(sender.tab.id, message.sessionId, message.messages)
+          : { ok: false, stored: 0 },
+      );
     } else if (message.action === 'capture_finished') {
       await onCaptureFinished(message.result);
       sendResponse({ ok: true });

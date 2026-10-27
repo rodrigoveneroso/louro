@@ -230,6 +230,7 @@ T10 -> T13
 
 **What**: Connect the Meet collector's start/stop and bounded message batches to the active Louro session and local chat endpoint.
 **Where**: `extension/background.js`
+**Supporting file**: `extension/meet-chat.js` (limit collection to the capture tab)
 **Depends on**: T2, T6
 **Reuses**: `postToBackend`, active-session storage, `chrome.tabs.sendMessage`, and existing capture lifecycle notifications.
 **Requirement**: LMT-17, LMT-18, LMT-20, LMT-22, LMT-29, LMT-34
@@ -241,11 +242,11 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] Chat observation starts only for the active Meet tab and session when the stored preference is enabled.
-- [ ] Chat observation stops when capture stops or the preference is disabled.
-- [ ] Batches are posted only to the existing loopback backend and retried in a bounded way when the backend has not initialized the active session yet.
-- [ ] Backend failure does not claim that unsaved chat was stored and does not stop the existing audio capture.
-- [ ] `node --check extension/background.js` and the phase Build gate pass.
+- [x] Chat observation starts only for the active Meet tab and session when the stored preference is enabled.
+- [x] Chat observation stops when capture stops or the preference is disabled.
+- [x] Batches are posted only to the existing loopback backend and retried in a bounded way when the backend has not initialized the active session yet.
+- [x] Backend failure does not claim that unsaved chat was stored and does not stop the existing audio capture.
+- [x] `node --check extension/background.js` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Build

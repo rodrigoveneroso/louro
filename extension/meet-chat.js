@@ -278,8 +278,13 @@
       'activeSessionId',
       'captureStartedAt',
       'includeMeetChat',
+      'meetingTabId',
     ]);
-    const nextSession = state.activeSessionId || null;
+    const identity = await chrome.runtime
+      .sendMessage({ target: 'background', action: 'whoami' })
+      .catch(() => null);
+    const isCaptureTab = identity?.tabId === state.meetingTabId;
+    const nextSession = isCaptureTab ? state.activeSessionId || null : null;
     const nextInclude = state.includeMeetChat === true;
     if (nextSession !== sessionId) {
       stopObservation(sessionId);
