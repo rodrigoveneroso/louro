@@ -102,6 +102,7 @@ T10 -> T13
 
 **What**: Extend the active-session API with bounded chat ingestion, chat/note WebSocket broadcasts, and a history response that includes chat and notes while preserving existing segment fields.
 **Where**: `backend/app.py`
+**Supporting file**: `backend/store.py` (ID-bearing note projection)
 **Depends on**: T1
 **Reuses**: Existing session validation, local API security, transcript subscriber list, `_broadcast_segments`, and `/api/sessions/{session_id}/notes`.
 **Requirement**: LMT-05, LMT-17, LMT-20, LMT-21, LMT-22, LMT-30
@@ -113,12 +114,12 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The chat route rejects unknown sessions, malformed objects, and oversized batches/fields without persisting them.
-- [ ] Repeated `(session_id, client_id)` messages are returned/broadcast at most once.
-- [ ] Historical messages receive `at_sec = 0`; later messages receive capture-relative time from observation time.
-- [ ] Transcript history keeps `segments`, `full_text`, and `segment_count`, and adds ID-bearing `chat_messages` and `notes`.
-- [ ] Accepted chat and newly saved notes are broadcast as typed WebSocket events; existing transcript and complete events remain compatible.
-- [ ] `python3 -m py_compile backend/app.py` and the phase Build gate pass.
+- [x] The chat route rejects unknown sessions, malformed objects, and oversized batches/fields without persisting them.
+- [x] Repeated `(session_id, client_id)` messages are returned/broadcast at most once.
+- [x] Historical messages receive `at_sec = 0`; later messages receive capture-relative time from observation time.
+- [x] Transcript history keeps `segments`, `full_text`, and `segment_count`, and adds ID-bearing `chat_messages` and `notes`.
+- [x] Accepted chat and newly saved notes are broadcast as typed WebSocket events; existing transcript and complete events remain compatible.
+- [x] `python3 -m py_compile backend/app.py` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Full

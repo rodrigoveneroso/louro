@@ -198,13 +198,14 @@ class SessionStore:
                 [(session_id, s.text, s.start, s.end, s.speaker, s.timestamp) for s in segments],
             )
 
-    def add_note(self, session_id: str, note: Note) -> None:
+    def add_note(self, session_id: str, note: Note) -> int:
         with self._lock:
-            self._conn.execute(
+            cursor = self._conn.execute(
                 "INSERT INTO notes (session_id, at_sec, text) VALUES (?, ?, ?)",
                 (session_id, note.at_sec, note.text),
             )
             self._conn.commit()
+            return int(cursor.lastrowid)
 
     def load_notes(self, session_id: str) -> list[Note]:
         with self._lock:
@@ -213,6 +214,17 @@ class SessionStore:
                 (session_id,),
             ).fetchall()
         return [Note(at_sec=row["at_sec"], text=row["text"]) for row in rows]
+
+    def load_timeline_notes(self, session_id: str) -> list[dict[str, object]]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT id, at_sec, text FROM notes WHERE session_id = ? ORDER BY at_sec, id",
+                (session_id,),
+            ).fetchall()
+        return [
+            {"id": row["id"], "at_sec": row["at_sec"], "text": row["text"]}
+            for row in rows
+        ]
 
     def add_chat_messages(self, messages: Sequence[ChatMessage]) -> list[ChatMessage]:
         """Insert new messages in input order and ignore retries for the session."""

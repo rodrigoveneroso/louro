@@ -6,6 +6,7 @@ import asyncio
 import datetime as dt
 import json
 import logging
+import math
 import threading
 from contextlib import asynccontextmanager
 from functools import partial
@@ -19,7 +20,7 @@ from .decoder import StreamingWebmDecoder
 from .exporter import export_session, remove_export
 from .hooks import run_on_export
 from .incremental import IncrementalTranscriber, Segment
-from .models import Note, Session
+from .models import ChatMessage, Note, Session
 from .pcm_store import PcmStore
 from .pipeline import SessionPipeline
 from .refine import final_beam_size, final_model, transcribe_recording
@@ -40,6 +41,10 @@ _MAX_SPEAKER_EVENTS = 500
 _MAX_MEETING_FIELD = 200
 _MAX_PARTICIPANTS = 100
 _MAX_NOTE = 1000
+_MAX_CHAT_MESSAGES = 100
+_MAX_CHAT_CLIENT_ID = 200
+_MAX_CHAT_AUTHOR = 200
+_MAX_CHAT_TEXT = 2000
 
 # state
 sessions: dict[str, Session] = {}
@@ -149,7 +154,90 @@ def get_transcript(session_id: str):
         "segments": [s.to_dict() for s in segments],
         "full_text": " ".join(s.text for s in segments),
         "segment_count": len(segments),
+        "chat_messages": [
+            _chat_message_dict(message) for message in store.load_chat_messages(session_id)
+        ],
+        "notes": store.load_timeline_notes(session_id),
     }
+
+
+def _chat_message_dict(message: ChatMessage) -> dict:
+    return {
+        "id": message.id,
+        "session_id": message.session_id,
+        "client_id": message.client_id,
+        "author": message.author,
+        "text": message.text,
+        "at_sec": message.at_sec,
+        "historical": message.historical,
+    }
+
+
+@app.post("/api/sessions/{session_id}/chat-messages")
+async def add_chat_messages(session_id: str, request: Request):
+    if not security.SESSION_ID.match(session_id):
+        raise HTTPException(status_code=400, detail="invalid session id")
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    if session.status != "streaming":
+        raise HTTPException(status_code=409, detail="session is not capturing")
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="expected an object")
+    messages = body.get("messages")
+    if not isinstance(messages, list) or len(messages) > _MAX_CHAT_MESSAGES:
+        raise HTTPException(status_code=400, detail="expected at most 100 chat messages")
+
+    started = dt.datetime.fromisoformat(session.started_at).timestamp()
+    prepared = []
+    for value in messages:
+        if not isinstance(value, dict):
+            raise HTTPException(status_code=400, detail="each chat message must be an object")
+        client_id = value.get("client_id")
+        author = value.get("author")
+        text = value.get("text")
+        observed_at_ms = value.get("observed_at_ms")
+        historical = value.get("historical")
+        if (
+            not isinstance(client_id, str)
+            or not client_id.strip()
+            or len(client_id) > _MAX_CHAT_CLIENT_ID
+        ):
+            raise HTTPException(status_code=400, detail="client_id must be a short string")
+        if not isinstance(author, str) or len(author) > _MAX_CHAT_AUTHOR:
+            raise HTTPException(status_code=400, detail="author must be a short string")
+        if not isinstance(text, str) or not text.strip() or len(text) > _MAX_CHAT_TEXT:
+            raise HTTPException(status_code=400, detail="text must be a short non-empty string")
+        if isinstance(observed_at_ms, bool) or not isinstance(observed_at_ms, (int, float)):
+            raise HTTPException(status_code=400, detail="observed_at_ms must be a finite number")
+        try:
+            observed_at = float(observed_at_ms)
+        except OverflowError:
+            raise HTTPException(
+                status_code=400, detail="observed_at_ms must be a finite number"
+            ) from None
+        if not math.isfinite(observed_at):
+            raise HTTPException(status_code=400, detail="observed_at_ms must be a finite number")
+        if not isinstance(historical, bool):
+            raise HTTPException(status_code=400, detail="historical must be a boolean")
+        at_sec = 0.0 if historical else round(max(0.0, observed_at / 1000.0 - started), 2)
+        prepared.append(
+            ChatMessage(
+                session_id=session_id,
+                client_id=client_id.strip(),
+                author=author.strip() or "Participante desconhecido",
+                text=text,
+                at_sec=at_sec,
+                historical=historical,
+            )
+        )
+
+    inserted = store.add_chat_messages(prepared)
+    payload = [_chat_message_dict(message) for message in inserted]
+    if payload:
+        await _broadcast_transcript_event(session_id, {"type": "chat", "messages": payload})
+    return {"messages": payload}
 
 
 @app.post("/api/sessions/{session_id}/speaker-events")
@@ -241,8 +329,10 @@ async def add_note(session_id: str, request: Request):
     moment = at / 1000.0 if at is not None else dt.datetime.now().timestamp()
     started = dt.datetime.fromisoformat(session.started_at).timestamp()
     note = Note(at_sec=round(max(0.0, moment - started), 2), text=" ".join(text.split()))
-    store.add_note(session_id, note)
-    return {"at_sec": note.at_sec, "text": note.text}
+    note_id = store.add_note(session_id, note)
+    payload = {"id": note_id, "at_sec": note.at_sec, "text": note.text}
+    await _broadcast_transcript_event(session_id, {"type": "note", "note": payload})
+    return payload
 
 
 @app.get("/api/sessions/{session_id}/notes")
@@ -296,8 +386,12 @@ async def _broadcast_segments(session_id: str, offset: float, segments: list[Seg
         session.transcript_segments = len(_segments_for(session_id))
         store.save_session(session)
 
-    subscribers = transcript_subscribers.get(session_id, [])
     payload = {"type": "transcript", "segments": [s.to_dict() for s in segments]}
+    await _broadcast_transcript_event(session_id, payload)
+
+
+async def _broadcast_transcript_event(session_id: str, payload: dict) -> None:
+    subscribers = transcript_subscribers.get(session_id, [])
     dead = []
     for ws in subscribers:
         try:
