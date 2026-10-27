@@ -18,6 +18,7 @@ const noteInput = document.getElementById('noteInput');
 const noteStatus = document.getElementById('noteStatus');
 const autoEl = document.getElementById('autoCapture');
 const includeChatEl = document.getElementById('includeMeetChat');
+globalThis.louroNoteInput.bind(noteInput);
 
 let segments = null; // of the capture shown, fetched from the backend now and then
 let segmentsFor = null;
@@ -166,9 +167,12 @@ async function addNote(text) {
 
 markBtn.addEventListener('click', () => addNote(''));
 noteInput.addEventListener('keydown', async (event) => {
-  if (event.key !== 'Enter' || !noteInput.value.trim()) return;
+  if (event.key !== 'Enter' || event.shiftKey) return;
+  event.preventDefault();
+  if (!noteInput.value.trim()) return;
   const text = noteInput.value;
   noteInput.value = '';
+  noteInput.dispatchEvent(new Event('input'));
   await addNote(text);
 });
 

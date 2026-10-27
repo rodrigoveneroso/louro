@@ -96,12 +96,14 @@
       }
       .mark:hover { background: #c2d7fb; }
       .mark:focus-visible { outline: 2px solid #fff; }
-      input {
-        all: unset; box-sizing: border-box; width: 100%; padding: 9px 12px; border-radius: 8px;
-        background: #202124; color: #e3e3e3; border: 1px solid #5f6368;
+      textarea {
+        all: unset; box-sizing: border-box; display: block; width: 100%; min-height: 36px;
+        padding: 9px 12px; border-radius: 8px; background: #202124; color: #e3e3e3;
+        border: 1px solid #5f6368; font: inherit; line-height: 1.4; white-space: pre-wrap;
+        overflow-wrap: anywhere; resize: none;
       }
-      input:focus { border-color: #a8c7fa; }
-      input::placeholder { color: #9aa0a6; }
+      textarea:focus { border-color: #a8c7fa; }
+      textarea::placeholder { color: #9aa0a6; }
       .feedback { color: #6dd58c; font-size: 12px; min-height: 1em; }
       .feedback.error { color: #f28b82; }
 
@@ -120,7 +122,7 @@
       </div>
       <div class="notes-view">
         <button class="mark" type="button"></button>
-        <input type="text" maxlength="1000" />
+        <textarea rows="1" wrap="soft" maxlength="1000"></textarea>
         <div class="feedback" aria-live="polite"></div>
       </div>
     </div>`;
@@ -133,10 +135,11 @@
   const idleText = root.querySelector('.idle-view .text');
   const notesView = root.querySelector('.notes-view');
   const mark = root.querySelector('.mark');
-  const input = root.querySelector('input');
+  const input = root.querySelector('textarea');
   const feedback = root.querySelector('.feedback');
   mark.textContent = t('popupMark');
   input.placeholder = t('popupNotePlaceholder');
+  globalThis.louroNoteInput.bind(input);
   idleText.append(
     Object.assign(document.createElement('strong'), { textContent: t('buttonIdleTitle') }),
     document.createElement('br'),
@@ -197,9 +200,12 @@
 
   mark.addEventListener('click', () => addNote(''));
   input.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter' || !input.value.trim()) return;
+    if (event.key !== 'Enter' || event.shiftKey) return;
+    event.preventDefault();
+    if (!input.value.trim()) return;
     const text = input.value;
     input.value = '';
+    input.dispatchEvent(new Event('input'));
     addNote(text);
   });
 

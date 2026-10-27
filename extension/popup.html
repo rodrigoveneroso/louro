@@ -16,7 +16,14 @@
     <button id="stopBtn" class="danger" data-i18n="popupStop" hidden></button>
     <section id="notes" hidden>
       <button id="markBtn" class="secondary" data-i18n="popupMark"></button>
-      <input id="noteInput" type="text" maxlength="1000" data-i18n-placeholder="popupNotePlaceholder" />
+      <textarea
+        id="noteInput"
+        class="note-input"
+        rows="1"
+        wrap="soft"
+        maxlength="1000"
+        data-i18n-placeholder="popupNotePlaceholder"
+      ></textarea>
       <div id="noteStatus" class="detail"></div>
       <div id="shortcut" class="hint"></div>
     </section>
@@ -42,6 +49,7 @@
     </label>
     <p class="hint" data-i18n="popupIncludeChatHint"></p>
 
+    <script src="note-input.js"></script>
     <script type="module" src="popup.js"></script>
   </body>
 </html>

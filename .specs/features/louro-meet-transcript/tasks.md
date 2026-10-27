@@ -318,10 +318,10 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The popup and overlay fields wrap long text and preserve earlier text while typing.
-- [ ] Both fields show up to eight lines and scroll overflow; each retains `maxlength=1000`.
-- [ ] Enter saves non-whitespace text; Shift+Enter inserts a newline without saving.
-- [ ] `node --check` succeeds for changed JavaScript and the phase Build gate passes.
+- [x] The popup and overlay fields wrap long text and preserve earlier text while typing.
+- [x] Both fields show up to eight lines and scroll overflow; each retains `maxlength=1000`.
+- [x] Enter saves non-whitespace text; Shift+Enter inserts a newline without saving.
+- [x] `node --check` succeeds for changed JavaScript and the phase Build gate passes.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Build

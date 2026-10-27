@@ -60,6 +60,7 @@
       "js": [
         "meet-dom.js",
         "overlay-state.js",
+        "note-input.js",
         "meet-overlay.js",
         "meet-call.js",
         "meet-speakers.js",

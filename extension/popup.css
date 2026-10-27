@@ -57,14 +57,20 @@ button[hidden] { display: none; }
 #notes { display: flex; flex-direction: column; gap: 6px; }
 #notes[hidden] { display: none; }
 
-input[type='text'] {
+textarea.note-input {
+  display: block;
   width: 100%;
   padding: 8px;
+  min-height: 34px;
   border: 1px solid #2a2a4a;
   border-radius: 6px;
   background: #16213e;
   color: #e0e0e0;
   font-size: 13px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
 }
 
-input[type='text']:focus { outline: none; border-color: #4f46e5; }
+textarea.note-input:focus { outline: none; border-color: #4f46e5; }
