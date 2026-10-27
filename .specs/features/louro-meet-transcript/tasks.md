@@ -164,11 +164,11 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] Export includes each message's author and text, uses the capture time for later messages, and uses “já visível ao iniciar” for the initial visible snapshot.
-- [ ] Export interleaves later chat with notes and speech by capture-relative time and retains current session metadata/speaker attribution.
-- [ ] A session with chat and no speech can be exported when it meets the existing retention rule.
-- [ ] Normal completion, refinement, and `export_all` pass their stored chat records to export/retention.
-- [ ] `python3 -m py_compile backend/app.py backend/exporter.py` and the phase Build gate pass.
+- [x] Export includes each message's author and text, uses the capture time for later messages, and uses “já visível ao iniciar” for the initial visible snapshot.
+- [x] Export interleaves later chat with notes and speech by capture-relative time and retains current session metadata/speaker attribution.
+- [x] A session with chat and no speech can be exported when it meets the existing retention rule.
+- [x] Normal completion, refinement, and `export_all` pass their stored chat records to export/retention.
+- [x] `python3 -m py_compile backend/app.py backend/exporter.py` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Build

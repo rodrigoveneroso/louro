@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .cleanup import clean
 from .incremental import Segment
-from .models import Note, Session
+from .models import ChatMessage, Note, Session
 from .retention import worth_keeping
 from .speakers import attribute, load_events
 
@@ -55,12 +55,13 @@ def export_session(
     target: Path | None = None,
     speaker_events: Path | None = None,
     notes: Sequence[Note] = (),
+    chat_messages: Sequence[ChatMessage] = (),
 ) -> Path | None:
     """Write one session as markdown. With `speaker_events` (the Google Meet log), lines
     get the name of whoever was speaking when the meeting UI showed it clearly."""
     target = target or export_dir()
     segments = clean(segments)
-    if target is None or not segments:
+    if target is None or (not segments and not chat_messages):
         return None
     target.mkdir(parents=True, exist_ok=True)
 
@@ -87,14 +88,20 @@ def export_session(
         "## Transcrição",
         "",
     ]
-    # notes go between the lines, at the moment they were taken
-    pending = sorted(notes, key=lambda note: note.at_sec)
-    for segment, speaker in zip(segments, speakers, strict=True):
-        while pending and pending[0].at_sec <= segment.start:
-            lines.append(_note_line(pending.pop(0)))
+    timeline: list[tuple[int, float, int, int, str]] = []
+    for index, message in enumerate(chat_messages):
+        order = message.id if message.id is not None else index
+        group = 0 if message.historical else 1
+        at_sec = 0.0 if message.historical else message.at_sec
+        priority = 0 if message.historical else 1
+        timeline.append((group, at_sec, priority, order, _chat_line(message)))
+    for index, note in enumerate(notes):
+        timeline.append((1, note.at_sec, 0, index, _note_line(note)))
+    for index, (segment, speaker) in enumerate(zip(segments, speakers, strict=True)):
         who = f"{speaker}: " if speaker else ""
-        lines.append(f"[{_stamp(segment.start)}] {who}{segment.text.strip()}")
-    lines += [_note_line(note) for note in pending]
+        text = f"[{_stamp(segment.start)}] {who}{segment.text.strip()}"
+        timeline.append((1, segment.start, 2, index, text))
+    lines.extend(item[-1] for item in sorted(timeline))
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -105,6 +112,12 @@ def _note_line(note: Note) -> str:
     return f"[{_stamp(note.at_sec)}] 📌 Momento marcado"
 
 
+def _chat_line(message: ChatMessage) -> str:
+    if message.historical:
+        return f"[já visível ao iniciar] 💬 {message.author}: {message.text}"
+    return f"[{_stamp(message.at_sec)}] 💬 {message.author}: {message.text}"
+
+
 def export_all() -> int:
     from .store import SessionStore, default_data_dir
 
@@ -113,11 +126,18 @@ def export_all() -> int:
     count = 0
     for session in store.load_sessions().values():
         segments = store.load_segments(session.session_id)
-        if not worth_keeping(session, segments):
+        chat_messages = store.load_chat_messages(session.session_id)
+        if not worth_keeping(session, segments, has_chat=bool(chat_messages)):
             continue
         events = recordings / f"{session.session_id}.speakers.jsonl"
         notes = store.load_notes(session.session_id)
-        if export_session(session, segments, speaker_events=events, notes=notes):
+        if export_session(
+            session,
+            segments,
+            speaker_events=events,
+            notes=notes,
+            chat_messages=chat_messages,
+        ):
             count += 1
     store.close()
     return count

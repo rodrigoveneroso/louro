@@ -501,9 +501,11 @@ async def ws_audio(websocket: WebSocket):
 
         session.stopped_at = dt.datetime.now().isoformat(timespec="seconds")
         segments = _segments_for(session_id)
+        chat_messages = store.load_chat_messages(session_id)
+        has_chat = bool(chat_messages)
         session.transcript_segments = len(segments)
         session.duration_sec = round(offset + pcm.duration, 2)
-        if should_discard(session, segments, stopped_by_client):
+        if should_discard(session, segments, stopped_by_client, has_chat=has_chat):
             _discard(session)
         else:
             # A resumed session's earlier stretches are no longer on disk, so only a
@@ -512,12 +514,13 @@ async def ws_audio(websocket: WebSocket):
                 final_model() is not None
                 and stopped_by_client
                 and session_id not in resumed
-                and worth_keeping(session, segments)
+                and bool(segments)
+                and worth_keeping(session, segments, has_chat=has_chat)
             )
             if refining:
                 session.status = "refining"
             store.save_session(session)
-            if worth_keeping(session, segments):
+            if worth_keeping(session, segments, has_chat=has_chat):
                 path = _export(session, segments)
                 if not refining:
                     _on_export(session, path)
@@ -572,6 +575,7 @@ def _export(session: Session, segments: list[Segment]) -> Path | None:
             segments,
             speaker_events=config.DATA_DIR / f"{session.session_id}.speakers.jsonl",
             notes=store.load_notes(session.session_id),
+            chat_messages=store.load_chat_messages(session.session_id),
         )
     except Exception:
         logger.exception("Could not export transcript for %s", session.session_id)
