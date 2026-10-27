@@ -60,7 +60,7 @@
               --louro-muted: #aab5a9; --louro-green: #a6e36a; --louro-green-ink: #17211a;
               --louro-yellow: #f6cf59; --louro-coral: #ff6b5e; --louro-coral-ink: #2b1714;
               font: 500 14px/1 'Google Sans', Roboto, system-ui, sans-serif; }
-      :host(.floating) { left: 16px; top: auto; bottom: 20px; }
+      :host(.floating) { left: 16px; top: auto; bottom: 88px; }
       .button {
         all: unset; box-sizing: border-box; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -264,6 +264,43 @@
     }
   }
 
+  function toolbarControls(leave, leaveRect) {
+    return [...document.querySelectorAll('button[aria-label], [role="button"][aria-label]')]
+      .filter((candidate) => candidate !== leave && !host.contains(candidate))
+      .map((candidate) => candidate.getBoundingClientRect())
+      .filter(
+        (rect) =>
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.top < leaveRect.bottom + ADJACENT_GAP &&
+          rect.bottom > leaveRect.top - ADJACENT_GAP,
+      );
+  }
+
+  function overlapsToolbar(left, top, width, height, controls) {
+    return controls.some(
+      (rect) =>
+        left < rect.right + ADJACENT_GAP &&
+        left + width > rect.left - ADJACENT_GAP &&
+        top < rect.bottom + ADJACENT_GAP &&
+        top + height > rect.top - ADJACENT_GAP,
+    );
+  }
+
+  function findInlineSlot(start, direction, top, width, height, controls) {
+    let left = start;
+    for (let attempt = 0; attempt <= controls.length; attempt += 1) {
+      const collisions = controls.filter((rect) =>
+        overlapsToolbar(left, top, width, height, [rect]),
+      );
+      if (!collisions.length) return left;
+      left = direction < 0
+        ? Math.min(...collisions.map((rect) => rect.left)) - width - ADJACENT_GAP
+        : Math.max(...collisions.map((rect) => rect.right)) + ADJACENT_GAP;
+    }
+    return null;
+  }
+
   function positionHost() {
     if (host.parentElement !== document.documentElement) document.documentElement.append(host);
     if (!hostWasObserved) {
@@ -282,14 +319,16 @@
     const hostRect = host.getBoundingClientRect();
     const width = hostRect.width;
     const height = hostRect.height;
-    let left = rect.left - width - ADJACENT_GAP;
-    if (left < VIEWPORT_MARGIN && rect.right + width + ADJACENT_GAP <= innerWidth - VIEWPORT_MARGIN) {
-      left = rect.right + ADJACENT_GAP;
-    }
     const top = rect.top + (rect.height - height) / 2;
+    const controls = toolbarControls(leave, rect);
+    let left = findInlineSlot(rect.left - width - ADJACENT_GAP, -1, top, width, height, controls);
+    if (left === null || left < VIEWPORT_MARGIN) {
+      left = findInlineSlot(rect.right + ADJACENT_GAP, 1, top, width, height, controls);
+    }
     const fits =
       width > 0 &&
       height > 0 &&
+      left !== null &&
       left >= VIEWPORT_MARGIN &&
       left + width <= innerWidth - VIEWPORT_MARGIN &&
       top >= VIEWPORT_MARGIN &&

@@ -75,7 +75,7 @@ The popup, side panel, and Meet control use separate visual treatments, and the 
 **Acceptance Criteria**:
 
 1. The system SHALL use shared semantic tokens for dark surfaces, text, Louro green, annotation yellow, recording or error coral, and outlines across extension pages.
-2. WHILE the Meet control is visible the system SHALL use the Louro palette while preserving the existing compact placement and capture-state behavior.
+2. WHILE the Meet control is visible the system SHALL use the Louro palette while preserving compact placement and capture-state behavior without overlapping native Meet controls.
 3. The system SHALL communicate capture and connection state with text or shape in addition to color.
 4. The system SHALL provide visible keyboard focus and honor reduced-motion preferences for decorative transitions.
 
@@ -85,6 +85,7 @@ The popup, side panel, and Meet control use separate visual treatments, and the 
 
 - IF the panel is empty THEN the system SHALL show concise guidance with the larger Louro mascot.
 - IF the reader scrolls back to the bottom before activating return-to-live THEN the system SHALL hide the return control.
+- IF the toolbar has no free adjacent space THEN the system SHALL place the Louro control above the Meet toolbar instead of covering a native control.
 - IF reduced motion is enabled THEN the system SHALL suppress decorative entry and pulse animations.
 
 ## Requirement Traceability
