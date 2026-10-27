@@ -56,6 +56,7 @@
               z-index: 2147483647; margin: 0;
               --louro-bg: #111a14; --louro-surface: #19251c; --louro-raised: #223328;
               --louro-hover: #2b3d30; --louro-border: #35443a; --louro-text: #f4f5e9;
+              --meet-control: #333537; --meet-control-hover: #444746;
               --louro-muted: #aab5a9; --louro-green: #a6e36a; --louro-green-ink: #17211a;
               --louro-yellow: #f6cf59; --louro-coral: #ff6b5e; --louro-coral-ink: #2b1714;
               font: 500 14px/1 'Google Sans', Roboto, system-ui, sans-serif; }
@@ -63,21 +64,21 @@
       .button {
         all: unset; box-sizing: border-box; cursor: pointer;
         display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-        height: 40px; min-width: 40px; padding: 0 10px; border-radius: 20px;
-        background: var(--louro-raised); color: var(--louro-text);
+        height: 40px; min-width: 40px; padding: 0 10px; border-radius: 50%;
+        background: var(--meet-control); color: var(--louro-text);
         transition: background-color 0.15s;
       }
-      .button:hover { background: var(--louro-hover); }
+      .button:hover { background: var(--meet-control-hover); }
       .button:focus-visible { outline: 2px solid var(--louro-yellow); outline-offset: 2px; }
-      .logo { position: relative; display: inline-flex; }
-      .logo img { display: block; image-rendering: auto; }
+      .logo { position: relative; display: inline-flex; width: 20px; height: 20px; }
+      .logo img { display: block; width: 20px; height: 20px; image-rendering: auto; }
       .label { font-variant-numeric: tabular-nums; white-space: nowrap; }
       .label:empty { display: none; }
       .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; }
 
       .idle .logo::after {
-        content: ''; position: absolute; right: -3px; top: -2px; width: 8px; height: 8px;
-        border-radius: 50%; background: var(--louro-yellow); box-shadow: 0 0 0 2px var(--louro-raised);
+        content: ''; position: absolute; right: -1px; top: -1px; width: 6px; height: 6px;
+        border-radius: 50%; background: var(--louro-yellow); box-shadow: 0 0 0 2px var(--meet-control);
       }
       .recording { background: #3b2924; }
       .recording:hover { background: #50352d; }
@@ -126,7 +127,7 @@
       @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
     </style>
     <button class="button idle" type="button" aria-haspopup="dialog" aria-expanded="false">
-      <span class="logo" aria-hidden="true"><img alt="" width="22" height="22" /></span>
+      <span class="logo" aria-hidden="true"><img alt="" width="20" height="20" /></span>
       <span class="dot" aria-hidden="true"></span>
       <span class="label"></span>
     </button>
