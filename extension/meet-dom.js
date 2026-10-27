@@ -51,9 +51,36 @@
     return leaf || null;
   }
 
+  /** True only when Meet exposes a semantic local-participant marker on the tile. */
+  function isLocalParticipant(tile) {
+    const markerAttributes = [
+      'data-is-self',
+      'data-self',
+      'data-is-local',
+      'data-local-participant',
+    ];
+    if (
+      markerAttributes.some((attribute) =>
+        ['true', '1'].includes((tile.getAttribute(attribute) || '').trim().toLowerCase()),
+      )
+    ) {
+      return true;
+    }
+
+    const labels = [tile, ...tile.querySelectorAll('[aria-label]')]
+      .map((element) => element.getAttribute('aria-label') || '')
+      .filter(Boolean);
+    return labels.some((label) =>
+      /^(?:you|você)$/i.test(label.trim()) ||
+      /\(\s*(?:you|você)\s*\)|\b(?:your video|seu vídeo)\b/i.test(label),
+    );
+  }
+
   /** Everyone with a tile on screen, each name once. */
   function participantNames(doc) {
-    const names = [...doc.querySelectorAll('[data-participant-id]')].map(tileName).filter(Boolean);
+    const names = [...doc.querySelectorAll('[data-participant-id]')]
+      .map((tile) => (isLocalParticipant(tile) ? 'Você' : tileName(tile)))
+      .filter(Boolean);
     return [...new Set(names)].sort();
   }
 
@@ -80,6 +107,7 @@
   globalThis.louroMeet = {
     extensionAlive,
     isInCall,
+    isLocalParticipant,
     isMicMuted,
     meetingCode,
     meetingTitle,

@@ -3,7 +3,7 @@
 // names are obfuscated and change, so the meaning is worked out later by lining these
 // events up with the transcript.
 (() => {
-  const { extensionAlive, tileName } = globalThis.louroMeet;
+  const { extensionAlive, isLocalParticipant, tileName } = globalThis.louroMeet;
   // often enough that a caption is named from events that have already arrived
   const FLUSH_MS = 1000;
   const MAX_PER_FLUSH = 400;
@@ -13,7 +13,12 @@
   let observer = null;
 
   function nameOf(tile) {
-    return tileName(tile) || tile.dataset.participantId;
+    if (isLocalParticipant(tile)) return 'Você';
+    const name = tileName(tile) || tile.dataset.participantId;
+    // Do not make a participant's literal display name look like a verified self marker.
+    return String(name).trim().toLocaleLowerCase('pt-BR') === 'você'
+      ? 'Você (nome exibido)'
+      : name;
   }
 
   function onMutations(mutations) {

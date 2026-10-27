@@ -15,12 +15,27 @@
     </div>
   </div>
 
+  <section id="note-composer" hidden>
+    <div class="composer-row">
+      <button id="markBtn" type="button" data-i18n="panelMark"></button>
+      <textarea
+        id="noteInput"
+        rows="1"
+        wrap="soft"
+        maxlength="1000"
+        data-i18n-placeholder="panelNotePlaceholder"
+      ></textarea>
+    </div>
+    <div id="noteStatus" class="note-status" role="status" aria-live="polite"></div>
+  </section>
+
   <div id="footer">
     <span id="status" class="status disconnected" data-i18n="panelDisconnected"></span>
     <span id="segment-count"></span>
     <span id="duration">00:00</span>
   </div>
 
+  <script src="note-input.js"></script>
   <script type="module" src="sidepanel.js"></script>
 </body>
 </html>

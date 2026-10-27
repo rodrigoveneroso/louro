@@ -150,6 +150,37 @@
   "panelStatusLive": {
     "message": "gravando"
   },
+  "panelMark": {
+    "message": "📌 Marcar"
+  },
+  "panelNotePlaceholder": {
+    "message": "Adicionar anotação · Enter salva · Shift+Enter quebra linha"
+  },
+  "panelNoteSaved": {
+    "message": "Nota salva em $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "panelMarkSaved": {
+    "message": "Momento marcado em $P1$",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
+  "panelNoteFailed": {
+    "message": "Não deu para salvar. Confira se o backend do Louro está rodando."
+  },
+  "panelMarkOnly": {
+    "message": "Momento marcado"
+  },
+  "panelHistoricalChat": {
+    "message": "já visível ao iniciar"
+  },
   "panelFinished": {
     "message": "finalizado"
   },

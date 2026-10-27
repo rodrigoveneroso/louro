@@ -45,6 +45,58 @@ body {
   font-size: 13px;
 }
 
+.entry {
+  padding: 8px 12px;
+  background: #16213e;
+  border-radius: 8px;
+  border-left: 3px solid #4f46e5;
+  overflow-wrap: anywhere;
+}
+
+.entry .time {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 2px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+
+.entry .author {
+  font-weight: 600;
+  color: var(--author-color, #a5b4fc);
+}
+
+.entry .text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #f0f0f0;
+  white-space: pre-wrap;
+}
+
+.entry.chat {
+  background: #172a32;
+  border-left-color: var(--author-color, #4ade80);
+}
+
+.entry.note-entry {
+  background: #302b1a;
+  border-left-color: #eab308;
+}
+
+.entry.note-entry .text { color: #fef3c7; }
+
+.entry.system-entry {
+  text-align: center;
+  color: #888;
+  background: transparent;
+  border-left: 0;
+  font-size: 12px;
+}
+
+.entry .historical-label {
+  color: #9ca3af;
+  font-style: italic;
+}
+
 #transcript-container {
   flex: 1;
   overflow-y: auto;
@@ -105,7 +157,7 @@ body {
 
 .segment .speaker {
   font-weight: 600;
-  color: #a5b4fc;
+  color: var(--author-color, #a5b4fc);
 }
 
 .segment.new {
@@ -129,6 +181,64 @@ body {
   font-size: 11px;
   color: #888;
 }
+
+#note-composer {
+  flex: 0 0 auto;
+  padding: 8px 12px 6px;
+  background: #16213e;
+  border-top: 1px solid #2a2a4a;
+}
+
+#note-composer[hidden] { display: none; }
+
+.composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+#markBtn {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border: 1px solid #3b4b70;
+  border-radius: 7px;
+  background: #202f50;
+  color: #e0e7ff;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#markBtn:hover { background: #2a3c62; }
+
+#noteInput {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 35px;
+  padding: 8px 10px;
+  border: 1px solid #3b4b70;
+  border-radius: 7px;
+  background: #202124;
+  color: #e3e3e3;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  resize: none;
+}
+
+#noteInput:focus { outline: none; border-color: #a8c7fa; }
+#noteInput::placeholder { color: #9aa0a6; }
+
+.note-status {
+  min-height: 1em;
+  padding: 4px 2px 0;
+  color: #9aa0a6;
+  font-size: 11px;
+}
+
+.note-status.error { color: #f87171; }
 
 /* scrollbar */
 #transcript-container::-webkit-scrollbar {

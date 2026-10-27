@@ -369,12 +369,12 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The panel displays history and live speech, notes, and chat in capture-time order; start-visible chat appears first with “já visível ao iniciar”.
-- [ ] The panel connects before loading history, buffers concurrent events, and deduplicates snapshot/live overlap by stable record key.
-- [ ] Each named speaker has a stable distinct palette color; “Você” is green only when Meet exposes an explicit local marker, otherwise the shown name or no attribution remains.
-- [ ] The note composer and mark control remain fixed below the scrolling transcript while capture is active and use T9 for auto-growing text.
-- [ ] Existing WebSocket transcript and completion events continue to render correctly.
-- [ ] `node --check` succeeds for changed JavaScript and the phase Build gate passes.
+- [x] The panel displays history and live speech, notes, and chat in capture-time order; start-visible chat appears first with “já visível ao iniciar”.
+- [x] The panel connects before loading history, buffers concurrent events, and deduplicates snapshot/live overlap by stable record key.
+- [x] Each named speaker has a stable distinct palette color; “Você” is green only when Meet exposes an explicit local marker, otherwise the shown name or no attribution remains.
+- [x] The note composer and mark control remain fixed below the scrolling transcript while capture is active and use T9 for auto-growing text.
+- [x] Existing WebSocket transcript and completion events continue to render correctly.
+- [x] `node --check` succeeds for changed JavaScript and the phase Build gate passes.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Build
