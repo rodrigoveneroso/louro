@@ -7,7 +7,7 @@ Implement these tasks with the `tlc-spec-driven` skill: activate it by name and 
 The current task instruction does not authorize adding or running tests. Do not add or run tests unless the user explicitly asks to test or verify this implementation. Use only the syntax and diff checks listed below. If the user later asks for tests, revise this plan's matrix and task fields first.
 
 **Design**: `.specs/features/louro-meet-transcript/design.md`
-**Status**: Approved; T1–T14 implemented; T15 in progress; runtime verification pending
+**Status**: Approved; T1–T15 implemented; runtime verification pending
 
 ---
 
@@ -438,9 +438,9 @@ T13 -> T14 -> T15
 
 **Done when**:
 
-- [ ] System feedback entries remove themselves from the live timeline after 15 seconds, without removing speech, chat, or notes.
-- [ ] The popup shows the last-capture result only when its timestamp is between 0 and 15 seconds old.
-- [ ] `node --check` passes for both changed JavaScript files and `git diff --check` passes.
+- [x] System feedback entries remove themselves from the live timeline after 15 seconds, without removing speech, chat, or notes.
+- [x] The popup shows the last-capture result only when its timestamp is between 0 and 15 seconds old.
+- [x] `node --check` passes for both changed JavaScript files and `git diff --check` passes.
 - [ ] Visual confirmation of expiry in the popup and side panel remains pending.
 
 **Tests**: none (not authorized by the approved execution plan)

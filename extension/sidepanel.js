@@ -13,6 +13,7 @@ const SPEAKER_PALETTE = [
   '#5ee0c2',
 ];
 const SELF_COLOR = '#a6e36a';
+const SYSTEM_ENTRY_TTL_MS = 15_000;
 const timelineItems = new Map();
 const speakerColors = new Map();
 const usedSpeakerColors = new Set([SELF_COLOR]);
@@ -127,12 +128,21 @@ function addNoteItem(note, highlight = true) {
 }
 
 function addSystemEntry(text) {
+  const id = `system:${systemEntrySequence++}`;
   addTimelineItem({
-    id: `system:${systemEntrySequence++}`,
+    id,
     kind: 'system',
     atSec: startTime === null ? 0 : Math.max(0, (Date.now() - startTime) / 1000),
     text,
   }, false);
+  const entry = timelineItems.get(id);
+  setTimeout(() => {
+    if (timelineItems.get(id) !== entry) return;
+    timelineItems.delete(id);
+    entry.element.remove();
+    emptyStateEl.classList.toggle('hidden', timelineItems.size > 0);
+    updateLiveButton();
+  }, SYSTEM_ENTRY_TTL_MS);
 }
 
 function typeOrder(item) {

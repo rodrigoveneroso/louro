@@ -4,6 +4,7 @@ import { BACKEND, formatClock } from './shared.js';
 
 const TICK_MS = 1000;
 const SEGMENTS_EVERY_MS = 3000;
+const CAPTURE_FEEDBACK_TTL_MS = 15_000;
 
 const card = document.getElementById('card');
 const headline = document.getElementById('headline');
@@ -67,8 +68,8 @@ async function render() {
       : '';
   } else {
     card.className = 'card idle';
-    renderLast(state.lastCapture);
-    const last = state.lastCapture;
+    const last = isRecentCapture(state.lastCapture) ? state.lastCapture : null;
+    renderLast(last);
     if (last?.refining && (await sessionStatus(last.sessionId)) === 'refining') {
       detail.textContent += ` · ${t('popupRefining')}`;
     }
@@ -126,6 +127,12 @@ function renderLast(last) {
 
 function elapsed(since) {
   return since ? (Date.now() - since) / 1000 : 0;
+}
+
+function isRecentCapture(last) {
+  if (!last || !Number.isFinite(last.at)) return false;
+  const age = Date.now() - last.at;
+  return age >= 0 && age < CAPTURE_FEEDBACK_TTL_MS;
 }
 
 /** Segments transcribed so far, refreshed every few seconds rather than every tick. */
