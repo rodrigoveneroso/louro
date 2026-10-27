@@ -432,6 +432,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const session = encodeURIComponent(message.sessionId);
       await postToBackend(`/api/sessions/${session}/speaker-events`, { events: message.events });
       sendResponse({ ok: true });
+    } else if (
+      message.action === 'panel_visibility' &&
+      sender.url?.endsWith('/sidepanel.html') &&
+      Number.isInteger(message.windowId)
+    ) {
+      await setPanelWindowOpen(message.windowId, Boolean(message.open));
+      sendResponse({ ok: true });
     } else if (message.action === 'meet_chat_messages' && sender.tab) {
       const isMeet = sender.tab.url?.startsWith('https://meet.google.com/');
       sendResponse(
@@ -449,6 +456,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true;
 });
+
+async function setPanelWindowOpen(windowId, open) {
+  if (!Number.isInteger(windowId)) return;
+  const { openPanelWindowIds = [] } = await chrome.storage.session.get('openPanelWindowIds');
+  const windows = new Set(openPanelWindowIds);
+  if (open) windows.add(windowId);
+  else windows.delete(windowId);
+  await chrome.storage.session.set({ openPanelWindowIds: [...windows] });
+}
+
+chrome.sidePanel?.onOpened?.addListener(({ windowId }) => setPanelWindowOpen(windowId, true));
+chrome.sidePanel?.onClosed?.addListener(({ windowId }) => setPanelWindowOpen(windowId, false));
 
 // a closed meeting tab ends the meeting, whether or not capture follows the call
 chrome.tabs.onRemoved.addListener(async (tabId) => {

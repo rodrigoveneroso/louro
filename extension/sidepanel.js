@@ -20,6 +20,19 @@ function setStatus(state, label) {
   statusEl.className = `status ${state}`;
 }
 
+async function reportPanelVisibility() {
+  const window = await chrome.windows.getCurrent().catch(() => null);
+  if (!Number.isInteger(window?.id)) return;
+  chrome.runtime
+    .sendMessage({
+      target: 'background',
+      action: 'panel_visibility',
+      windowId: window.id,
+      open: document.visibilityState === 'visible',
+    })
+    .catch(() => {});
+}
+
 function addSegment(seg, { highlight = true } = {}) {
   emptyStateEl.classList.add('hidden');
 
@@ -120,7 +133,7 @@ async function connectTranscript(sessionId, { keep = false } = {}) {
   ws = new WebSocket(`ws://${BACKEND}/ws/transcript/${sessionId}`);
 
   ws.onopen = () => {
-    setStatus('connected', `${t('panelLive')} — ${sessionId}`);
+    setStatus('connected', t('panelStatusLive'));
     if (!durationTimer) startDurationTimer();
   };
 
@@ -199,6 +212,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 translatePage();
 segmentCountEl.textContent = t('panelSegments', 0);
+reportPanelVisibility();
+document.addEventListener('visibilitychange', reportPanelVisibility);
+window.addEventListener('pagehide', reportPanelVisibility);
 
 chrome.storage.local.get('activeSessionId').then(({ activeSessionId }) => {
   if (activeSessionId) connectTranscript(activeSessionId);

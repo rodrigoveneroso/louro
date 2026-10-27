@@ -12,7 +12,13 @@
     "message": "■ Parar gravação"
   },
   "popupOpenTranscript": {
-    "message": "Ver transcrição ao vivo"
+    "message": "Ver transcrição completa"
+  },
+  "popupCloseTranscript": {
+    "message": "Fechar transcrição"
+  },
+  "popupClosePanelHint": {
+    "message": "Esta versão do Chrome não permite fechar pelo Louro. Use o botão Fechar do painel lateral."
   },
   "popupRecording": {
     "message": "Gravando há $P1$",
@@ -140,6 +146,9 @@
   },
   "panelLive": {
     "message": "ao vivo"
+  },
+  "panelStatusLive": {
+    "message": "gravando"
   },
   "panelFinished": {
     "message": "finalizado"

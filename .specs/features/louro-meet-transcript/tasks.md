@@ -343,11 +343,11 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The closed/open labels match the panel state and clicking “Fechar transcrição” calls `chrome.sidePanel.close({windowId})` when available.
-- [ ] Open/close tracking feature-detects Chrome lifecycle APIs and uses the side-panel page-state fallback without raising errors.
-- [ ] On versions without a close API, the popup explains the native Chrome panel-close action.
-- [ ] The side panel no longer shows the upper “Louro ao vivo [session id]” bar; compact status/count/duration remain in the lower stats area.
-- [ ] `node --check` succeeds for changed JavaScript and the phase Build gate passes.
+- [x] The closed/open labels match the panel state and clicking “Fechar transcrição” calls `chrome.sidePanel.close({windowId})` when available.
+- [x] Open/close tracking feature-detects Chrome lifecycle APIs and uses the side-panel page-state fallback without raising errors.
+- [x] On versions without a close API, the popup explains the native Chrome panel-close action.
+- [x] The side panel no longer shows the upper “Louro ao vivo [session id]” bar; compact status/count/duration remain in the lower stats area.
+- [x] `node --check` succeeds for changed JavaScript and the phase Build gate passes.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Build

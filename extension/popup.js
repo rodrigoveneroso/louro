@@ -11,6 +11,7 @@ const detail = document.getElementById('detail');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const panelBtn = document.getElementById('panelBtn');
+const panelHint = document.getElementById('panelHint');
 const errorEl = document.getElementById('error');
 const notesEl = document.getElementById('notes');
 const markBtn = document.getElementById('markBtn');
@@ -46,6 +47,8 @@ async function render() {
   stopBtn.hidden = !recording;
   panelBtn.hidden = !recording;
   notesEl.hidden = !recording;
+  if (recording) await renderPanelButton();
+  else panelHint.hidden = true;
 
   if (recording) {
     card.className = 'card recording';
@@ -72,6 +75,14 @@ async function render() {
       detail.textContent += ` · ${t('popupRefining')}`;
     }
   }
+}
+
+async function renderPanelButton() {
+  const window = await chrome.windows.getCurrent().catch(() => null);
+  const { openPanelWindowIds = [] } = await chrome.storage.session.get('openPanelWindowIds');
+  const isOpen = Number.isInteger(window?.id) && openPanelWindowIds.includes(window.id);
+  panelBtn.textContent = t(isOpen ? 'popupCloseTranscript' : 'popupOpenTranscript');
+  panelHint.hidden = !isOpen || typeof chrome.sidePanel.close === 'function';
 }
 
 let statusOf = { id: null, at: 0, value: null };
@@ -149,8 +160,18 @@ stopBtn.addEventListener('click', () => send('stop_capture'));
 
 // The live transcript stays out of the way unless asked for.
 panelBtn.addEventListener('click', async () => {
-  const window = await chrome.windows.getCurrent();
+  const window = await chrome.windows.getCurrent().catch(() => null);
+  if (!Number.isInteger(window?.id)) return;
+  const { openPanelWindowIds = [] } = await chrome.storage.session.get('openPanelWindowIds');
+  if (openPanelWindowIds.includes(window.id)) {
+    if (typeof chrome.sidePanel.close === 'function') {
+      await chrome.sidePanel.close({ windowId: window.id }).catch(() => {});
+    }
+    await renderPanelButton();
+    return;
+  }
   await chrome.sidePanel.open({ windowId: window.id }).catch(() => {});
+  await renderPanelButton();
 });
 
 // --- marks and notes ---
@@ -223,6 +244,7 @@ async function offerCapture() {
 
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && STATE_KEYS.some((key) => key in changes)) render();
+  if (area === 'session' && 'openPanelWindowIds' in changes) renderPanelButton();
 });
 setInterval(render, TICK_MS);
 render();
