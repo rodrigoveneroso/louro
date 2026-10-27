@@ -256,7 +256,7 @@ T10 -> T13
 
 **What**: Detect the user's immediate “Participar agora” / “Join now” action and attempt follow-call capture from that gesture, retaining a visible manual-start fallback.
 **Where**: `extension/meet-call.js`
-**Supporting file**: `extension/background.js`
+**Supporting files**: `extension/background.js`, `extension/_locales/pt_BR/messages.json`
 **Depends on**: None
 **Reuses**: Existing `autoCapture`, `startCapture`, active-session guard, recording badge, and manual popup start.
 **Requirement**: LMT-24, LMT-25, LMT-26, LMT-27, LMT-28, LMT-31, LMT-32
@@ -268,12 +268,12 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] Only the immediate-join action requests capture while follow-call is enabled; “Ask to join” does not.
-- [ ] The capture message includes its sender tab and is sent directly from the click handler.
-- [ ] The service worker invokes `chrome.tabCapture.getMediaStreamId` before awaiting storage, tab lookup, or other preparation.
-- [ ] Existing/in-flight capture prevents a duplicate session; a failed attempt does not set recording state and displays the manual-start reminder.
-- [ ] `call_state` transitions alone no longer initiate capture; they continue to stop a capture after the call ends.
-- [ ] `node --check extension/meet-call.js extension/background.js` and the phase Build gate pass.
+- [x] Only the immediate-join action requests capture while follow-call is enabled; “Ask to join” does not.
+- [x] The capture message includes its sender tab and is sent directly from the click handler.
+- [x] The service worker invokes `chrome.tabCapture.getMediaStreamId` before awaiting storage, tab lookup, or other preparation.
+- [x] Existing/in-flight capture prevents a duplicate session; a failed attempt does not set recording state and displays the manual-start reminder.
+- [x] `call_state` transitions alone no longer initiate capture; they continue to stop a capture after the call ends.
+- [x] `node --check extension/meet-call.js extension/background.js` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Build

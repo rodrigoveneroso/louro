@@ -5,14 +5,51 @@
   const { extensionAlive, isInCall, isMicMuted, meetingCode, meetingTitle, participantNames } =
     globalThis.louroMeet;
   const CHECK_MS = 2000;
+  const JOIN_NOW = /\b(?:join now|participar agora|ingressar agora|entrar agora)\b/i;
+  const ASK_TO_JOIN =
+    /\b(?:ask to join|request to join|pedir para participar|pedir para entrar|solicitar para participar)\b/i;
 
   let inCall = null; // unknown until the first check
   let reported = ''; // meeting info last sent for the running capture
   let reportedMute = ''; // mute state last sent for the running capture
+  let autoCaptureEnabled = false;
 
   function send(message) {
     chrome.runtime.sendMessage({ target: 'background', ...message }).catch(() => {});
   }
+
+  function requestCaptureFromJoin(event) {
+    if (!event.isTrusted || !extensionAlive() || !autoCaptureEnabled) return;
+    const target = event.target?.nodeType === Node.ELEMENT_NODE ? event.target : event.target?.parentElement;
+    const button =
+      event.composedPath().find(
+        (node) => node instanceof Element && node.matches('button, [role="button"]'),
+      ) || target?.closest('button, [role="button"]');
+    if (!button || button.disabled) return;
+    const label = [
+      button.getAttribute('aria-label'),
+      button.getAttribute('data-tooltip'),
+      button.innerText,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    if (ASK_TO_JOIN.test(label) || !JOIN_NOW.test(label)) return;
+    // Send synchronously from the trusted Meet click so the worker can request tab capture.
+    send({ action: 'meet_join_clicked' });
+  }
+
+  document.addEventListener('click', requestCaptureFromJoin, true);
+  chrome.storage.local
+    .get('autoCapture')
+    .then(({ autoCapture = false }) => {
+      autoCaptureEnabled = autoCapture === true;
+    })
+    .catch(() => {});
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.autoCapture) {
+      autoCaptureEnabled = changes.autoCapture.newValue === true;
+    }
+  });
 
   // The extension can go away between the check below and any chrome.* call after it
   // (reloaded, updated): whatever then throws ends this copy of the script quietly.

@@ -7,6 +7,7 @@ import { BACKEND, newSessionId } from './shared.js';
 const OFFSCREEN_URL = 'offscreen.html';
 const CHAT_POST_ATTEMPTS = 5;
 const CHAT_POST_RETRY_MS = 250;
+let captureStartInFlight = false;
 
 // A Manifest V3 service worker is shut down when idle, so in-memory state does not survive
 // a long meeting. The capture in progress lives in storage instead.
@@ -35,10 +36,8 @@ async function closeOffscreen() {
   if (await offscreenExists()) await chrome.offscreen.closeDocument();
 }
 
-// Capture follows the call when the user turned that on in the popup. Chrome only lets
-// an extension capture a tab after the user invoked it there (a click on its icon), and
-// that grant lasts until the tab navigates away: one click on the Meet tab, in the lobby
-// or in the call, is enough for the call to start and stop the recording on its own.
+// Follow-call remains opt-in. Meet's join click is the automatic-start gesture; Chrome
+// can still reject the relayed request, in which case the user starts from the popup.
 async function followsCall() {
   const { autoCapture = false } = await chrome.storage.local.get('autoCapture');
   return autoCapture;
@@ -56,16 +55,12 @@ async function onCallState(tabId, inCall) {
   else delete tabs[tabId];
   await chrome.storage.session.set({ inCall: tabs });
 
+  if (inCall) return;
+  await setReminder(tabId, false);
   if (!(await followsCall())) return;
   const running = await activeCapture();
-  if (inCall && !running) {
-    const result = await startCapture(tabId);
-    if (!result.ok) await setReminder(tabId, true); // no grant yet: ask for the one click
-  } else if (!inCall) {
-    await setReminder(tabId, false);
-    const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
-    if (running && meetingTabId === tabId) await stopCapture();
-  }
+  const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+  if (running && meetingTabId === tabId) await stopCapture();
 }
 
 /** The popup just opened on `tabId`, which grants the capture if a call is waiting. */
@@ -77,7 +72,7 @@ async function onPopupOpened(tabId) {
 }
 
 async function setReminder(tabId, on) {
-  await chrome.action.setBadgeText({ tabId, text: on ? 'REC' : '' }).catch(() => {});
+  await chrome.action.setBadgeText({ tabId, text: on ? '!' : '' }).catch(() => {});
   if (on) await chrome.action.setBadgeBackgroundColor({ tabId, color: '#b91c1c' }).catch(() => {});
   await chrome.action
     .setTitle({ tabId, title: t(on ? 'badgeAskClick' : 'badgeTitle') })
@@ -155,39 +150,113 @@ async function forwardMeetChat(tabId, sessionId, messages) {
 }
 
 async function startCapture(tabId = null) {
-  const running = await activeCapture();
-  if (running) {
-    return { ok: false, error: t('errorAlreadyCapturing'), sessionId: running.sessionId };
+  if (captureStartInFlight) {
+    return { ok: false, error: t('errorAlreadyCapturing'), alreadyCapturing: true };
   }
-
-  const tab =
-    tabId === null
-      ? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
-      : await chrome.tabs.get(tabId).catch(() => null);
-  if (!tab || tab.id === undefined) {
-    return { ok: false, error: t('errorNoTab') };
-  }
-
-  let streamId;
+  captureStartInFlight = true;
   try {
-    streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
-  } catch (error) {
-    return { ok: false, error: t('errorCannotCapture', error.message) };
-  }
+    const running = await activeCapture();
+    if (running) {
+      return {
+        ok: false,
+        error: t('errorAlreadyCapturing'),
+        sessionId: running.sessionId,
+        alreadyCapturing: true,
+      };
+    }
 
+    const tab =
+      tabId === null
+        ? (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
+        : await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab || tab.id === undefined) return { ok: false, error: t('errorNoTab') };
+
+    let streamId;
+    try {
+      streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tab.id });
+    } catch (error) {
+      return { ok: false, error: t('errorCannotCapture', error.message) };
+    }
+    return await startCaptureWithStream(tab, streamId);
+  } finally {
+    captureStartInFlight = false;
+  }
+}
+
+function startCaptureFromJoin(tabId) {
+  if (captureStartInFlight) {
+    return Promise.resolve({
+      ok: false,
+      error: t('errorAlreadyCapturing'),
+      alreadyCapturing: true,
+    });
+  }
+  captureStartInFlight = true;
+  let streamRequest;
+  try {
+    // This API call must run synchronously in the Meet join click's message turn.
+    streamRequest = chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
+  } catch (error) {
+    return Promise.all([activeCapture(), followsCall()])
+      .then(([running, enabled]) => {
+        if (!enabled) return { ok: false, disabled: true };
+        return running
+          ? { ok: false, error: t('errorAlreadyCapturing'), alreadyCapturing: true }
+          : { ok: false, error: t('errorCannotCapture', error.message) };
+      })
+      .finally(() => {
+        captureStartInFlight = false;
+      });
+  }
+  return (async () => {
+    let streamId;
+    try {
+      streamId = await streamRequest;
+    } catch (error) {
+      const [running, enabled] = await Promise.all([activeCapture(), followsCall()]);
+      if (!enabled) return { ok: false, disabled: true };
+      return running
+        ? { ok: false, error: t('errorAlreadyCapturing'), alreadyCapturing: true }
+        : { ok: false, error: t('errorCannotCapture', error.message) };
+    }
+    if (!(await followsCall())) return { ok: false, disabled: true };
+    const running = await activeCapture();
+    if (running) {
+      return {
+        ok: false,
+        error: t('errorAlreadyCapturing'),
+        sessionId: running.sessionId,
+        alreadyCapturing: true,
+      };
+    }
+    const tab = await chrome.tabs.get(tabId).catch(() => null);
+    if (!tab || tab.id === undefined) return { ok: false, error: t('errorNoTab') };
+    return await startCaptureWithStream(tab, streamId);
+  })().finally(() => {
+    captureStartInFlight = false;
+  });
+}
+
+async function startCaptureWithStream(tab, streamId) {
   // no language picker: the backend applies LOURO_LANGUAGE, set once in .env
   const language = '';
   const sessionId = newSessionId();
 
-  await ensureOffscreen();
-  const started = await chrome.runtime.sendMessage({
-    target: 'offscreen',
-    action: 'start',
-    streamId,
-    sessionId,
-    language,
-    backend: BACKEND,
-  });
+  let started;
+  try {
+    await ensureOffscreen();
+    started = await chrome.runtime.sendMessage({
+      target: 'offscreen',
+      action: 'start',
+      streamId,
+      sessionId,
+      language,
+      backend: BACKEND,
+    });
+  } catch (error) {
+    await closeOffscreen().catch(() => {});
+    return { ok: false, error: t('errorRecorder', error.message || '?') };
+  }
 
   if (!started || !started.ok) {
     await closeOffscreen();
@@ -329,6 +398,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse(await onMicGranted());
     } else if (message.action === 'popup_opened') {
       sendResponse(await onPopupOpened(message.tabId));
+    } else if (
+      message.action === 'meet_join_clicked' &&
+      sender.tab?.url?.startsWith('https://meet.google.com/')
+    ) {
+      const result = await startCaptureFromJoin(sender.tab.id);
+      if (!result.ok && !result.alreadyCapturing && !result.disabled) {
+        await setReminder(sender.tab.id, true);
+      }
+      sendResponse(result);
     } else if (message.action === 'call_state' && sender.tab) {
       await onCallState(sender.tab.id, message.inCall);
       sendResponse({ ok: true });

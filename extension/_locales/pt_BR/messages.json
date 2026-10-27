@@ -79,7 +79,7 @@
     "message": "Iniciar e parar junto com a chamada (Google Meet)"
   },
   "popupAutoHint": {
-    "message": "Com isto marcado, abra este menu uma vez em cada aba de reunião: o Chrome só deixa gravar uma aba depois de um clique na extensão."
+    "message": "Com isto marcado, o Louro tentará iniciar ao clicar em “Participar agora” no Meet. Se o Chrome bloquear, use Iniciar gravação no menu da extensão."
   },
   "errorAlreadyCapturing": {
     "message": "Já existe uma gravação em andamento"
@@ -121,7 +121,7 @@
     "message": "Louro: gravando"
   },
   "badgeAskClick": {
-    "message": "Louro: clique para gravar esta chamada"
+    "message": "Louro: clique no ícone para iniciar a gravação"
   },
   "panelTitle": {
     "message": "🦜 Louro · legenda ao vivo"
