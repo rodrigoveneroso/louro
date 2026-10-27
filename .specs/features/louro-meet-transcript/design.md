@@ -1,7 +1,7 @@
 # Louro Meet Transcript Improvements Design
 
 **Spec**: `.specs/features/louro-meet-transcript/spec.md`
-**Status**: Draft
+**Status**: Approved; implementation complete, runtime verification pending
 
 ---
 

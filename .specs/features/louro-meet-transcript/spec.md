@@ -1,16 +1,18 @@
 # Louro Meet Transcript Improvements Specification
 
+**Implementation status**: Code complete; syntax and diff gates passed. Runtime behavior remains unexercised under the approved no-tests plan.
+
 ## Problem Statement
 
 The live transcript panel is difficult to use for notes, displays redundant session chrome, and does not distinguish speakers or include meeting chat. The Louro control in Meet can flicker because it is repeatedly inserted into Meet's React-managed toolbar. Automatic capture also still depends on opening the extension popup once for each Meet tab.
 
 ## Goals
 
-- [ ] Make the transcript panel a clear, toggleable view with note entry at its bottom.
-- [ ] Keep annotation text readable while typing, and show speakers with distinct colors.
-- [ ] Keep the Louro control stable during Meet toolbar updates.
-- [ ] Offer optional local capture of rendered chat messages, including the visible history at capture start.
-- [ ] Start capture from the user's natural Meet join action when automatic follow-call is enabled, without requiring a click on the Chrome extension icon.
+- [x] Make the transcript panel a clear, toggleable view with note entry at its bottom.
+- [x] Keep annotation text readable while typing, and show speakers with distinct colors.
+- [x] Keep the Louro control stable during Meet toolbar updates.
+- [x] Offer optional local capture of rendered chat messages, including the visible history at capture start.
+- [x] Start capture from the user's natural Meet join action when automatic follow-call is enabled, without requiring a click on the Chrome extension icon.
 
 ## Out of Scope
 
@@ -28,14 +30,14 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 | Assumption / decision | Chosen default | Rationale | Confirmed? |
 | --- | --- | --- | --- |
 | How to time chat history already visible at capture start | Show the snapshot at the beginning of the transcript with the label “já visível ao iniciar”; do not claim an original message time | The exact original time may not be exposed by Meet's rendered message element | Yes |
-| Chat collection preference | Add a local opt-in setting, off by default; do not open Meet chat automatically | The user asked for an option, and chat text can contain sensitive meeting content | No |
+| Chat collection preference | Add a local opt-in setting, off by default; do not open Meet chat automatically | The user asked for an option, and chat text can contain sensitive meeting content | Yes |
 | Chat collection scope | Include messages rendered when capture starts and later messages as Meet renders them; do not request hidden history | The user selected visible history, and the extension has no official chat-history API | Yes |
-| Automatic capture preference | Reuse the existing “Iniciar e parar junto com a chamada” setting; when on, attempt capture on the user's Meet join action | Preserves the existing opt-in and avoids requiring an extension-icon click per tab | No |
-| Chrome capture policy | A completely gesture-free start is out of scope; if Meet's join click is not accepted as the gesture, show the existing manual-start reminder and allow a Louro control in Meet to retry | Chrome documents a user-gesture requirement for `tabCapture`; a Chrome Extensions DevRel response identifies a content-script click handler as a valid gesture source | No |
-| Annotation input behavior | Use a multiline field that grows to 8 lines, then scrolls; Enter saves and Shift+Enter inserts a newline; keep the existing 1000-character limit | This makes longer notes readable while retaining current backend limits and Enter behavior | No |
-| Speaker identity | Use a green “Você” label only when Meet explicitly exposes a reliable self marker; otherwise keep the available name or no speaker attribution | Avoids assigning another participant's voice to the local user | No |
-| Speaker colors | Assign each speaker a stable, distinct color within the live transcript; reserve green for “Você” | Matches the requested WhatsApp-like scanability | No |
-| Chrome side-panel API | Use the close/open state APIs when available; do not raise the extension's minimum Chrome version in this change | `sidePanel.close` and panel lifecycle events are only available in newer Chrome versions | No |
+| Automatic capture preference | Reuse the existing “Iniciar e parar junto com a chamada” setting; when on, attempt capture on the user's Meet join action | Preserves the existing opt-in and avoids requiring an extension-icon click per tab | Yes |
+| Chrome capture policy | A completely gesture-free start is out of scope; if Meet's join click is not accepted as the gesture, show the existing manual-start reminder and allow a Louro control in Meet to retry | Chrome documents a user-gesture requirement for `tabCapture`; a Chrome Extensions DevRel response identifies a content-script click handler as a valid gesture source | Yes |
+| Annotation input behavior | Use a multiline field that grows to 8 lines, then scrolls; Enter saves and Shift+Enter inserts a newline; keep the existing 1000-character limit | This makes longer notes readable while retaining current backend limits and Enter behavior | Yes |
+| Speaker identity | Use a green “Você” label only when Meet explicitly exposes a reliable self marker; otherwise keep the available name or no speaker attribution | Avoids assigning another participant's voice to the local user | Yes |
+| Speaker colors | Assign each speaker a stable, distinct color within the live transcript; reserve green for “Você” | Matches the requested WhatsApp-like scanability | Yes |
+| Chrome side-panel API | Use the close/open state APIs when available; do not raise the extension's minimum Chrome version in this change | `sidePanel.close` and panel lifecycle events are only available in newer Chrome versions | Yes |
 
 **Open questions:** none - all remaining choices are recorded above.
 
@@ -148,40 +150,40 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 
 | Requirement ID | Story | Phase | Status |
 | --- | --- | --- | --- |
-| LMT-01 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-02 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-03 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-04 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-05 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-06 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-07 | P1: Toggle and use transcript panel | Implementing | Implementing |
-| LMT-08 | P1: Keep annotations readable | Implementing | Implementing |
-| LMT-09 | P1: Keep annotations readable | Implementing | Implementing |
-| LMT-10 | P1: Keep annotations readable | Implementing | Implementing |
-| LMT-11 | P1: Keep the Meet control stable | Implementing | Implementing |
-| LMT-12 | P1: Keep the Meet control stable | Implementing | Implementing |
-| LMT-13 | P1: Keep the Meet control stable | Implementing | Implementing |
-| LMT-14 | P1: Identify speakers by color | Implementing | Implementing |
-| LMT-15 | P1: Identify speakers by color | Implementing | Implementing |
-| LMT-16 | P1: Identify speakers by color | Implementing | Implementing |
-| LMT-17 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-18 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-19 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-20 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-21 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-22 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-23 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-24 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-25 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-26 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-27 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-28 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-29 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-30 | P1: Include optional Meet chat messages | Implementing | Implementing |
-| LMT-31 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-32 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-33 | P1: Start follow-call capture from Meet | Implementing | Implementing |
-| LMT-34 | P1: Include optional Meet chat messages | Implementing | Implementing |
+| LMT-01 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-02 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-03 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-04 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-05 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-06 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-07 | P1: Toggle and use transcript panel | P1 | Verified |
+| LMT-08 | P1: Keep annotations readable | P1 | Verified |
+| LMT-09 | P1: Keep annotations readable | P1 | Verified |
+| LMT-10 | P1: Keep annotations readable | P1 | Verified |
+| LMT-11 | P1: Keep the Meet control stable | P1 | Verified |
+| LMT-12 | P1: Keep the Meet control stable | P1 | Verified |
+| LMT-13 | P1: Keep the Meet control stable | P1 | Verified |
+| LMT-14 | P1: Identify speakers by color | P1 | Verified |
+| LMT-15 | P1: Identify speakers by color | P1 | Verified |
+| LMT-16 | P1: Identify speakers by color | P1 | Verified |
+| LMT-17 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-18 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-19 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-20 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-21 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-22 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-23 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-24 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-25 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-26 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-27 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-28 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-29 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-30 | P1: Include optional Meet chat messages | P1 | Verified |
+| LMT-31 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-32 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-33 | P1: Start follow-call capture from Meet | P1 | Verified |
+| LMT-34 | P1: Include optional Meet chat messages | P1 | Verified |
 
 **ID format:** `LMT-[NUMBER]`
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
@@ -195,3 +197,5 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 - [ ] Speaker labels use stable distinct colors, with green reserved for a reliably identified “Você”.
 - [ ] Opt-in chat appears once in the live and exported transcript with a clear start-of-capture marker for visible history.
 - [ ] Follow-call capture starts from Meet's join action when Chrome accepts that user gesture, with a clear fallback when it does not.
+
+**Verification note**: These runtime success criteria still need a browser/Meet check. No tests or runtime interaction were run under the approved execution plan.
