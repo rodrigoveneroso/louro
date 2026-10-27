@@ -294,9 +294,9 @@ T10 -> T13
 
 **Done when**:
 
-- [ ] The helper binds to a textarea, wraps text, grows to at most eight visible lines, and enables vertical scrolling beyond that height.
-- [ ] The helper does not submit or mutate note content; each host keeps its existing save behavior.
-- [ ] `node --check extension/note-input.js` and the phase Build gate pass.
+- [x] The helper binds to a textarea, wraps text, grows to at most eight visible lines, and enables vertical scrolling beyond that height.
+- [x] The helper does not submit or mutate note content; each host keeps its existing save behavior.
+- [x] `node --check extension/note-input.js` and the phase Build gate pass.
 
 **Tests**: none (not authorized by the current instruction)
 **Gate**: Quick
