@@ -32,7 +32,8 @@ def main() -> None:
     head = Image.open(HEAD).convert("RGBA")
     # The toolbar canvas is square. Remove transparent top/bottom margins and use
     # that full canvas so the head reads at the same visual size as other icons.
-    head = head.crop(head.getchannel("A").getbbox())
+    visible_alpha = head.getchannel("A").point(lambda value: 255 if value >= 32 else 0)
+    head = head.crop(visible_alpha.getbbox())
     head = head.resize((max(head.size), max(head.size)), Image.LANCZOS)
     for size, source in ((128, whole), (48, head), (32, head), (16, head)):
         source.resize((size, size), Image.LANCZOS).save(OUT / f"icon{size}.png")

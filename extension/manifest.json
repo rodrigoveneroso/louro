@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Louro",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "__MSG_extDescription__",
   "default_locale": "pt_BR",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmxmlpsw96bxnVWdp23R1fzsNN6HKK7xusFyAxoX0jXhKgBd5r1eT1VJzeIu8QkxnC8lS9oUjrwFBBqWQbuWllNbQHFERzmhLy5rngWNfv7zFr4xh2XUTNU+v66LVcfawRjYxiXd5RZL7x9fqqzvcLo3kyuann1xAP6cNEw/rZtZCmV/ZjxMW1kG69DG6f85UykeUXmZxNhX6yuK5aGlBoq6H/sijLDUaqcuK/afDURMIi5TwujAWepBbveH4qAh0foiiu9o5BXtpxYdfCa6C6vacbyDsMYYa8CObpUwinKbUavNTZDpWyz5F5ICIgl1iAQuz/jC1RvKyWFhrOO2BNQIDAQAB",
