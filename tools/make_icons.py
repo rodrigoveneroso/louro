@@ -30,6 +30,10 @@ def main() -> None:
     logo = Image.open(LOGO).convert("RGBA")
     whole = square(logo.crop(logo.getbbox()))
     head = Image.open(HEAD).convert("RGBA")
+    # The toolbar canvas is square. Remove transparent top/bottom margins and use
+    # that full canvas so the head reads at the same visual size as other icons.
+    head = head.crop(head.getchannel("A").getbbox())
+    head = head.resize((max(head.size), max(head.size)), Image.LANCZOS)
     for size, source in ((128, whole), (48, head), (32, head), (16, head)):
         source.resize((size, size), Image.LANCZOS).save(OUT / f"icon{size}.png")
         print(f"wrote extension/icons/icon{size}.png")
