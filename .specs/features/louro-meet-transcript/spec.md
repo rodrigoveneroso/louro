@@ -1,6 +1,6 @@
 # Louro Meet Transcript Improvements Specification
 
-**Implementation status**: Native toolbar integration implemented; syntax and diff checks pass. Live verification is pending because the inspected Chrome tab currently has three Louro runtime instances, and Chrome's extension-management page is unavailable to browser automation.
+**Implementation status**: Targeted Playwright checks pass for active toolbar status and temporary feedback in an isolated Chromium profile. Visual confirmation in the user's live Chrome/Meet remains pending.
 
 ## Problem Statement
 
@@ -186,22 +186,22 @@ The live transcript panel is difficult to use for notes, displays redundant sess
 | LMT-32 | P1: Start follow-call capture from Meet | P1 | Verified |
 | LMT-33 | P1: Start follow-call capture from Meet | P1 | Verified |
 | LMT-34 | P1: Include optional Meet chat messages | P1 | Verified |
-| LMT-35 | P1: Keep the Meet control stable | P1 | Implementing |
-| LMT-36 | P1: Keep capture feedback current | P1 | Implementing |
+| LMT-35 | P1: Keep the Meet control stable | P1 | Verified |
+| LMT-36 | P1: Keep capture feedback current | P1 | Verified |
 
 **ID format:** `LMT-[NUMBER]`
 **Status values:** Pending → In Design → In Tasks → Implementing → Verified
-**Coverage:** 36 total, mapped to T1–T15 in `.specs/features/louro-meet-transcript/tasks.md`.
+**Coverage:** 36 total, mapped to T1–T16 in `.specs/features/louro-meet-transcript/tasks.md`.
 
 ## Success Criteria
 
 - [ ] Transcript open/close state, lower note composer, and removal of the top status bar work together.
 - [ ] The Meet control no longer flickers during an active call with the overlay enabled.
-- [ ] The active recording status fits in the Louro toolbar slot without covering the mascot or neighboring controls.
-- [ ] Temporary capture feedback disappears after 15 seconds; transcript content remains.
+- [x] The active recording status fits in the Louro toolbar slot without covering the mascot or neighboring controls.
+- [x] Temporary capture feedback disappears after 15 seconds; transcript content remains.
 - [ ] Long annotations wrap and remain editable in all three annotation entry points.
 - [ ] Speaker labels use stable distinct colors, with green reserved for a reliably identified “Você”.
 - [ ] Opt-in chat appears once in the live and exported transcript with a clear start-of-capture marker for visible history.
 - [ ] Follow-call capture starts from Meet's join action when Chrome accepts that user gesture, with a clear fallback when it does not.
 
-**Verification note**: These runtime success criteria still need a browser/Meet check. No tests or runtime interaction were run under the approved execution plan.
+**Verification note**: Playwright verified LMT-35 and LMT-36 in disposable Chromium using a stand-in Meet toolbar. The updated layout still needs visual confirmation in the user's live Meet call.

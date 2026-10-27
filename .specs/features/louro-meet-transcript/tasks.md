@@ -4,23 +4,23 @@
 
 Implement these tasks with the `tlc-spec-driven` skill: activate it by name and follow its Execute flow and Critical Rules. Each completed task gets its own local Conventional Commit, with task and spec status updates included.
 
-The current task instruction does not authorize adding or running tests. Do not add or run tests unless the user explicitly asks to test or verify this implementation. Use only the syntax and diff checks listed below. If the user later asks for tests, revise this plan's matrix and task fields first.
+The user explicitly requested Playwright verification for the active toolbar status and temporary feedback before publication. Use the isolated Chromium extension harness and do not touch the user's Chrome profile or meeting data. Backend and extension unit suites remain outside this verification scope.
 
 **Design**: `.specs/features/louro-meet-transcript/design.md`
-**Status**: Approved; T1–T15 implemented; runtime verification pending
+**Status**: Approved; T1–T16 implemented; LMT-35 and LMT-36 pass Playwright; live Meet confirmation pending
 
 ---
 
 ## Test Coverage Matrix
 
-> Generated from `README.md`, `pyproject.toml`, existing tests, and the feature spec. No AGENTS.md, CONTRIBUTING guide, testing guide, or project build/lint script was found. The repository has Python backend tests and Node extension tests, but the active instruction prohibits adding or running tests in this task; therefore the authorized test type is `none` for all tasks. Existing tests remain untouched.
+> Generated from `README.md`, `pyproject.toml`, existing tests, and the feature spec. T14–T16 use a targeted Playwright browser check; prior tasks retain their originally approved no-test scope.
 
 | Code Layer | Required Test Type | Coverage Expectation | Location Pattern | Run Command |
 | ---------- | ------------------ | -------------------- | ---------------- | ----------- |
-| Backend model/store/API/retention/export | none | No tests added or executed under the current instruction; existing pytest coverage remains unchanged | `tests/test_*.py` | Not authorized for this task |
-| Extension content scripts/UI | none | No tests added or executed under the current instruction; existing Node coverage remains unchanged | `tests/extension/*.test.mjs` | Not authorized for this task |
+| Backend model/store/API/retention/export | none | Not changed by T14–T16 | `tests/test_*.py` | Out of scope |
+| Extension content scripts/UI | Playwright real-browser for LMT-35 and LMT-36 | Verify active status layout and 15-second feedback expiry in a temporary Chromium profile | `tests/extension/verify-ui-feedback.mjs` | `node tests/extension/verify-ui-feedback.mjs` |
 
-Available project test commands, recorded but not authorized for this task: `.venv/bin/python -m pytest`, `npm test`, and `npm run verify` (real-browser checks).
+Other project test commands are `.venv/bin/python -m pytest`, `npm test`, and `npm run verify`; this task uses only the targeted Playwright check above.
 
 ## Gate Check Commands
 
@@ -30,7 +30,7 @@ Available project test commands, recorded but not authorized for this task: `.ve
 | ---------- | ----------- | ------- |
 | Quick | After a task that changes JavaScript | `node --check <changed-extension-file.js>` |
 | Full | After a task that changes Python | `python3 -m py_compile <changed-backend-file.py>` |
-| Build | At phase completion | `git diff --check` plus syntax checks for every changed JavaScript/Python file in that phase |
+| Build | At phase completion | `node tests/extension/verify-ui-feedback.mjs`, `git diff --check`, and syntax checks for every changed JavaScript file in that phase |
 
 ---
 
@@ -423,9 +423,9 @@ T13 -> T14 -> T15
 - [x] Idle remains a 48×48 mascot control; active status has a 48-pixel height and enough width for its dot and elapsed time.
 - [x] The mascot is hidden while the status pill is visible, preventing icon/timer overlap.
 - [x] `node --check extension/meet-overlay.js` and `git diff --check` pass.
-- [ ] Visual confirmation in a live Meet call remains pending.
+- [x] Playwright verified the pill on a stand-in Meet toolbar; confirmation in the user's live Meet remains pending.
 
-**Tests**: none (not authorized by the approved execution plan)
+**Tests**: real-browser verification in T16 (`tests/extension/verify-ui-feedback.mjs`)
 **Gate**: Quick
 **Commit**: `fix(extension): fit recording status in meet toolbar`
 
@@ -441,11 +441,29 @@ T13 -> T14 -> T15
 - [x] System feedback entries remove themselves from the live timeline after 15 seconds, without removing speech, chat, or notes.
 - [x] The popup shows the last-capture result only when its timestamp is between 0 and 15 seconds old.
 - [x] `node --check` passes for both changed JavaScript files and `git diff --check` passes.
-- [ ] Visual confirmation of expiry in the popup and side panel remains pending.
+- [x] Playwright verified expiry in the popup and side panel; confirmation in the user's live Meet remains pending.
 
-**Tests**: none (not authorized by the approved execution plan)
+**Tests**: real-browser verification in T16 (`tests/extension/verify-ui-feedback.mjs`)
 **Gate**: Build
 **Commit**: `fix(extension): expire temporary capture feedback`
+
+### T16: Verify toolbar status and feedback expiry with Playwright
+
+**What**: Add an isolated Chromium verification for the active Louro toolbar status, the side-panel feedback expiry, and the popup's stale-result expiry.
+**Where**: `tests/extension/verify-ui-feedback.mjs`
+**Depends on**: T15
+**Requirement**: LMT-35, LMT-36
+
+**Done when**:
+
+- [x] A temporary Chromium profile loads the extension on a stand-in Meet call and confirms the recording pill fits its content without the mascot overlapping it.
+- [x] A discarded-capture notice appears in the side panel and popup, then disappears after the 15-second TTL while the popup returns to idle and speech/chat/notes remain visible.
+- [x] The browser profile and temporary data are removed after verification.
+- [x] `node tests/extension/verify-ui-feedback.mjs` and `git diff --check` pass.
+
+**Tests**: Playwright real-browser
+**Gate**: Build
+**Commit**: `test(extension): verify toolbar status and feedback expiry`
 
 ---
 
@@ -471,7 +489,7 @@ Phase 3: T9 -> T10
          T11 -> T12
          T10 -> T13
 
-Phase 4: T13 -> T14 -> T15
+Phase 4: T13 -> T14 -> T15 -> T16
 ```
 
 The diagram abbreviates independent tasks within each phase. Task execution remains sequential as listed.
@@ -515,6 +533,7 @@ The diagram abbreviates independent tasks within each phase. Task execution rema
 | T13 | T10 | T10 -> T13 | ✅ Match |
 | T14 | T13 | T13 -> T14 | ✅ Match |
 | T15 | T14 | T14 -> T15 | ✅ Match |
+| T16 | T15 | T15 -> T16 | ✅ Match |
 
 ## Test Co-location Validation
 
@@ -533,7 +552,8 @@ The diagram abbreviates independent tasks within each phase. Task execution rema
 | T11 | Extension panel lifecycle/UI | none | none | ✅ Matches current instruction |
 | T12 | Extension timeline rendering | none | none | ✅ Matches current instruction |
 | T13 | Extension overlay controller | none | none | ✅ Matches current instruction |
-| T14 | Extension overlay controller | none | none | ✅ Matches current instruction |
-| T15 | Extension popup and side panel | none | none | ✅ Matches current instruction |
+| T14 | Extension overlay controller | Playwright | Playwright via T16 | ✅ Matches current instruction |
+| T15 | Extension popup and side panel | Playwright | Playwright via T16 | ✅ Matches current instruction |
+| T16 | Extension UI verification | Playwright | Playwright | ✅ Matches current instruction |
 
-**Gate note**: These are plan validations, not a claim that behavior has been verified. The test suite is not part of the authorized gates unless the user explicitly asks for tests or verification.
+**Gate note**: T16's Playwright run uses a disposable browser profile and temporary test entries; the user's Chrome profile and meeting data are not used.
