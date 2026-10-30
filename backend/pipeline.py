@@ -83,12 +83,12 @@ class SessionPipeline:
             return
         self._stopped = True
 
+        # Not cancelled: cancelling drops the asyncio side of a pass whose thread still runs
+        # to the end and advances the transcriber, so its segments would never reach
+        # `on_segments`. The worker sees the flag and returns after the pass under way.
         if self._worker is not None:
-            self._worker.cancel()
-            try:
-                await self._worker
-            except asyncio.CancelledError:
-                pass
+            self._wake.set()
+            await self._worker
             self._worker = None
 
         # closing joins the decoder thread, so keep it off the event loop
@@ -105,13 +105,15 @@ class SessionPipeline:
     async def _run(self) -> None:
         loop = asyncio.get_running_loop()
         last = loop.time()
-        while True:
+        while not self._stopped:
             remaining = last + self._wait() - loop.time()
             if remaining > 0 and not self._wake.is_set():
                 try:
                     await asyncio.wait_for(self._wake.wait(), timeout=remaining)
                 except asyncio.TimeoutError:
                     pass
+            if self._stopped:
+                break
             # the wait may have changed meanwhile (a viewer came or went)
             if self._wake.is_set() or loop.time() >= last + self._wait():
                 self._wake.clear()
@@ -124,6 +126,8 @@ class SessionPipeline:
         window = getattr(self.transcriber, "window_samples", 0)
         for _ in range(_MAX_CATCH_UP_PASSES):
             await self._pass()
+            if self._stopped:  # the drain at stop takes over from here
+                break
             if not window or self.transcriber.pending_samples < window:
                 break
 

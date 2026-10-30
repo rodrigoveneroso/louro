@@ -200,6 +200,23 @@ async def test_stop_transcribes_audio_that_arrived_after_the_last_pass():
     assert collector.texts == ["last words"]
 
 
+async def test_stop_during_a_pass_keeps_that_pass_segments():
+    """Stopping mid-pass must not lose what that pass already transcribed."""
+    whisper = Whisper(delay=0.3, script=[[RawSeg(0.0, 1.0, "said while stopping")]])
+    pipeline, _, collector = build(whisper, interval=0.02)
+    await pipeline.start()
+
+    pipeline.feed(b"chunk")
+    for _ in range(50):
+        if whisper.concurrent:
+            break
+        await asyncio.sleep(0.01)
+    assert whisper.concurrent, "the pass never started"
+    await pipeline.stop()
+
+    assert collector.texts == ["said while stopping"]
+
+
 async def test_stop_drains_a_backlog_larger_than_one_window():
     """If transcription fell behind, stopping must still process everything captured."""
     whisper = Whisper()
