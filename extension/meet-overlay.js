@@ -212,7 +212,7 @@
   });
 
   async function addNote(text) {
-    if (!extensionAlive()) return;
+    if (!extensionAlive()) return false;
     const reply = await chrome.runtime
       .sendMessage({ target: 'background', action: 'add_note', text })
       .catch(() => null);
@@ -223,17 +223,18 @@
     } else {
       feedback.textContent = t('popupNoteFailed');
     }
+    return Boolean(reply?.ok);
   }
 
   mark.addEventListener('click', () => addNote(''));
-  input.addEventListener('keydown', (event) => {
+  input.addEventListener('keydown', async (event) => {
     if (event.key !== 'Enter' || event.shiftKey) return;
     event.preventDefault();
     if (!input.value.trim()) return;
-    const text = input.value;
+    // cleared only once saved, so a failed save keeps what was typed
+    if (!(await addNote(input.value))) return;
     input.value = '';
     input.dispatchEvent(new Event('input'));
-    addNote(text);
   });
 
   // --- native toolbar integration ----------------------------------------------------------

@@ -196,6 +196,7 @@ async function addNote(text) {
   } else {
     noteStatus.textContent = t('popupNoteFailed');
   }
+  return Boolean(reply?.ok);
 }
 
 markBtn.addEventListener('click', () => addNote(''));
@@ -203,10 +204,10 @@ noteInput.addEventListener('keydown', async (event) => {
   if (event.key !== 'Enter' || event.shiftKey) return;
   event.preventDefault();
   if (!noteInput.value.trim()) return;
-  const text = noteInput.value;
+  // cleared only once saved, so a failed save keeps what was typed
+  if (!(await addNote(noteInput.value))) return;
   noteInput.value = '';
   noteInput.dispatchEvent(new Event('input'));
-  await addNote(text);
 });
 
 chrome.commands.getAll().then((commands) => {
