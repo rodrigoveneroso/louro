@@ -74,6 +74,12 @@ async def lifespan(_app: FastAPI):
     for session in sessions.values():
         if session.status in ("streaming", "transcribing"):
             session.status = "interrupted"
+        elif session.status == "refining":
+            # the second pass died with the process: the live transcript stands, and the
+            # audio it was reading must not outlive it
+            session.status = "stopped"
+            store.save_session(session)
+            (config.DATA_DIR / f"{session.session_id}.pcm").unlink(missing_ok=True)
     logger.info("Loaded %d session(s) from %s", len(sessions), config.DB_PATH)
     if config.PRELOAD:
         # off the event loop: the API answers while Whisper loads
