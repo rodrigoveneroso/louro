@@ -332,7 +332,9 @@ async def add_note(session_id: str, request: Request):
     text, at = body.get("text", ""), body.get("at")
     if not isinstance(text, str) or len(text) > _MAX_NOTE:
         raise HTTPException(status_code=400, detail="text must be a string of at most 1000")
-    if at is not None and not isinstance(at, (int, float)):
+    if at is not None and (
+        isinstance(at, bool) or not isinstance(at, (int, float)) or not math.isfinite(at)
+    ):
         raise HTTPException(status_code=400, detail="at must be epoch milliseconds")
     moment = at / 1000.0 if at is not None else dt.datetime.now().timestamp()
     started = dt.datetime.fromisoformat(session.started_at).timestamp()
