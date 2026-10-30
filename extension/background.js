@@ -56,6 +56,7 @@ async function onCallState(tabId, inCall) {
   await chrome.storage.session.set({ inCall: tabs });
 
   if (inCall) return;
+  await forgetUserStop(tabId);
   await setReminder(tabId, false);
   if (!(await followsCall())) return;
   const running = await activeCapture();
@@ -65,10 +66,36 @@ async function onCallState(tabId, inCall) {
 
 /** The popup just opened on `tabId`, which grants the capture if a call is waiting. */
 async function onPopupOpened(tabId) {
-  if (!(await followsCall()) || (await activeCapture())) return { ok: true, started: false };
-  if (!(await callTabs())[tabId]) return { ok: true, started: false };
+  const idle = { ok: true, started: false };
+  if (!(await followsCall()) || (await activeCapture())) return idle;
+  if (!(await callTabs())[tabId]) return idle;
+  // the final pass of the previous capture is still running, or the user stopped this call
+  const { finishingSessionId } = await chrome.storage.local.get('finishingSessionId');
+  if (finishingSessionId || (await stoppedByUser())[tabId]) return idle;
   const result = await startCapture(tabId);
   return { ...result, started: result.ok };
+}
+
+// Meet tabs whose capture the user stopped by hand during the current call. Opening the
+// popup to read the result must not start recording that call again.
+async function stoppedByUser() {
+  const { userStopped = {} } = await chrome.storage.session.get('userStopped');
+  return userStopped;
+}
+
+async function rememberUserStop() {
+  const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+  if (!Number.isInteger(meetingTabId)) return;
+  const tabs = await stoppedByUser();
+  tabs[meetingTabId] = true;
+  await chrome.storage.session.set({ userStopped: tabs });
+}
+
+async function forgetUserStop(tabId) {
+  const tabs = await stoppedByUser();
+  if (!tabs[tabId]) return;
+  delete tabs[tabId];
+  await chrome.storage.session.set({ userStopped: tabs });
 }
 
 async function setReminder(tabId, on) {
@@ -387,8 +414,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   (async () => {
     if (message.action === 'start_capture') {
-      sendResponse(await startCapture());
+      const result = await startCapture();
+      if (result.ok) {
+        const { meetingTabId } = await chrome.storage.local.get('meetingTabId');
+        await forgetUserStop(meetingTabId);
+      }
+      sendResponse(result);
     } else if (message.action === 'stop_capture') {
+      await rememberUserStop();
       sendResponse(await stopCapture());
     } else if (message.action === 'whoami') {
       sendResponse({ tabId: sender.tab?.id ?? null }); // content scripts cannot ask Chrome
