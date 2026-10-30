@@ -159,7 +159,7 @@ function showError(text) {
 
 async function send(action) {
   showError('');
-  const response = await chrome.runtime.sendMessage({ action }).catch(() => null);
+  const response = await chrome.runtime.sendMessage({ target: 'background', action }).catch(() => null);
   if (!response) showError(t('errorNoResponse'));
   else if (!response.ok) showError(response.error);
   await render();
@@ -187,7 +187,9 @@ panelBtn.addEventListener('click', async () => {
 // --- marks and notes ---
 
 async function addNote(text) {
-  const reply = await chrome.runtime.sendMessage({ action: 'add_note', text }).catch(() => null);
+  const reply = await chrome.runtime
+    .sendMessage({ target: 'background', action: 'add_note', text })
+    .catch(() => null);
   if (reply?.ok) {
     const at = formatClock(reply.atSec);
     noteStatus.textContent = t(text ? 'popupNoted' : 'popupMarked', at);
@@ -246,7 +248,7 @@ async function offerCapture() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab) return;
   const reply = await chrome.runtime
-    .sendMessage({ action: 'popup_opened', tabId: tab.id })
+    .sendMessage({ target: 'background', action: 'popup_opened', tabId: tab.id })
     .catch(() => null);
   if (reply && !reply.ok) showError(reply.error);
   await render();

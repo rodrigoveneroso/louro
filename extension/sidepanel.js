@@ -522,20 +522,17 @@ function onBackendMessage(data) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.target && message.target !== 'panel') return;
+// Only messages addressed to the panel: answering anything else would race the background's
+// reply to the popup and hand it a false success.
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.target !== 'panel') return;
 
   if (message.action === 'transcript_start' && message.sessionId) {
     setCaptureActive(message.sessionId);
     connectTranscript(message.sessionId);
-  } else if (message.action === 'transcript_stop') {
-    setCaptureActive(null);
-    disconnect();
   } else if (message.action === 'backend_message') {
     onBackendMessage(message.data || {});
   }
-  sendResponse({ ok: true });
-  return true;
 });
 
 // --- on load: reattach to whatever is running ---
