@@ -151,11 +151,13 @@ async function forwardMeetChat(tabId, sessionId, messages) {
   for (let attempt = 0; attempt < CHAT_POST_ATTEMPTS; attempt += 1) {
     const state = await chrome.storage.local.get([
       'activeSessionId',
+      'finishingSessionId',
       'meetingTabId',
       'includeMeetChat',
     ]);
     if (
-      state.activeSessionId !== sessionId ||
+      // the last messages are flushed after Stop, while the session is finishing
+      (state.activeSessionId !== sessionId && state.finishingSessionId !== sessionId) ||
       state.meetingTabId !== tabId ||
       state.includeMeetChat !== true
     ) {
