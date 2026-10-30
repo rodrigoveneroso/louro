@@ -171,9 +171,6 @@
   "panelConnecting": {
     "message": "conectando…"
   },
-  "panelLive": {
-    "message": "ao vivo"
-  },
   "panelStatusLive": {
     "message": "gravando"
   },
