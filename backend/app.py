@@ -539,6 +539,10 @@ async def ws_audio(websocket: WebSocket):
         if not refining:
             pcm_path.unlink(missing_ok=True)
             vocabularies.pop(session_id, None)
+            # every segment is in the store by now: the transcript is read from there, and
+            # a finished pipeline would otherwise stay in memory for the life of the process
+            if pipelines.get(session_id) is pipeline:
+                del pipelines[session_id]
         done.set()
 
     # tell the client the final pass is done, so it knows the transcript is complete.
