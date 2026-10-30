@@ -108,14 +108,16 @@ else
     cp "$ENV_FILE" "$ENV_FILE.bak"
     ok "previous configuration saved as $ENV_FILE.bak"
   fi
-  cat >"$ENV_FILE" <<EOF
-# Written by install.sh. Every setting is explained in .env.example.
-LOURO_LANGUAGE=$language
-LOURO_MODEL=$model
-LOURO_COMPUTE_TYPE=auto
-LOURO_EXPORT_DIR=$export_dir
-LOURO_VOCABULARY_FILE=$vocabulary
-EOF
+  # run.sh sources this file, so each value is shell-quoted: a folder with a space in its
+  # name must not turn into a command. "~" is expanded first, since quoting keeps it literal.
+  {
+    printf '# Written by install.sh. Every setting is explained in .env.example.\n'
+    printf 'LOURO_LANGUAGE=%q\n' "$language"
+    printf 'LOURO_MODEL=%q\n' "$model"
+    printf 'LOURO_COMPUTE_TYPE=auto\n'
+    printf 'LOURO_EXPORT_DIR=%q\n' "${export_dir/#\~/$HOME}"
+    printf 'LOURO_VOCABULARY_FILE=%q\n' "${vocabulary/#\~/$HOME}"
+  } >"$ENV_FILE"
   if [ -n "$export_dir" ]; then
     mkdir -p "${export_dir/#\~/$HOME}"
   fi
