@@ -113,6 +113,10 @@ await verify(async () => {
 
   const panel = await context.newPage();
   await panel.goto(`chrome-extension://${extensionId}/sidepanel.html`);
+  const imagesLoaded = await until(async () =>
+    panel.evaluate(() => [...document.images].every((image) => image.complete && image.naturalWidth > 0)),
+  );
+  check(Boolean(imagesLoaded), 'the transcript panel images load from inside the extension');
   await panel.evaluate(() => {
     const transcript = document.querySelector('#transcript');
     for (const [id, kind, text] of [

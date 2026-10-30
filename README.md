@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" alt="Louro, a pixel-art parrot wearing headphones" width="160">
+  <img src="extension/images/logo.png" alt="Louro, a pixel-art parrot wearing headphones" width="160">
 </p>
 
 <h1 align="center">Louro</h1>
