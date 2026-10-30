@@ -287,34 +287,10 @@ body {
   display: none;
 }
 
-.composer-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 9px;
-}
-
-#markBtn {
-  flex: 0 0 auto;
-  width: auto;
-  min-height: 40px;
-  padding: 8px 11px;
-  border: 1px solid #7b6933;
-  border-radius: var(--louro-radius-sm);
-  background: #38311e;
-  color: var(--louro-yellow);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-#markBtn:hover {
-  background: #494027;
-}
-
 #noteInput {
   display: block;
-  flex: 1 1 auto;
-  min-width: 0;
+  box-sizing: border-box;
+  width: 100%;
   min-height: 40px;
   padding: 9px 11px;
   border: 1px solid var(--louro-border);

@@ -15,7 +15,6 @@ const panelBtn = document.getElementById('panelBtn');
 const panelHint = document.getElementById('panelHint');
 const errorEl = document.getElementById('error');
 const notesEl = document.getElementById('notes');
-const markBtn = document.getElementById('markBtn');
 const noteInput = document.getElementById('noteInput');
 const noteStatus = document.getElementById('noteStatus');
 const autoEl = document.getElementById('autoCapture');
@@ -192,14 +191,13 @@ async function addNote(text) {
     .catch(() => null);
   if (reply?.ok) {
     const at = formatClock(reply.atSec);
-    noteStatus.textContent = t(text ? 'popupNoted' : 'popupMarked', at);
+    noteStatus.textContent = t('popupNoted', at);
   } else {
     noteStatus.textContent = t('popupNoteFailed');
   }
   return Boolean(reply?.ok);
 }
 
-markBtn.addEventListener('click', () => addNote(''));
 noteInput.addEventListener('keydown', async (event) => {
   if (event.key !== 'Enter' || event.shiftKey) return;
   event.preventDefault();

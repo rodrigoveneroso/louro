@@ -106,16 +106,9 @@
       }
       .panel.below { bottom: auto; top: calc(100% + 12px); }
       .panel[hidden], .panel [hidden] { display: none; }
-      .notes-view { display: flex; flex-direction: column; gap: 10px; }
+      .notes-view { display: flex; flex-direction: column; gap: 8px; }
       .panel .text { color: var(--louro-muted); }
       .panel .text strong { color: var(--louro-text); font-weight: 650; }
-      .mark {
-        all: unset; box-sizing: border-box; display: block; cursor: pointer; text-align: center;
-        min-height: 40px; padding: 10px 14px; border-radius: 20px;
-        background: var(--louro-yellow); color: var(--louro-green-ink); font-weight: 700;
-      }
-      .mark:hover { background: #ffe17a; }
-      .mark:focus-visible { outline: 2px solid var(--louro-text); outline-offset: 2px; }
       textarea {
         all: unset; box-sizing: border-box; display: block; width: 100%; min-height: 36px;
         padding: 9px 12px; border-radius: 8px; background: var(--louro-bg); color: var(--louro-text);
@@ -142,7 +135,6 @@
         <div class="text"></div>
       </div>
       <div class="notes-view">
-        <button class="mark" type="button"></button>
         <textarea rows="1" wrap="soft" maxlength="1000"></textarea>
         <div class="feedback" aria-live="polite"></div>
       </div>
@@ -154,10 +146,8 @@
   const idleView = root.querySelector('.idle-view');
   const idleText = root.querySelector('.idle-view .text');
   const notesView = root.querySelector('.notes-view');
-  const mark = root.querySelector('.mark');
   const input = root.querySelector('textarea');
   const feedback = root.querySelector('.feedback');
-  mark.textContent = t('popupMark');
   input.placeholder = t('popupNotePlaceholder');
   const unbindInput = globalThis.louroNoteInput.bind(input);
   idleText.append(
@@ -219,14 +209,13 @@
     feedback.classList.toggle('error', !reply?.ok);
     if (reply?.ok) {
       const at = globalThis.louroOverlay.clock(reply.atSec);
-      feedback.textContent = t(text ? 'popupNoted' : 'popupMarked', at);
+      feedback.textContent = t('popupNoted', at);
     } else {
       feedback.textContent = t('popupNoteFailed');
     }
     return Boolean(reply?.ok);
   }
 
-  mark.addEventListener('click', () => addNote(''));
   input.addEventListener('keydown', async (event) => {
     if (event.key !== 'Enter' || event.shiftKey) return;
     event.preventDefault();

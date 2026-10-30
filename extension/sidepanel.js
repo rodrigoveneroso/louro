@@ -35,7 +35,6 @@ const liveBtn = document.getElementById('liveBtn');
 const segmentCountEl = document.getElementById('segment-count');
 const durationEl = document.getElementById('duration');
 const composerEl = document.getElementById('note-composer');
-const markBtn = document.getElementById('markBtn');
 const noteInput = document.getElementById('noteInput');
 const noteStatusEl = document.getElementById('noteStatus');
 
@@ -480,15 +479,12 @@ async function saveNote(text) {
     return;
   }
 
-  noteStatusEl.textContent = t(text ? 'panelNoteSaved' : 'panelMarkSaved', formatClock(reply.atSec));
-  if (text) {
-    noteInput.value = '';
-    noteInput.dispatchEvent(new Event('input'));
-  }
+  noteStatusEl.textContent = t('panelNoteSaved', formatClock(reply.atSec));
+  noteInput.value = '';
+  noteInput.dispatchEvent(new Event('input'));
 }
 
 globalThis.louroNoteInput.bind(noteInput);
-markBtn.addEventListener('click', () => saveNote(''));
 noteInput.addEventListener('keydown', (event) => {
   if (event.key !== 'Enter' || event.shiftKey) return;
   event.preventDefault();

@@ -174,22 +174,11 @@
   "panelStatusLive": {
     "message": "gravando"
   },
-  "panelMark": {
-    "message": "📌 Marcar"
-  },
   "panelNotePlaceholder": {
-    "message": "Adicionar anotação · Enter salva · Shift+Enter quebra linha"
+    "message": "Anotação marcada no minuto atual · Enter salva · Shift+Enter quebra linha"
   },
   "panelNoteSaved": {
     "message": "Nota salva em $P1$",
-    "placeholders": {
-      "p1": {
-        "content": "$1"
-      }
-    }
-  },
-  "panelMarkSaved": {
-    "message": "Momento marcado em $P1$",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -292,19 +281,8 @@
   "micLater": {
     "message": "✅ Permitido. Ele será usado a partir da próxima gravação."
   },
-  "popupMark": {
-    "message": "📌 Marcar este momento"
-  },
   "popupNotePlaceholder": {
-    "message": "Anotar algo e apertar Enter"
-  },
-  "popupMarked": {
-    "message": "📌 Momento marcado em $P1$",
-    "placeholders": {
-      "p1": {
-        "content": "$1"
-      }
-    }
+    "message": "Anotação marcada no minuto atual · Enter salva"
   },
   "popupNoted": {
     "message": "📝 Nota salva em $P1$",
@@ -318,7 +296,7 @@
     "message": "Não deu para salvar: o backend do Louro está rodando?"
   },
   "popupShortcut": {
-    "message": "Atalho para marcar sem abrir este menu: $P1$",
+    "message": "Atalho para marcar o minuto sem escrever nada: $P1$",
     "placeholders": {
       "p1": {
         "content": "$1"

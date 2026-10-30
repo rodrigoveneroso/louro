@@ -36,7 +36,7 @@ await verify(async () => {
   check((await text('#startBtn')) === '▶ Iniciar gravação', 'its button is translated');
   check((await visible('#startBtn')) && !(await visible('#stopBtn')), 'only Start is offered');
   check(!(await visible('#panelBtn')), 'the live transcript is not pushed on anyone');
-  check(!(await visible('#markBtn')), 'there is nothing to mark yet');
+  check(!(await visible('#noteInput')), 'there is nothing to note yet');
 
   console.log('\nrecording');
   offscreen = await openOffscreen(worker, CDP_PORT);
@@ -58,20 +58,19 @@ await verify(async () => {
   });
   check(Boolean(detail), `and what has been transcribed (${detail})`);
 
-  console.log('\nmarks and notes');
-  await popup.click('#markBtn');
-  const marked = await until(async () => /^📌 Momento marcado em 00:\d\d$/.test(await text('#noteStatus')));
-  check(Boolean(marked), `a moment can be marked (${await text('#noteStatus')})`);
+  console.log('\nnotes');
+  check(!(await popup.$('#markBtn')), 'a note is the only way to mark a moment');
+  check(
+    /minuto atual/.test(await popup.getAttribute('#noteInput', 'placeholder')),
+    'the note field says it marks the current minute',
+  );
   await popup.fill('#noteInput', 'decidir na sexta');
   await popup.press('#noteInput', 'Enter');
   const noted = await until(async () => /^📝 Nota salva em 00:\d\d$/.test(await text('#noteStatus')));
   check(Boolean(noted), `and a note taken (${await text('#noteStatus')})`);
   check((await popup.inputValue('#noteInput')) === '', 'the note field is cleared for the next one');
   const notes = (await backend.api(`/api/sessions/${SESSION}/notes`))?.notes || [];
-  check(
-    notes.length === 2 && notes[0].text === '' && notes[1].text === 'decidir na sexta',
-    'both reached the session, in order',
-  );
+  check(notes.length === 1 && notes[0].text === 'decidir na sexta', 'it reached the session');
 
   console.log('\nstopping');
   await sleep(3000);

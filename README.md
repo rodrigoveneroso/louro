@@ -46,8 +46,8 @@ LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" > "${LOURO_TRANSCRIPT%.
   is unclear stays unnamed rather than getting a wrong name.
 - **Your voice too.** The tab only carries the others, so Louro mixes in your microphone,
   with an echo suppressor so you do not need headphones. Muted in Meet means not recorded.
-- **Marks and notes.** Mark a moment or type a note from Meet's control bar, the popup or
-  Alt+Shift+M. They land in the transcript where you took them.
+- **Notes.** Type a note from Meet's control bar, the popup or the side panel; it lands in
+  the transcript at the minute you took it. Alt+Shift+M marks the minute without a note.
 - **Your vocabulary.** Names and jargon you list, plus the participants' names, are handed
   to Whisper so they come out spelled right.
 - **Light on your machine.** With the live captions closed, transcription runs in a batch
@@ -110,7 +110,7 @@ If anything is off, `./doctor.sh` tells you what and how to fix it.
 1. In the meeting tab, click the 🦜 and **Iniciar gravação** (start recording). The first
    time, Chrome asks for your microphone.
 2. During the call, the 🦜 button in Meet's control bar shows the recording time and takes
-   marks and notes.
+   notes.
 3. Click **Parar gravação** (stop). The transcript is in your folder a few seconds later.
 
 Chrome only lets an extension record a tab after you clicked it in that tab. With

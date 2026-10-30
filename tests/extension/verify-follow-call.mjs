@@ -135,14 +135,9 @@ await verify(async () => {
   const elapsed = await page.locator('louro-button .label').textContent();
   check(/^00:\d\d$/.test(elapsed), `with its time (${elapsed})`);
 
-  console.log('\nmarks and notes from the call');
+  console.log('\nnotes from the call');
   await button.click();
-  await page.locator('louro-button .mark').click();
   const feedback = page.locator('louro-button .feedback');
-  check(
-    Boolean(await until(async () => /^📌 Momento marcado em 00:\d\d$/.test(await feedback.textContent()))),
-    `a moment is marked from the button (${await feedback.textContent()})`,
-  );
   await page.locator('louro-button textarea').fill('decidir na sexta');
   await page.locator('louro-button textarea').press('Enter');
   check(
@@ -150,10 +145,7 @@ await verify(async () => {
     'and a note taken',
   );
   const notes = (await backend.api(`/api/sessions/${SESSION}/notes`))?.notes || [];
-  check(
-    notes.map((n) => n.text).join('|') === '|decidir na sexta',
-    'both reached the session',
-  );
+  check(notes.map((n) => n.text).join('|') === 'decidir na sexta', 'it reached the session');
   await page.mouse.click(5, 5);
   check(
     Boolean(await until(() => backend.log.includes('Vocabulary: 0 of your terms, 2 participants'))),

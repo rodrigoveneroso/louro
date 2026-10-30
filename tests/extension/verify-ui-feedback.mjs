@@ -100,13 +100,18 @@ await verify(async () => {
   await meet.locator('louro-button .button').click();
   const notesLayout = await meet.evaluate(() => {
     const root = document.querySelector('louro-button').shadowRoot;
-    const mark = root.querySelector('.mark').getBoundingClientRect();
-    const input = root.querySelector('textarea').getBoundingClientRect();
-    return { gap: input.top - mark.bottom, sameWidth: Math.abs(input.width - mark.width) < 1 };
+    const panel = root.querySelector('.panel').getBoundingClientRect();
+    const input = root.querySelector('textarea');
+    const box = input.getBoundingClientRect();
+    return {
+      buttons: root.querySelectorAll('.panel button').length,
+      fills: box.left - panel.left >= 8 && panel.right - box.right >= 8 && box.width > 200,
+      placeholder: input.placeholder,
+    };
   });
   check(
-    notesLayout.gap >= 8 && notesLayout.sameWidth,
-    `the mark button and the note field are stacked with breathing room (${JSON.stringify(notesLayout)})`,
+    notesLayout.buttons === 0 && notesLayout.fills && /minuto atual/.test(notesLayout.placeholder),
+    `the recording panel is one note field that says it marks the minute (${JSON.stringify(notesLayout)})`,
   );
   await meet.keyboard.press('Escape');
 
