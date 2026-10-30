@@ -30,6 +30,7 @@
   let resizeFrame = 0;
   let renderFrame = 0;
   let hostWasObserved = false;
+  let stopped = false;
 
   chrome.runtime
     .sendMessage({ target: 'background', action: 'whoami' })
@@ -158,7 +159,7 @@
   const feedback = root.querySelector('.feedback');
   mark.textContent = t('popupMark');
   input.placeholder = t('popupNotePlaceholder');
-  globalThis.louroNoteInput.bind(input);
+  const unbindInput = globalThis.louroNoteInput.bind(input);
   idleText.append(
     Object.assign(document.createElement('strong'), { textContent: t('buttonIdleTitle') }),
     document.createElement('br'),
@@ -200,7 +201,8 @@
     if (shown?.kind === 'idle' || shown?.kind === 'recording') openPanel(panel.hidden);
   });
   panel.addEventListener('click', (event) => event.stopPropagation());
-  document.addEventListener('click', () => openPanel(false));
+  const closePanel = () => openPanel(false);
+  document.addEventListener('click', closePanel);
   root.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       openPanel(false);
@@ -296,7 +298,7 @@
   }
 
   function schedulePosition() {
-    if (resizeFrame) return;
+    if (stopped || resizeFrame) return;
     resizeFrame = requestAnimationFrame(() => {
       resizeFrame = 0;
       if (shown) positionHost();
@@ -304,7 +306,7 @@
   }
 
   function scheduleRender() {
-    if (renderFrame) return;
+    if (stopped || renderFrame) return;
     renderFrame = requestAnimationFrame(() => {
       renderFrame = 0;
       render();
@@ -313,8 +315,15 @@
 
   // --- rendering ---------------------------------------------------------------------------
 
+  // Stands this copy down for good: a listener left behind would put its dead button back.
   function stop() {
+    stopped = true;
+    shown = null;
     clearInterval(timer);
+    window.removeEventListener('resize', schedulePosition);
+    window.removeEventListener('scroll', schedulePosition, true);
+    document.removeEventListener('click', closePanel);
+    unbindInput();
     if (resizeFrame) cancelAnimationFrame(resizeFrame);
     if (renderFrame) cancelAnimationFrame(renderFrame);
     resizeObserver.disconnect();
