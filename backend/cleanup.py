@@ -7,10 +7,8 @@
   (by 1-2 s in real meetings); a reply that echoes the previous words ("pode ser amanhã?"
   / "Pode ser amanhã, sim.") follows it instead, and is left alone. The repeated words
   are taken off the second segment.
-- Subtitle credits. Trained on subtitled video, Whisper fills silence with the credits it
-  saw there ("Legendas pela comunidade Amara.org", "Obrigado por assistir"). A short
-  segment that contains one is dropped; a real sentence that happens to mention one is
-  long enough to stay.
+- Subtitle credits (see credits.py). New transcripts never store them, but meetings
+  transcribed before that filter still have them, so a re-export drops them too.
 
 The stored transcript is left as it was: this only shapes the exported copy, so better
 rules can be applied again to old meetings by re-exporting them.
@@ -23,27 +21,20 @@ import unicodedata
 from collections.abc import Sequence
 from dataclasses import replace
 
+from .credits import is_credit
 from .incremental import Segment
 
 MIN_OVERLAP_WORDS = 2
 MAX_OVERLAP_WORDS = 12
 # how much two segments must overlap in time for a repetition to be a re-read edge
 MIN_OVERLAP_SEC = 0.5
-# a segment this short that contains a credit is the credit, not speech around it
-CREDIT_MAX_SEC = 4.0
-CREDITS = re.compile(
-    r"amara\.org|legendas? (pela|por)|legendado por|transcri[cç][aã]o (por|e legendas)|"
-    r"obrigad[oa] por (assistir|ver)|inscreva-se|deixe (o )?seu like|"
-    r"subtitles? by|thanks? for watching|please subscribe",
-    re.IGNORECASE,
-)
 
 
 def clean(segments: Sequence[Segment]) -> list[Segment]:
     """The segments to export, in order: credits dropped, edge repetitions trimmed."""
     kept: list[Segment] = []
     for segment in segments:
-        if _is_credit(segment):
+        if is_credit(segment.text, segment.end - segment.start):
             continue
         if kept:
             segment = _trim_repeat(kept[-1], segment)
@@ -51,10 +42,6 @@ def clean(segments: Sequence[Segment]) -> list[Segment]:
                 continue
         kept.append(segment)
     return kept
-
-
-def _is_credit(segment: Segment) -> bool:
-    return segment.end - segment.start <= CREDIT_MAX_SEC and bool(CREDITS.search(segment.text))
 
 
 def _words(text: str) -> list[str]:

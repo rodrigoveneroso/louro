@@ -83,6 +83,25 @@ def test_skips_whisper_until_enough_new_audio_accumulates(store):
     assert len(whisper.calls) == 1
 
 
+def test_a_subtitle_credit_made_up_in_silence_is_never_emitted(store):
+    """Whisper "finishing" silence with subtitle credits must not reach the transcript."""
+    whisper = Whisper(
+        script=[
+            [
+                RawSeg(1.0, 3.0, " Legendas pela comunidade Amara.org"),
+                RawSeg(5.0, 9.0, "Vamos fechar a pauta de hoje."),
+            ]
+        ]
+    )
+    transcriber = IncrementalTranscriber(store, whisper, holdback_sec=0.0)
+
+    store.grow(12.0)
+    found = transcriber.step(force=True)
+
+    assert [s.text for s in found] == ["Vamos fechar a pauta de hoje."]
+    assert [s.text for s in transcriber.transcript] == ["Vamos fechar a pauta de hoje."]
+
+
 def test_segment_times_are_absolute_not_window_relative(store):
     """A segment found 1s into a window that starts at 60s must report 61s."""
     whisper = Whisper()

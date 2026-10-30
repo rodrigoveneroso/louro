@@ -22,6 +22,8 @@ from typing import Protocol
 
 import numpy as np
 
+from .credits import is_credit
+
 logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
@@ -124,7 +126,12 @@ class IncrementalTranscriber:
             self._cursor, self._blind_cut = end, True
             return []
 
-        spoken = [(offset + r.start, offset + r.end, r.text.strip()) for r in raw if r.text.strip()]
+        # A made-up subtitle credit counts as silence: never stored, shown or exported.
+        spoken = [
+            (offset + r.start, offset + r.end, r.text.strip())
+            for r in raw
+            if r.text.strip() and not is_credit(r.text, r.end - r.start)
+        ]
         final = force and end == total  # no audio after this window will ever be read
         ready = self._committable(spoken, end / SAMPLE_RATE, final)
         blind = final
