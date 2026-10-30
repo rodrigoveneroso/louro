@@ -454,7 +454,8 @@ async def ws_audio(websocket: WebSocket):
 
     pcm = PcmStore(pcm_path)
     decoder = StreamingWebmDecoder(pcm)
-    transcribe = _make_transcribe_fn(language)
+    # the first capture may have to load (or even download) the model: not on the event loop
+    transcribe = await asyncio.to_thread(_make_transcribe_fn, language)
     # a resumed session already has a speaker log on disk
     live_events[session_id] = load_events(config.DATA_DIR / f"{session_id}.speakers.jsonl")
     vocabulary = vocabularies.setdefault(session_id, {"participants": []})
@@ -603,7 +604,7 @@ async def _refine(session: Session, pcm_path: Path, language: str | None) -> Non
     session_id = session.session_id
     started = dt.datetime.now()
     try:
-        transcribe = _make_final_transcribe_fn(language)
+        transcribe = await asyncio.to_thread(_make_final_transcribe_fn, language)
         vocabulary = vocabularies.get(session_id)
         if vocabulary is not None:
             vocabulary["transcribe"] = transcribe

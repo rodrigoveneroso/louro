@@ -50,8 +50,8 @@ def get_model(
 
 def is_loaded(model_size: str, device: str = "auto", compute_type: str = "auto") -> bool:
     """Whether this configuration is already in memory, without loading it."""
-    with _lock:
-        return (model_size, device, compute_type) in _models
+    # no lock: get_model holds it for the whole load, and /api/health must answer meanwhile
+    return (model_size, device, compute_type) in _models
 
 
 def reset_model_cache() -> None:
