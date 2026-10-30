@@ -97,6 +97,19 @@ await verify(async () => {
     'the status control stays between its neighboring toolbar controls',
   );
 
+  await meet.locator('louro-button .button').click();
+  const notesLayout = await meet.evaluate(() => {
+    const root = document.querySelector('louro-button').shadowRoot;
+    const mark = root.querySelector('.mark').getBoundingClientRect();
+    const input = root.querySelector('textarea').getBoundingClientRect();
+    return { gap: input.top - mark.bottom, sameWidth: Math.abs(input.width - mark.width) < 1 };
+  });
+  check(
+    notesLayout.gap >= 8 && notesLayout.sameWidth,
+    `the mark button and the note field are stacked with breathing room (${JSON.stringify(notesLayout)})`,
+  );
+  await meet.keyboard.press('Escape');
+
   console.log('\ntemporary feedback');
   await worker.evaluate(`chrome.storage.local.remove(['activeSessionId', 'meetingTabId', 'captureStartedAt'])`);
   await worker.evaluate(`chrome.storage.local.set({

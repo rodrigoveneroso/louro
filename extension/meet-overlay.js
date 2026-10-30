@@ -104,11 +104,12 @@
         animation: rise 0.15s ease-out;
       }
       .panel.below { bottom: auto; top: calc(100% + 12px); }
-      .panel[hidden] { display: none; }
+      .panel[hidden], .panel [hidden] { display: none; }
+      .notes-view { display: flex; flex-direction: column; gap: 10px; }
       .panel .text { color: var(--louro-muted); }
       .panel .text strong { color: var(--louro-text); font-weight: 650; }
       .mark {
-        all: unset; box-sizing: border-box; cursor: pointer; text-align: center;
+        all: unset; box-sizing: border-box; display: block; cursor: pointer; text-align: center;
         min-height: 40px; padding: 10px 14px; border-radius: 20px;
         background: var(--louro-yellow); color: var(--louro-green-ink); font-weight: 700;
       }
@@ -122,7 +123,8 @@
       }
       textarea:focus { border-color: var(--louro-green); outline: 2px solid var(--louro-green); outline-offset: 1px; }
       textarea::placeholder { color: var(--louro-muted); }
-      .feedback { color: var(--louro-green); font-size: 12px; min-height: 1em; }
+      .feedback { color: var(--louro-green); font-size: 12px; }
+      .feedback:empty { display: none; }
       .feedback.error { color: #ffaaa1; }
 
       @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
