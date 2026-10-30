@@ -40,7 +40,7 @@
     }
   }
 
-  function flush() {
+  function flush(forSession = sessionId) {
     if (!extensionAlive()) {
       // reloaded or updated: stop watching, the new copy of this script takes over
       clearInterval(timer);
@@ -49,12 +49,13 @@
       buffer = [];
       return;
     }
-    if (!sessionId || buffer.length === 0) return;
+    if (!forSession) buffer = [];
+    if (!forSession || buffer.length === 0) return;
     const events = buffer;
     buffer = [];
     try {
       chrome.runtime
-        .sendMessage({ target: 'background', action: 'speaker_events', sessionId, events })
+        .sendMessage({ target: 'background', action: 'speaker_events', sessionId: forSession, events })
         .catch(() => {});
     } catch {
       // the extension went away since the check above; the next flush stands down
@@ -62,6 +63,8 @@
   }
 
   function sync(id) {
+    // what was seen so far belongs to the session that is ending, never to the next one
+    if ((id || null) !== sessionId) flush(sessionId);
     sessionId = id || null;
     if (sessionId && !observer) {
       observer = new MutationObserver(onMutations);
@@ -72,7 +75,6 @@
         attributeOldValue: true,
       });
     } else if (!sessionId && observer) {
-      flush();
       observer.disconnect();
       observer = null;
     }
@@ -82,5 +84,5 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.activeSessionId) sync(changes.activeSessionId.newValue);
   });
-  const timer = setInterval(flush, FLUSH_MS);
+  const timer = setInterval(() => flush(), FLUSH_MS);
 })();

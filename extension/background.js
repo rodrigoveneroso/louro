@@ -98,6 +98,16 @@ async function forgetUserStop(tabId) {
   await chrome.storage.session.set({ userStopped: tabs });
 }
 
+/** Whether a content-script message comes from the Meet tab of this (or the finishing) capture. */
+async function fromRecordedMeeting(sender, sessionId) {
+  const state = await chrome.storage.local.get(['activeSessionId', 'finishingSessionId', 'meetingTabId']);
+  return (
+    sender.tab?.id === state.meetingTabId &&
+    typeof sessionId === 'string' &&
+    (sessionId === state.activeSessionId || sessionId === state.finishingSessionId)
+  );
+}
+
 async function setReminder(tabId, on) {
   await chrome.action.setBadgeText({ tabId, text: on ? '!' : '' }).catch(() => {});
   if (on) await chrome.action.setBadgeBackgroundColor({ tabId, color: '#b91c1c' }).catch(() => {});
@@ -453,17 +463,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           .catch(() => {});
       }
       sendResponse({ ok: true });
-    } else if (message.action === 'meeting_info') {
+    } else if (message.action === 'meeting_info' || message.action === 'speaker_events') {
+      // another Meet tab must not rename the meeting or add its tiles to the speaker log
+      if (!(await fromRecordedMeeting(sender, message.sessionId))) {
+        sendResponse({ ok: false });
+        return;
+      }
       const session = encodeURIComponent(message.sessionId);
-      await postToBackend(`/api/sessions/${session}/meeting`, {
-        title: message.title,
-        code: message.code,
-        participants: message.participants,
-      });
-      sendResponse({ ok: true });
-    } else if (message.action === 'speaker_events') {
-      const session = encodeURIComponent(message.sessionId);
-      await postToBackend(`/api/sessions/${session}/speaker-events`, { events: message.events });
+      if (message.action === 'meeting_info') {
+        await postToBackend(`/api/sessions/${session}/meeting`, {
+          title: message.title,
+          code: message.code,
+          participants: message.participants,
+        });
+      } else {
+        await postToBackend(`/api/sessions/${session}/speaker-events`, { events: message.events });
+      }
       sendResponse({ ok: true });
     } else if (
       message.action === 'panel_visibility' &&
