@@ -41,7 +41,7 @@
 
   // texts inside a participant tile that are its controls and tooltips, not a name
   const NOT_A_NAME =
-    /Mais opções|Reenquadrar|Planos de fundo|Fixar|Silenciar|Remover|Apresent|Desativar|Ativar|Aumentar|zoom|anotaç|microfone|tela cheia|More options|Reframe|Background|\bPin\b|Mute|Unmute|Remove|Present|notes|full ?screen/i;
+    /Mais opções|Reenquadrar|Planos de fundo|Fixar|Silenciar|Remover|Apresent|Desativar|Ativar|Aumentar|zoom|anotaç|microfone|tela cheia|nova janela|More options|Reframe|Background|\bPin\b|Mute|Unmute|Remove|Present|notes|full ?screen|new window/i;
 
   /** The participant's name shown in a tile, or null when none is readable. */
   function tileName(tile) {

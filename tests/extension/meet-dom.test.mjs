@@ -82,6 +82,7 @@ test("the participants are read from their tiles, skipping the tiles' controls",
       tile('Mais opções', 'Ana Souza'),
       tile('Ana Souza'), // the same person on a second tile, e.g. presenting
       tile('Aumentar zoom'), // nothing readable
+      tile('Abrir em uma nova janela'), // a shared screen's control
     ],
   };
 

@@ -26,7 +26,7 @@ _TAGS = {"div", "span", "i", "svg", "path", "img", "button", "p", "a", "g", "cir
 _NOT_A_NAME = re.compile(
     r"^(spaces/|devices/)|desativar|ativar|som\b|aumentar|zoom|anota|microfone|mais op|fixar|"
     r"remover|silenciar|reenquadrar|planos de fundo|apresent|\bmute|unmute|\bpin\b|more options|"
-    r"remove|notes|reframe|background|present|tela cheia|full ?screen",
+    r"remove|notes|reframe|background|present|tela cheia|full ?screen|nova janela|new window",
     re.IGNORECASE,
 )
 

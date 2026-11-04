@@ -58,6 +58,7 @@ def test_a_few_stray_meter_changes_are_not_speech():
 def test_control_labels_are_never_taken_for_names():
     events = meter("tile-a", 1.0, 10) + [label("tile-a", "Desativar som")] * 50
     events += [label("tile-a", "Mute")] * 50
+    events += [label("tile-a", "Abrir em uma nova janela")] * 50
 
     assert attribute([Segment("x", 1.0, 2.0)], events, STARTED) == ["Ana Souza"]
 
