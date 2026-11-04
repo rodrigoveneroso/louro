@@ -23,6 +23,7 @@ from typing import Protocol
 import numpy as np
 
 from .credits import is_credit
+from .splitting import split_long
 
 logger = logging.getLogger(__name__)
 
@@ -131,10 +132,13 @@ class IncrementalTranscriber:
             return []
 
         # A made-up subtitle credit counts as silence: never stored, shown or exported.
+        # Judged on Whisper's own segment, before a long one is cut into lines.
         spoken = [
-            (offset + r.start, offset + r.end, r.text.strip())
+            (offset + line.start, offset + line.end, line.text.strip())
             for r in raw
             if r.text.strip() and not is_credit(r.text, r.end - r.start)
+            for line in split_long(r)
+            if line.text.strip()
         ]
         final = force and end == total  # no audio after this window will ever be read
         ready = self._committable(spoken, end / SAMPLE_RATE, final)

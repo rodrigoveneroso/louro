@@ -8,6 +8,7 @@ is bounded by the window, no matter how long the meeting has been running.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -482,3 +483,22 @@ def test_holding_back_keeps_the_per_pass_window_bounded_for_four_hours():
     assert max(whisper.calls) <= 30 * SAMPLE_RATE
     assert len(transcriber.transcript) == len(script)
     assert all("~" not in s.text for s in transcriber.transcript)
+
+
+def test_a_long_segment_is_committed_as_lines():
+    store = FakeStore()
+    store.grow(20.0)
+    words = [
+        SimpleNamespace(start=1.0, end=4.0, word=" Fechamos a versão."),
+        SimpleNamespace(start=4.2, end=8.0, word=" Agora falta o teste"),
+        SimpleNamespace(start=8.0, end=13.0, word=" de carga no ambiente novo."),
+    ]
+    long = SimpleNamespace(start=1.0, end=13.0, text="".join(w.word for w in words), words=words)
+    transcriber = IncrementalTranscriber(store, Whisper([[long]]))
+
+    new = transcriber.step(force=True)
+
+    assert [(s.start, s.end, s.text) for s in new] == [
+        (1.0, 4.0, "Fechamos a versão."),
+        (4.2, 13.0, "Agora falta o teste de carga no ambiente novo."),
+    ]

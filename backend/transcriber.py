@@ -92,6 +92,8 @@ class WhisperTranscriber:
             # each window is transcribed independently; carrying context across windows
             # lets a hallucinated phrase repeat itself for the rest of the meeting
             condition_on_previous_text=False,
+            # the time of each word, to cut a long segment into lines (splitting.py)
+            word_timestamps=True,
         )
         # faster-whisper defers all inference into this generator — consume it here
         return list(segments)

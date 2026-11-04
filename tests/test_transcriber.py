@@ -172,3 +172,12 @@ def test_the_beam_size_can_be_chosen():
     WhisperTranscriber(model, beam_size=1)(np.zeros(16000, dtype=np.float32))
 
     assert [call["beam_size"] for call in model.calls] == [5, 1]
+
+
+def test_adapter_asks_for_the_time_of_each_word():
+    """Long segments are cut into lines at sentence ends and pauses (splitting.py)."""
+    model = FakeModel()
+
+    WhisperTranscriber(model)(np.zeros(16000, dtype=np.float32))
+
+    assert model.calls[0]["word_timestamps"] is True
