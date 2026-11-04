@@ -74,12 +74,33 @@ await verify(async () => {
 
   console.log('\nstopping');
   await sleep(3000);
+  // The final pass over a few seconds of tone can be over before a poll would look, so
+  // the popup records what it shows on every frame instead.
+  await popup.evaluate(() => {
+    const headline = document.querySelector('#headline');
+    const shown = (selector) => {
+      const element = document.querySelector(selector);
+      return Boolean(element && !element.hidden && element.getClientRects().length);
+    };
+    const record = () =>
+      window.louroStates.push({
+        headline: headline.textContent,
+        clickable: shown('#startBtn') || shown('#stopBtn'),
+      });
+    window.louroStates = [];
+    const frame = () => {
+      record();
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
   await popup.click('#stopBtn');
-  const finishing = await until(async () => (await text('#headline')) === 'Finalizando a transcrição…');
-  check(Boolean(finishing), 'it says the transcription is being finished');
-  check(!(await visible('#startBtn')) && !(await visible('#stopBtn')), 'with nothing to click meanwhile');
 
   const done = await until(async () => (await text('#headline')) === '✅ Transcrição concluída', 60000);
+  const finishing = (await popup.evaluate(() => window.louroStates))
+    .filter((state) => state.headline === 'Finalizando a transcrição…');
+  check(finishing.length > 0, 'it says the transcription is being finished');
+  check(finishing.length > 0 && finishing.every((state) => !state.clickable), 'with nothing to click meanwhile');
   check(Boolean(done), 'it says when the transcription is done');
   const summary = await text('#detail');
   check(/^00:\d\d · \d+ trechos$/.test(summary), `with the length and the segments (${summary})`);
