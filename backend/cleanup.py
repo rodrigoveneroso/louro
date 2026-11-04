@@ -10,6 +10,10 @@
 - Subtitle credits (see credits.py). New transcripts never store them, but meetings
   transcribed before that filter still have them, so a re-export drops them too.
 
+- Loops. On unclear audio Whisper can get stuck on a short phrase and emit it segment
+  after segment ("Pode ser." six times in ten seconds). A short line said three times or
+  more in a row is kept once; said twice it may well be real, and stays.
+
 A segment you edited by hand is exported exactly as you wrote it.
 
 The stored transcript is left as it was: this only shapes the exported copy, so better
@@ -30,12 +34,16 @@ MIN_OVERLAP_WORDS = 2
 MAX_OVERLAP_WORDS = 12
 # how much two segments must overlap in time for a repetition to be a re-read edge
 MIN_OVERLAP_SEC = 0.5
+# a loop: the same line of at most this many words, at least this many times in a row
+LOOP_MAX_WORDS = 4
+LOOP_MIN_REPEATS = 3
 
 
 def clean(segments: Sequence[Segment]) -> list[Segment]:
-    """The segments to export, in order: credits dropped, edge repetitions trimmed."""
+    """The segments to export, in order: credits dropped, edge repetitions trimmed,
+    loops kept once."""
     kept: list[Segment] = []
-    for segment in segments:
+    for segment in _without_loops(segments):
         if segment.edited:
             kept.append(segment)
             continue
@@ -47,6 +55,23 @@ def clean(segments: Sequence[Segment]) -> list[Segment]:
                 continue
         kept.append(segment)
     return kept
+
+
+def _without_loops(segments: Sequence[Segment]) -> list[Segment]:
+    """Each run of one short line repeated LOOP_MIN_REPEATS times or more, kept once."""
+    result: list[Segment] = []
+    index = 0
+    while index < len(segments):
+        words = _words(segments[index].text)
+        end = index + 1
+        while (
+            end < len(segments) and not segments[end].edited and _words(segments[end].text) == words
+        ):
+            end += 1
+        looping = 0 < len(words) <= LOOP_MAX_WORDS and end - index >= LOOP_MIN_REPEATS
+        result.extend(segments[index : index + 1] if looping else segments[index:end])
+        index = end
+    return result
 
 
 def _words(text: str) -> list[str]:

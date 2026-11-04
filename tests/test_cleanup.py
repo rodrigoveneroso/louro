@@ -80,3 +80,25 @@ def test_a_segment_you_edited_is_exported_as_you_wrote_it():
         "pela pauta de hoje, e depois o resto",
         "Inscreva-se no canal",
     ]
+
+
+def test_a_short_line_stuck_on_repeat_is_kept_once():
+    loop = [Segment("Pode ser.", 10 + i, 11 + i) for i in range(6)]
+    after = Segment("Então seguimos com o plano.", 17, 19)
+
+    assert texts(*loop, after) == ["Pode ser.", "Então seguimos com o plano."]
+
+
+def test_a_short_line_said_twice_stays_twice():
+    assert texts(Segment("Sim.", 0, 1), Segment("Sim.", 1, 2), Segment("Ok.", 2, 3)) == [
+        "Sim.",
+        "Sim.",
+        "Ok.",
+    ]
+
+
+def test_a_long_line_repeated_is_not_a_loop():
+    line = "a gente precisa revisar o contrato antes da reunião"
+    repeated = [Segment(line, i * 10, i * 10 + 4) for i in range(3)]
+
+    assert texts(*repeated) == [line] * 3
