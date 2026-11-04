@@ -3,7 +3,8 @@
 (() => {
   // the "leave call" button only exists once you are in the call, not in the lobby
   const LEAVE_CALL = /leave call|sair da chamada|sair da ligação|deixar a chamada/i;
-  const CODE = /^https:\/\/meet\.google\.com\/([a-z]{3,4}-[a-z]{4}-[a-z]{3,4})(?:[/?#]|$)/;
+  // Meet redirects a call to /meet/<code>; links still use /<code>
+  const CODE = /^https:\/\/meet\.google\.com\/(?:meet\/)?([a-z]{3,4}-[a-z]{4}-[a-z]{3,4})(?:[/?#]|$)/;
   // the tab title is "Meet - <code>" for ad hoc calls and "Meet - <name>" for scheduled ones
   const TITLE_PREFIX = /^\s*(google\s+)?meet\s*[-–—:|]\s*/i;
 

@@ -33,7 +33,9 @@ test('the lobby has no leave button', () => {
 test('the meeting code comes from the url', () => {
   assert.equal(meetingCode('https://meet.google.com/abc-defg-hij'), 'abc-defg-hij');
   assert.equal(meetingCode('https://meet.google.com/abc-defg-hij?authuser=1'), 'abc-defg-hij');
+  assert.equal(meetingCode('https://meet.google.com/meet/abc-defg-hij?authuser=0'), 'abc-defg-hij');
   assert.equal(meetingCode('https://meet.google.com/landing'), null);
+  assert.equal(meetingCode('https://meet.google.com/home/2026/11/5'), null);
   assert.equal(meetingCode('https://example.com/abc-defg-hij'), null);
 });
 
