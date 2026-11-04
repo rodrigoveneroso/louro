@@ -1,4 +1,11 @@
-// Reads only rendered Google Meet chat messages while an opted-in capture is active.
+// Reads Google Meet's chat messages while an opted-in capture is active.
+//
+// Meet keeps every message of the call in the page, also while the chat panel is closed
+// (laid out at 0x0), so they are read whether or not the panel is open. The layout, as
+// Meet renders it: a list (aria-live) of groups, one per run of messages from one
+// sender; a group's header holds the sender's name (none for your own) and the time,
+// then one [data-message-id] card per message, its text in [jsname="dTKtvb"] beside a
+// pin button and its tooltip.
 (() => {
   const { extensionAlive } = globalThis.louroMeet;
   const FLUSH_MS = 500;
@@ -6,26 +13,60 @@
   const SNAPSHOT_DELAY_MS = 250;
   const MAX_BUFFER = 400;
   const MAX_PER_BATCH = 50;
-  const CHAT_LABEL = /chat|mensagens|messages|mensajes/i;
-  const MESSAGE_SELECTORS = [
-    '[data-message-id]',
-    '[data-messageid]',
-    '[data-testid*="chat-message" i]',
-    '[data-testid*="message" i]',
-    '[aria-label*="message from" i]',
-    '[aria-label*="mensagem de" i]',
-  ];
-  const AUTHOR_SELECTORS = [
-    '[data-sender-name]',
-    '[data-author]',
-    '[data-sender]',
-    '[data-testid*="author" i]',
-  ];
-  const TEXT_SELECTORS = [
-    '[data-message-text]',
-    '[data-message-content]',
-    '[data-testid*="message-text" i]',
-  ];
+  const CARD = '[data-message-id]';
+  const TEXT = '[jsname="dTKtvb"]';
+  const SELF = 'Você';
+
+  function timeLabel(line) {
+    return /^\d{1,2}:\d{2}(?:\s*[ap]\.?\s*m\.?)?$/i.test(line) || /^\d{1,2}h\d{2}$/i.test(line);
+  }
+
+  function messageCards() {
+    // the pin button carries the message id too; a card is the outermost one
+    return [...document.querySelectorAll(CARD)].filter(
+      (element) =>
+        !element.closest('button, [role="button"]') && !element.parentElement?.closest(CARD),
+    );
+  }
+
+  /** The block of one sender's messages: the list item the card sits in. */
+  function groupOf(card) {
+    for (let element = card.parentElement; element; element = element.parentElement) {
+      if (element.parentElement?.getAttribute('aria-live') === 'polite') return element;
+    }
+    return null;
+  }
+
+  /** The texts of a group outside its messages: the sender's name, if shown, and the time. */
+  function headerLines(group) {
+    const lines = [];
+    const walker = document.createTreeWalker(group, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) =>
+        node.parentElement.closest(`${CARD}, button, [aria-hidden="true"]`)
+          ? NodeFilter.FILTER_REJECT
+          : NodeFilter.FILTER_ACCEPT,
+    });
+    while (walker.nextNode()) {
+      const line = walker.currentNode.textContent.trim();
+      if (line) lines.push(line);
+    }
+    return lines;
+  }
+
+  function readMessage(card) {
+    const holder = card.querySelector(TEXT);
+    if (!holder) return null;
+    const text = (holder.innerText || holder.textContent || '').trim();
+    if (!text) return null;
+    const group = groupOf(card);
+    const header = group ? headerLines(group) : [];
+    const author = header.find((line) => !timeLabel(line) && line.length <= 100) || SELF;
+    return {
+      identity: `id:${card.getAttribute('data-message-id')}`,
+      author,
+      text,
+    };
+  }
 
   let sessionId = null;
   let captureStartedAt = 0;
@@ -37,144 +78,6 @@
   let pending = [];
   let seenNodes = new WeakSet();
   let seenKeys = new Set();
-
-  function isVisible(element) {
-    if (!element.isConnected || element.closest('[hidden], [aria-hidden="true"]')) return false;
-    const rect = element.getBoundingClientRect();
-    if (
-      rect.width === 0 ||
-      rect.height === 0 ||
-      rect.bottom <= 0 ||
-      rect.right <= 0 ||
-      rect.top >= window.innerHeight ||
-      rect.left >= window.innerWidth
-    ) {
-      return false;
-    }
-    const style = getComputedStyle(element);
-    return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-  }
-
-  function chatPanels() {
-    const matchesChatLabel = (element) => {
-      if (!isVisible(element)) return false;
-      const labelledBy = (element.getAttribute('aria-labelledby') || '')
-        .split(/\s+/)
-        .map((id) => document.getElementById(id)?.textContent || '')
-        .join(' ');
-      return CHAT_LABEL.test(`${element.getAttribute('aria-label') || ''} ${labelledBy}`);
-    };
-    const panels = [
-      ...document.querySelectorAll('[role="tabpanel"], [role="region"], [role="complementary"]'),
-    ].filter(matchesChatLabel);
-    if (panels.length) return panels;
-    return [...document.querySelectorAll('[aria-label]')].filter((element) => {
-      if (element.matches('button, [role="button"]') || !matchesChatLabel(element)) return false;
-      return (
-        MESSAGE_SELECTORS.some((selector) => element.querySelector(selector)) ||
-        element.querySelector('[role="listitem"]')
-      );
-    });
-  }
-
-  function messageCards() {
-    const panels = chatPanels();
-    const roots = panels.length ? panels : [document.body];
-    const found = new Set();
-    for (const root of roots) {
-      for (const selector of MESSAGE_SELECTORS) {
-        for (const element of root.querySelectorAll(selector)) found.add(element);
-      }
-      if (panels.includes(root)) {
-        for (const element of root.querySelectorAll('[role="listitem"]')) found.add(element);
-      }
-    }
-    return [...found].filter(isVisible).filter((element) => {
-      const parent = element.parentElement?.closest(
-        `${MESSAGE_SELECTORS.join(',')}, [role="listitem"]`,
-      );
-      return !parent || !found.has(parent);
-    });
-  }
-
-  function valueFrom(element, selectors, attributes) {
-    for (const attribute of attributes) {
-      const value = element.getAttribute(attribute);
-      if (value?.trim()) return value.trim();
-    }
-    for (const selector of selectors) {
-      const child = element.querySelector(selector);
-      if (!child) continue;
-      const value = attributes.map((attribute) => child.getAttribute(attribute)).find(Boolean);
-      const text = value || child.innerText || child.textContent;
-      if (text?.trim()) return text.trim();
-    }
-    return '';
-  }
-
-  function timeLabel(line) {
-    return /^\d{1,2}:\d{2}(?:\s*[ap]m)?$/i.test(line) || /^\d{1,2}h\d{2}$/i.test(line);
-  }
-
-  function readMessage(element) {
-    const lines = (element.innerText || element.textContent || '')
-      .split(/\n+/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    let author = valueFrom(
-      element,
-      AUTHOR_SELECTORS,
-      ['data-sender-name', 'data-author', 'data-sender'],
-    );
-    let text = valueFrom(element, TEXT_SELECTORS, ['data-message-text', 'data-message-content']);
-    const ariaLabel = element.getAttribute('aria-label') || '';
-    const labelledMessage = ariaLabel.match(
-      /^(?:message from|mensagem de)\s+([^,:]+)[:,]?\s*(.*)$/i,
-    );
-    if (!author && labelledMessage) author = labelledMessage[1].trim();
-    if (!text && labelledMessage?.[2]) text = labelledMessage[2].trim();
-
-    if (!author && lines.length === 1) {
-      const labelledLine = lines[0].match(/^(.{1,80}):\s+(.+)$/);
-      if (labelledLine) {
-        author = labelledLine[1].trim();
-        text = labelledLine[2].trim();
-      }
-    }
-
-    if (!author && lines.length > 1) {
-      author = lines.find((line) => line.length < 100 && !timeLabel(line)) || '';
-    }
-    if (!text) {
-      text = lines
-        .filter((line) => line !== author && !timeLabel(line))
-        .join('\n')
-        .trim();
-    }
-    if (labelledMessage && !text) text = lines.filter((line) => line !== author).join('\n').trim();
-    if (!text) return null;
-
-    const messageId =
-      element.getAttribute('data-message-id') ||
-      element.getAttribute('data-messageid') ||
-      element.id;
-    const time =
-      element.querySelector('time')?.getAttribute('datetime') ||
-      element.getAttribute('data-timestamp') ||
-      element.querySelector('[data-timestamp]')?.getAttribute('data-timestamp') ||
-      lines.find(timeLabel) ||
-      '';
-    const normalized = (value) =>
-      value.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase();
-    const identity = messageId
-      ? `id:${messageId}`
-      : `value:${time}|${normalized(author)}|${normalized(text)}`;
-    return {
-      identity,
-      author: author.trim() || 'Participante desconhecido',
-      text,
-    };
-  }
 
   function stableClientId(identity) {
     let first = 0x811c9dc5;
@@ -253,7 +156,7 @@
       childList: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['aria-label', 'data-message-id', 'data-messageid', 'data-testid'],
+      attributeFilter: ['data-message-id'],
     });
     if (snapshotHistory) {
       snapshotPending = true;
