@@ -112,7 +112,8 @@ def test_a_long_line_repeated_is_not_a_loop():
 
 def test_a_word_said_over_and_over_in_a_line_is_cut_to_three():
     assert texts(Segment("Ana, Ana, Ana, Ana, Ana, Ana, Ana", 0, 3)) == ["Ana, Ana, Ana"]
-    assert texts(Segment("Então foi foi foi foi foi foi, beleza.", 0, 3)) == ["Então foi foi foi, beleza."]
+    line = Segment("Então foi foi foi foi foi foi, beleza.", 0, 3)
+    assert texts(line) == ["Então foi foi foi, beleza."]
     assert texts(Segment("vai lá, vai lá, vai lá, vai lá, vai lá", 0, 4)) == [
         "vai lá, vai lá, vai lá"
     ]
