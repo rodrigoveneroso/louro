@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS segments (
     start_sec  REAL NOT NULL,
     end_sec    REAL NOT NULL,
     speaker    TEXT,
-    created_at REAL NOT NULL
+    created_at REAL NOT NULL,
+    edited     INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_segments_session ON segments(session_id, id);
@@ -76,7 +77,10 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_session
 
 
 # columns added after the first release: databases created before them gain them on open
-_ADDED_COLUMNS = {"sessions": [("title", "TEXT"), ("meeting_code", "TEXT")]}
+_ADDED_COLUMNS = {
+    "sessions": [("title", "TEXT"), ("meeting_code", "TEXT")],
+    "segments": [("edited", "INTEGER NOT NULL DEFAULT 0")],
+}
 
 
 def default_data_dir() -> Path:
@@ -152,17 +156,20 @@ class SessionStore:
             self._conn.commit()
 
     def add_segments(self, session_id: str, segments: Sequence[Segment]) -> None:
+        """Store new segments and give each its row id, which is how an edit names it."""
         if not segments:
             return
-        with self._lock:
-            self._conn.executemany(
-                """
-                INSERT INTO segments (session_id, text, start_sec, end_sec, speaker, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                [(session_id, s.text, s.start, s.end, s.speaker, s.timestamp) for s in segments],
-            )
-            self._conn.commit()
+        with self._lock, self._conn:
+            for s in segments:
+                cursor = self._conn.execute(
+                    """
+                    INSERT INTO segments
+                        (session_id, text, start_sec, end_sec, speaker, created_at, edited)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (session_id, s.text, s.start, s.end, s.speaker, s.timestamp, s.edited),
+                )
+                s.id = int(cursor.lastrowid)
 
     def load_sessions(self) -> dict[str, Session]:
         with self._lock:
@@ -181,14 +188,50 @@ class SessionStore:
                 end=row["end_sec"],
                 speaker=row["speaker"],
                 timestamp=row["created_at"],
+                id=row["id"],
+                edited=bool(row["edited"]),
             )
             for row in rows
         ]
 
-    def replace_segments(self, session_id: str, segments: Sequence[Segment]) -> None:
-        """Swap a session's whole transcript for another, in one transaction: a reader
-        sees either the old one or the new one, never a mix or nothing."""
+    def edit_segment(self, session_id: str, segment_id: int, text: str) -> Segment | None:
+        """Put your own words in a segment of this session; None if it has no such one."""
         with self._lock, self._conn:
+            updated = self._conn.execute(
+                "UPDATE segments SET text = ?, edited = 1 WHERE id = ? AND session_id = ?",
+                (text, segment_id, session_id),
+            ).rowcount
+            if not updated:
+                return None
+            query = "SELECT * FROM segments WHERE id = ?"
+            row = self._conn.execute(query, (segment_id,)).fetchone()
+        return Segment(
+            text=row["text"],
+            start=row["start_sec"],
+            end=row["end_sec"],
+            speaker=row["speaker"],
+            timestamp=row["created_at"],
+            id=row["id"],
+            edited=True,
+        )
+
+    def replace_segments(
+        self, session_id: str, segments: Sequence[Segment], *, unless_edited: bool = False
+    ) -> bool:
+        """Swap a session's whole transcript for another, in one transaction: a reader
+        sees either the old one or the new one, never a mix or nothing.
+
+        With `unless_edited`, a transcript you corrected by hand is left alone (False):
+        a better machine transcript is not worth losing your corrections."""
+        with self._lock, self._conn:
+            if (
+                unless_edited
+                and self._conn.execute(
+                    "SELECT 1 FROM segments WHERE session_id = ? AND edited = 1 LIMIT 1",
+                    (session_id,),
+                ).fetchone()
+            ):
+                return False
             self._conn.execute("DELETE FROM segments WHERE session_id = ?", (session_id,))
             self._conn.executemany(
                 """
@@ -197,6 +240,7 @@ class SessionStore:
                     """,
                 [(session_id, s.text, s.start, s.end, s.speaker, s.timestamp) for s in segments],
             )
+        return True
 
     def add_note(self, session_id: str, note: Note) -> int:
         with self._lock:

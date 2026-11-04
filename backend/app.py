@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconn
 
 from . import config, security
 from .decoder import StreamingWebmDecoder
-from .exporter import export_session, remove_export
+from .exporter import export_path, export_session, remove_export
 from .hooks import run_on_export
 from .incremental import IncrementalTranscriber, Segment
 from .models import ChatMessage, Note, Session
@@ -45,6 +45,7 @@ _MAX_CHAT_MESSAGES = 100
 _MAX_CHAT_CLIENT_ID = 200
 _MAX_CHAT_AUTHOR = 200
 _MAX_CHAT_TEXT = 2000
+_MAX_SEGMENT_TEXT = 2000
 
 # state
 sessions: dict[str, Session] = {}
@@ -352,6 +353,45 @@ def get_notes(session_id: str):
     return {"notes": [{"at_sec": n.at_sec, "text": n.text} for n in store.load_notes(session_id)]}
 
 
+@app.patch("/api/sessions/{session_id}/segments/{segment_id}")
+async def edit_segment(session_id: str, segment_id: int, request: Request):
+    """Correct what the transcriber heard, live or after the meeting.
+
+    Everyone watching the transcript sees the new text at once, and a meeting already
+    written to markdown is written again with it.
+    """
+    session = sessions.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="session not found")
+    body = await request.json()
+    text = body.get("text") if isinstance(body, dict) else None
+    if not isinstance(text, str) or len(text) > _MAX_SEGMENT_TEXT:
+        raise HTTPException(status_code=400, detail="text must be a string of at most 2000")
+    text = " ".join(text.split())
+    if not text:
+        raise HTTPException(status_code=400, detail="text must not be empty")
+    segment = store.edit_segment(session_id, segment_id, text)
+    if segment is None:
+        raise HTTPException(status_code=404, detail="segment not found")
+
+    # a live session's transcript is served from its pipeline: correct that copy too
+    pipeline = pipelines.get(session_id)
+    if pipeline is not None:
+        for live in pipeline.transcriber.transcript:
+            if live.id == segment_id:
+                live.text, live.edited = text, True
+
+    payload = segment.to_dict()
+    await _broadcast_transcript_event(session_id, {"type": "segment", "segment": payload})
+    # a finished meeting's markdown was written without the correction; a live or
+    # refining one is written when it ends, from the corrected transcript
+    if session.status in ("stopped", "error"):
+        path = export_path(session)
+        if path is not None and path.exists():
+            _export(session, store.load_segments(session_id))
+    return payload
+
+
 @app.websocket("/ws/transcript/{session_id}")
 async def ws_transcript(websocket: WebSocket, session_id: str):
     if await security.refuse_websocket(websocket, session_id):
@@ -623,8 +663,9 @@ async def _refine(session: Session, pcm_path: Path, language: str | None) -> Non
             _apply_vocabulary(vocabulary)
         loop = asyncio.get_running_loop()
         segments = await loop.run_in_executor(None, transcribe_recording, pcm_path, transcribe)
-        if segments:
-            store.replace_segments(session_id, segments)
+        if segments and not store.replace_segments(session_id, segments, unless_edited=True):
+            logger.info("Kept the live transcript of %s: you edited it", session_id)
+        elif segments:
             logger.info(
                 "Refined %s with %s in %.0fs: %d segments",
                 session_id,

@@ -68,3 +68,15 @@ def test_a_long_sentence_mentioning_a_credit_is_kept():
 def test_times_and_speakers_survive():
     out = clean([Segment("um dois três", 0, 2), Segment("dois três quatro", 1, 3, speaker="Ana")])
     assert (out[1].text, out[1].start, out[1].speaker) == ("quatro", 1, "Ana")
+
+
+def test_a_segment_you_edited_is_exported_as_you_wrote_it():
+    previous = Segment("Vamos começar pela pauta", 0, 2)
+    edited = Segment("pela pauta de hoje, e depois o resto", 1, 3, edited=True)
+    credit = Segment("Inscreva-se no canal", 3, 4, edited=True)
+
+    assert texts(previous, edited, credit) == [
+        "Vamos começar pela pauta",
+        "pela pauta de hoje, e depois o resto",
+        "Inscreva-se no canal",
+    ]

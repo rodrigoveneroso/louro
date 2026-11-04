@@ -10,6 +10,8 @@
 - Subtitle credits (see credits.py). New transcripts never store them, but meetings
   transcribed before that filter still have them, so a re-export drops them too.
 
+A segment you edited by hand is exported exactly as you wrote it.
+
 The stored transcript is left as it was: this only shapes the exported copy, so better
 rules can be applied again to old meetings by re-exporting them.
 """
@@ -34,6 +36,9 @@ def clean(segments: Sequence[Segment]) -> list[Segment]:
     """The segments to export, in order: credits dropped, edge repetitions trimmed."""
     kept: list[Segment] = []
     for segment in segments:
+        if segment.edited:
+            kept.append(segment)
+            continue
         if is_credit(segment.text, segment.end - segment.start):
             continue
         if kept:

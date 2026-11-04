@@ -6,6 +6,7 @@ audio path is real — actual opus bytes through the actual decoder.
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass
 
@@ -634,3 +635,80 @@ def test_opening_the_live_captions_transcribes_at_once(client, webm, monkeypatch
         ws.receive_json()
 
     assert caption["type"] == "transcript" and caption["segments"]
+
+
+def test_a_caption_edited_live_reaches_everyone_and_the_export(client, webm, monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "CHUNK_INTERVAL", 0.05)
+
+    with client.websocket_connect("/ws/transcript/fixed") as sub:
+        with client.websocket_connect("/ws/audio?session=fixed") as ws:
+            ws.receive_json()
+            for i in range(0, len(webm), 4096):
+                ws.send_bytes(webm[i : i + 4096])
+            caption = sub.receive_json()["segments"][0]
+            reply = client.patch(
+                f"/api/sessions/fixed/segments/{caption['id']}",
+                json={"text": "  corrected\n by hand "},
+            )
+            pushed = sub.receive_json()
+            live = client.get("/api/sessions/fixed/transcript").json()["segments"]
+            ws.send_text("stop")
+            ws.receive_json()
+
+    assert reply.status_code == 200
+    assert reply.json()["text"] == "corrected by hand" and reply.json()["edited"] is True
+    assert pushed == {"type": "segment", "segment": reply.json()}
+    assert live[0]["text"] == "corrected by hand"
+    stored = client.get("/api/sessions/fixed/transcript").json()["segments"]
+    assert stored[0]["id"] == caption["id"] and stored[0]["text"] == "corrected by hand"
+    assert "corrected by hand" in next((tmp_path / "export").glob("*fixed.md")).read_text()
+
+
+def test_editing_a_finished_meeting_writes_its_markdown_again(client, webm, tmp_path):
+    stream(client, webm, query="?session=later")
+    [segment] = client.get("/api/sessions/later/transcript").json()["segments"][:1]
+
+    client.patch(f"/api/sessions/later/segments/{segment['id']}", json={"text": "fixed later"})
+
+    lines = next((tmp_path / "export").glob("*later.md")).read_text().splitlines()
+    first = lines[lines.index("## Transcrição") + 2]
+    assert first.endswith("] fixed later")
+
+
+def test_edits_are_validated(client, webm):
+    stream(client, webm, query="?session=checked")
+    segment_id = client.get("/api/sessions/checked/transcript").json()["segments"][0]["id"]
+    url = f"/api/sessions/checked/segments/{segment_id}"
+
+    def status(path, **kwargs):
+        return client.patch(path, **kwargs).status_code
+
+    assert status(f"/api/sessions/nope/segments/{segment_id}", json={"text": "x"}) == 404
+    assert status("/api/sessions/checked/segments/9999", json={"text": "x"}) == 404
+    assert status(url, json={"text": " \n "}) == 400
+    assert status(url, json={"text": 5}) == 400
+    assert status(url, json=["x"]) == 400
+    assert status(url, json={"text": "x" * 2001}) == 400
+    assert status(url, content="text", headers={"content-type": "text/plain"}) == 415
+
+
+def test_a_second_pass_keeps_a_transcript_you_edited(client, webm, monkeypatch):
+    monkeypatch.setenv("LOURO_FINAL_MODEL", "large-v3")
+    release = threading.Event()
+
+    class Slow(Refined):
+        def __call__(self, audio):
+            release.wait(5)
+            return super().__call__(audio)
+
+    monkeypatch.setattr(app_module, "_make_final_transcribe_fn", lambda language=None: Slow())
+
+    stream(client, webm, query="?session=mine")
+    assert client.get("/api/sessions/mine").json()["status"] == "refining"
+    segment_id = client.get("/api/sessions/mine/transcript").json()["segments"][0]["id"]
+    client.patch(f"/api/sessions/mine/segments/{segment_id}", json={"text": "my words"})
+    release.set()
+
+    _wait_for(lambda: client.get("/api/sessions/mine").json()["status"] == "stopped")
+    texts = [s["text"] for s in client.get("/api/sessions/mine/transcript").json()["segments"]]
+    assert "my words" in texts and "refined text" not in texts

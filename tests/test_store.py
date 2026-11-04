@@ -224,3 +224,58 @@ def test_notes_come_back_in_time_order_and_go_with_their_session(store):
     ]
     store.delete_session("n")
     assert store.load_notes("n") == []
+
+
+def test_stored_segments_get_ids_an_edit_can_name(store):
+    first, second = Segment("vamos ao item um", 0, 2), Segment("certo", 2, 3)
+    store.add_segments("s1", [first, second])
+    store.add_segments("s2", [Segment("outra reunião", 0, 1)])
+
+    edited = store.edit_segment("s1", second.id, "certo, combinado")
+
+    assert first.id is not None and second.id == first.id + 1
+    assert (edited.text, edited.edited, edited.start) == ("certo, combinado", True, 2)
+    loaded = store.load_segments("s1")
+    assert [(s.text, s.edited) for s in loaded] == [
+        ("vamos ao item um", False),
+        ("certo, combinado", True),
+    ]
+    assert store.edit_segment("s2", second.id, "não é desta reunião") is None
+    assert store.edit_segment("s1", 999, "não existe") is None
+
+
+def test_a_transcript_you_edited_is_not_replaced_by_a_second_pass(store):
+    store.add_segments("s1", [Segment("texto ao vivo", 0, 2)])
+    assert store.replace_segments("s1", [Segment("texto refinado", 0, 2)], unless_edited=True)
+
+    [segment] = store.load_segments("s1")
+    store.edit_segment("s1", segment.id, "texto corrigido")
+
+    assert not store.replace_segments("s1", [Segment("outro refinado", 0, 2)], unless_edited=True)
+    assert [s.text for s in store.load_segments("s1")] == ["texto corrigido"]
+
+
+def test_a_database_from_before_edits_gains_the_column(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE segments (id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT NOT NULL,"
+        " text TEXT NOT NULL, start_sec REAL NOT NULL, end_sec REAL NOT NULL, speaker TEXT,"
+        " created_at REAL NOT NULL)"
+    )
+    conn.execute(
+        "INSERT INTO segments (session_id, text, start_sec, end_sec, created_at)"
+        " VALUES ('old', 'antes', 0, 1, 0)"
+    )
+    conn.commit()
+    conn.close()
+
+    store = SessionStore(path)
+    try:
+        [segment] = store.load_segments("old")
+        assert not segment.edited
+        assert store.edit_segment("old", segment.id, "depois").edited
+    finally:
+        store.close()

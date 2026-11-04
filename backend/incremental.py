@@ -38,14 +38,18 @@ class Segment:
     end: float
     speaker: str | None = None  # filled in once diarization lands
     timestamp: float = field(default_factory=time.time)
+    id: int | None = None  # the stored row, once it has one
+    edited: bool = False  # you corrected the text by hand
 
     def to_dict(self) -> dict:
         return {
+            "id": self.id,
             "text": self.text,
             "start": round(self.start, 2),
             "end": round(self.end, 2),
             "speaker": self.speaker,
             "timestamp": self.timestamp,
+            "edited": self.edited,
         }
 
 
