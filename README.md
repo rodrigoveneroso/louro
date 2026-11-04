@@ -48,6 +48,8 @@ LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" > "${LOURO_TRANSCRIPT%.
   with an echo suppressor so you do not need headphones. Muted in Meet means not recorded.
 - **Notes.** Type a note from Meet's control bar, the popup or the side panel; it lands in
   the transcript at the minute you took it. Alt+Shift+M marks the minute without a note.
+- **Fix what Whisper misheard.** Double-click a line in the side panel (or its ✎) and
+  type the right words, live or after the meeting; the markdown follows your correction.
 - **Your vocabulary.** Names and jargon you list, plus the participants' names, are handed
   to Whisper so they come out spelled right.
 - **Light on your machine.** With the live captions closed, transcription runs in a batch

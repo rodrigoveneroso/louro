@@ -188,6 +188,24 @@
   "panelNoteFailed": {
     "message": "Não deu para salvar. Confira se o backend do Louro está rodando."
   },
+  "panelEditTitle": {
+    "message": "Corrigir o texto (ou clique duas vezes nele)"
+  },
+  "panelEditLabel": {
+    "message": "Texto da fala"
+  },
+  "panelEditHint": {
+    "message": "Enter salva · Esc cancela"
+  },
+  "panelEditSaving": {
+    "message": "Salvando…"
+  },
+  "panelEditFailed": {
+    "message": "Não deu para salvar. Enter tenta de novo, Esc desfaz."
+  },
+  "panelEdited": {
+    "message": "editado"
+  },
   "panelMarkOnly": {
     "message": "Momento marcado"
   },

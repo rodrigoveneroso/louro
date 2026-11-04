@@ -133,6 +133,82 @@ body {
   text-transform: uppercase;
 }
 
+.entry .meta-side {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.entry .edited-label {
+  color: var(--louro-muted);
+  font-size: 10px;
+  font-style: italic;
+}
+
+.entry .edit-button {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -4px -6px -4px 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--louro-radius-sm);
+  background: transparent;
+  color: var(--louro-subtle);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.entry:hover .edit-button,
+.entry .edit-button:focus-visible {
+  opacity: 1;
+}
+
+.entry .edit-button:hover {
+  background: var(--louro-surface-hover);
+  color: var(--louro-text);
+}
+
+.entry.segment .text {
+  cursor: text;
+}
+
+.entry.editing {
+  border-color: var(--louro-border);
+  background: var(--louro-surface-raised);
+}
+
+.entry .segment-editor {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--louro-green);
+  border-radius: var(--louro-radius-sm);
+  background: var(--louro-bg);
+  color: var(--louro-text);
+  font: inherit;
+  line-height: 1.5;
+  overflow: hidden;
+  resize: none;
+}
+
+.entry .edit-hint {
+  padding-top: 5px;
+  color: var(--louro-muted);
+  font-size: 11px;
+}
+
+.entry .edit-hint.error {
+  color: var(--louro-coral);
+}
+
 .entry .time {
   flex: 0 0 auto;
   color: var(--louro-subtle);

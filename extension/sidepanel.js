@@ -87,6 +87,8 @@ function clearTimeline() {
 }
 
 function keyForSegment(segment) {
+  // the stored id survives an edit; the text-based key is for a backend without ids
+  if (Number.isInteger(segment.id)) return `segment:${segment.id}`;
   return `segment:${segment.start ?? 0}:${segment.end ?? 0}:${segment.timestamp ?? ''}:${segment.text ?? ''}`;
 }
 
@@ -94,6 +96,8 @@ function addSegment(segment, highlight = true) {
   addTimelineItem({
     id: keyForSegment(segment),
     kind: 'segment',
+    segmentId: Number.isInteger(segment.id) ? segment.id : null,
+    edited: segment.edited === true,
     atSec: Number(segment.start) || 0,
     startSec: Number(segment.start) || 0,
     endSec: Number(segment.end) || 0,
@@ -229,6 +233,14 @@ function makeTimelineElement(item, highlight) {
   );
   meta.appendChild(kindLabel);
 
+  const side = document.createElement('span');
+  side.className = 'meta-side';
+  if (item.kind === 'segment' && item.edited) {
+    const edited = document.createElement('span');
+    edited.className = 'edited-label';
+    edited.textContent = t('panelEdited');
+    side.appendChild(edited);
+  }
   const time = document.createElement('span');
   time.className = item.kind === 'chat' && item.historical ? 'time historical-label' : 'time';
   if (item.kind === 'segment') {
@@ -238,7 +250,19 @@ function makeTimelineElement(item, highlight) {
   } else {
     time.textContent = formatClock(item.atSec);
   }
-  meta.appendChild(time);
+  side.appendChild(time);
+  const editable = item.kind === 'segment' && item.segmentId !== null;
+  if (editable) {
+    const editButton = document.createElement('button');
+    editButton.type = 'button';
+    editButton.className = 'edit-button';
+    editButton.textContent = '✎';
+    editButton.title = t('panelEditTitle');
+    editButton.setAttribute('aria-label', t('panelEditTitle'));
+    editButton.addEventListener('click', () => startEdit(item.id));
+    side.appendChild(editButton);
+  }
+  meta.appendChild(side);
   element.appendChild(meta);
 
   const body = document.createElement('div');
@@ -255,7 +279,16 @@ function makeTimelineElement(item, highlight) {
     body.appendChild(who);
   }
   const text = item.kind === 'note' && !item.text ? t('panelMarkOnly') : item.text;
-  body.appendChild(document.createTextNode(text));
+  const words = document.createElement('span');
+  words.className = 'words';
+  words.textContent = text;
+  body.appendChild(words);
+  if (editable) {
+    body.addEventListener('dblclick', (event) => {
+      event.preventDefault();
+      startEdit(item.id);
+    });
+  }
   element.appendChild(body);
 
   if (highlight) {
@@ -268,6 +301,11 @@ function addTimelineItem(item, highlight = true) {
   const shouldScroll = isNearBottom();
   const existing = timelineItems.get(item.id);
   let entry;
+  if (existing?.editing) {
+    // keep the editor open: what is being typed wins, the rest is taken in
+    Object.assign(existing, item, { speaker: item.speaker || existing.speaker });
+    return;
+  }
   if (existing) {
     entry = {
       ...existing,
@@ -296,6 +334,102 @@ function addTimelineItem(item, highlight = true) {
   transcriptEl.insertBefore(entry.element, next?.element || null);
   if (shouldScroll) scrollToBottom();
   updateLiveButton();
+}
+
+// --- editing what the transcriber heard ---
+
+function fitEditor(editor) {
+  editor.style.height = 'auto';
+  editor.style.height = `${editor.scrollHeight}px`;
+}
+
+function startEdit(id) {
+  const entry = timelineItems.get(id);
+  if (!entry || entry.editing || entry.segmentId === null || !currentSessionId) return;
+  entry.editing = true;
+  entry.sessionId = currentSessionId;
+  entry.element.classList.add('editing');
+
+  const editor = document.createElement('textarea');
+  editor.className = 'segment-editor';
+  editor.rows = 1;
+  editor.maxLength = 2000;
+  editor.value = entry.text;
+  editor.setAttribute('aria-label', t('panelEditLabel'));
+  const hint = document.createElement('div');
+  hint.className = 'edit-hint';
+  hint.setAttribute('role', 'status');
+  hint.textContent = t('panelEditHint');
+  entry.element.querySelector('.words').replaceWith(editor);
+  entry.element.appendChild(hint);
+
+  editor.addEventListener('input', () => fitEditor(editor));
+  editor.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault(); // one caption is one line
+      finishEdit(id, true);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      finishEdit(id, false);
+    }
+  });
+  editor.addEventListener('blur', () => finishEdit(id, true));
+  fitEditor(editor);
+  editor.focus();
+  editor.setSelectionRange(editor.value.length, editor.value.length);
+}
+
+function closeEditor(entry) {
+  entry.editing = false;
+  const element = makeTimelineElement(entry, false);
+  entry.element.replaceWith(element);
+  entry.element = element;
+}
+
+async function saveSegmentText(sessionId, segmentId, text) {
+  try {
+    const response = await fetch(
+      `http://${BACKEND}/api/sessions/${encodeURIComponent(sessionId)}/segments/${segmentId}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text }),
+      },
+    );
+    return response.ok ? await response.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function finishEdit(id, save) {
+  const entry = timelineItems.get(id);
+  if (!entry?.editing || entry.saving) return;
+  const editor = entry.element.querySelector('.segment-editor');
+  const hint = entry.element.querySelector('.edit-hint');
+  const text = editor.value.split(/\s+/).filter(Boolean).join(' ');
+  if (!save || !text || text === entry.text) {
+    closeEditor(entry);
+    return;
+  }
+
+  entry.saving = true;
+  editor.readOnly = true;
+  hint.textContent = t('panelEditSaving');
+  hint.classList.remove('error');
+  const segment = await saveSegmentText(entry.sessionId, entry.segmentId, text);
+  entry.saving = false;
+  if (timelineItems.get(id) !== entry) return; // another meeting is on screen now
+  if (!segment) {
+    // keep what was typed: Enter tries again, Esc gives up
+    editor.readOnly = false;
+    hint.textContent = t('panelEditFailed');
+    hint.classList.add('error');
+    return;
+  }
+  entry.text = String(segment.text || text);
+  entry.edited = true;
+  closeEditor(entry);
 }
 
 function clearTimelineForSession() {
@@ -356,6 +490,8 @@ function applyTranscriptEvent(data) {
     data.messages.forEach((message) => addChatMessage(message));
   } else if (data.type === 'note' && data.note) {
     addNoteItem(data.note);
+  } else if (data.type === 'segment' && data.segment) {
+    addSegment(data.segment, false); // a correction, from this panel or another one
   }
 }
 
