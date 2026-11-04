@@ -13,7 +13,8 @@
   after segment ("Pode ser." six times in ten seconds, each line starting where the last
   one ended). A short line said three times or more back to back is kept once; said
   twice, or with pauses between (people saying "Boa!" one after another), it is real,
-  and stays.
+  and stays. Within a line, a word or two said five times or more in a row ("Ana, Ana,
+  Ana, Ana, Ana, Ana") is cut to three, which is as much insistence as anyone puts in.
 
 A segment you edited by hand is exported exactly as you wrote it.
 
@@ -39,6 +40,9 @@ MIN_OVERLAP_SEC = 0.5
 LOOP_MAX_WORDS = 4
 LOOP_MIN_REPEATS = 3
 LOOP_MAX_GAP_SEC = 1.0  # back to back: each repeat starts within this of the last one's end
+# within a line: a run of one to three words repeated at least this often, cut to KEEP
+_IN_LINE_LOOP = re.compile(r"\b(\w+(?:\W+\w+){0,2}?)((?:\W+)\1\b){4,}", re.IGNORECASE)
+IN_LINE_KEEP = 3
 
 
 def clean(segments: Sequence[Segment]) -> list[Segment]:
@@ -55,6 +59,8 @@ def clean(segments: Sequence[Segment]) -> list[Segment]:
             segment = _trim_repeat(kept[-1], segment)
             if not segment.text:
                 continue
+        # after the edge: a loop cut first would leave less for the edge to tell apart
+        segment = replace(segment, text=_IN_LINE_LOOP.sub(_cut_loop, segment.text))
         kept.append(segment)
     return kept
 
@@ -77,6 +83,14 @@ def _without_loops(segments: Sequence[Segment]) -> list[Segment]:
         result.extend(segments[index : index + 1] if looping else segments[index:end])
         index = end
     return result
+
+
+def _cut_loop(match: re.Match) -> str:
+    """A repeated run of words up to its IN_LINE_KEEP-th time, exactly as written."""
+    text = match.group(0)
+    unit = re.compile(rf"\b{re.escape(match.group(1))}\b", re.IGNORECASE)
+    ends = [found.end() for found in unit.finditer(text)]
+    return text[: ends[IN_LINE_KEEP - 1]]
 
 
 def _words(text: str) -> list[str]:
