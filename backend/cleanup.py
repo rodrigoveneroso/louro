@@ -9,10 +9,11 @@
   are taken off the second segment.
 - Subtitle credits (see credits.py). New transcripts never store them, but meetings
   transcribed before that filter still have them, so a re-export drops them too.
-
 - Loops. On unclear audio Whisper can get stuck on a short phrase and emit it segment
-  after segment ("Pode ser." six times in ten seconds). A short line said three times or
-  more in a row is kept once; said twice it may well be real, and stays.
+  after segment ("Pode ser." six times in ten seconds, each line starting where the last
+  one ended). A short line said three times or more back to back is kept once; said
+  twice, or with pauses between (people saying "Boa!" one after another), it is real,
+  and stays.
 
 A segment you edited by hand is exported exactly as you wrote it.
 
@@ -37,6 +38,7 @@ MIN_OVERLAP_SEC = 0.5
 # a loop: the same line of at most this many words, at least this many times in a row
 LOOP_MAX_WORDS = 4
 LOOP_MIN_REPEATS = 3
+LOOP_MAX_GAP_SEC = 1.0  # back to back: each repeat starts within this of the last one's end
 
 
 def clean(segments: Sequence[Segment]) -> list[Segment]:
@@ -65,7 +67,10 @@ def _without_loops(segments: Sequence[Segment]) -> list[Segment]:
         words = _words(segments[index].text)
         end = index + 1
         while (
-            end < len(segments) and not segments[end].edited and _words(segments[end].text) == words
+            end < len(segments)
+            and not segments[end].edited
+            and _words(segments[end].text) == words
+            and segments[end].start - segments[end - 1].end <= LOOP_MAX_GAP_SEC
         ):
             end += 1
         looping = 0 < len(words) <= LOOP_MAX_WORDS and end - index >= LOOP_MIN_REPEATS

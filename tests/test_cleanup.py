@@ -89,6 +89,12 @@ def test_a_short_line_stuck_on_repeat_is_kept_once():
     assert texts(*loop, after) == ["Pode ser.", "Então seguimos com o plano."]
 
 
+def test_the_same_short_line_with_pauses_between_is_real():
+    cheers = [Segment("Boa!", 0, 0.8), Segment("Boa!", 4, 4.6), Segment("Boa!", 12, 12.5)]
+
+    assert texts(*cheers) == ["Boa!", "Boa!", "Boa!"]
+
+
 def test_a_short_line_said_twice_stays_twice():
     assert texts(Segment("Sim.", 0, 1), Segment("Sim.", 1, 2), Segment("Ok.", 2, 3)) == [
         "Sim.",
