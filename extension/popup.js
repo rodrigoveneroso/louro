@@ -38,20 +38,26 @@ const STATE_KEYS = [
   'lastCapture',
 ];
 
+// Renders overlap (a storage change lands while one still awaits the backend): only the
+// latest applies, and all at once, so no frame mixes two states (finishing with Stop).
+let renderGeneration = 0;
+
 async function render() {
+  const generation = ++renderGeneration;
   const state = await chrome.storage.local.get(STATE_KEYS);
   const recording = Boolean(state.activeSessionId);
   const finishing = !recording && Boolean(state.finishingSessionId);
+  const last = !recording && !finishing && isRecentCapture(state.lastCapture) ? state.lastCapture : null;
+  const count = recording ? await segmentCount(state.activeSessionId) : null;
+  const refining = Boolean(last?.refining) && (await sessionStatus(last.sessionId)) === 'refining';
+  if (generation !== renderGeneration) return;
 
   startBtn.hidden = recording || finishing;
   stopBtn.hidden = !recording;
   notesEl.hidden = !recording;
-  await renderPanelButton();
-
   if (recording) {
     card.className = 'card recording';
     headline.textContent = t('popupRecording', formatClock(elapsed(state.captureStartedAt)));
-    const count = await segmentCount(state.activeSessionId);
     detail.textContent = [
       count === null ? null : t('popupSegments', count),
       t(state.captureMic ? 'popupMicOn' : 'popupMicOff'),
@@ -67,12 +73,10 @@ async function render() {
       : '';
   } else {
     card.className = 'card idle';
-    const last = isRecentCapture(state.lastCapture) ? state.lastCapture : null;
     renderLast(last);
-    if (last?.refining && (await sessionStatus(last.sessionId)) === 'refining') {
-      detail.textContent += ` · ${t('popupRefining')}`;
-    }
+    if (refining) detail.textContent += ` · ${t('popupRefining')}`;
   }
+  await renderPanelButton();
 }
 
 async function renderPanelButton() {
