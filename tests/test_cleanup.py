@@ -103,9 +103,15 @@ def test_the_same_short_line_from_different_people_is_real():
 
 
 def test_a_loop_named_after_one_person_or_nobody_is_still_a_loop():
-    loop = [
-        Segment("Pode ser.", i, i + 1, speaker="Ana Souza" if i % 2 else None) for i in range(5)
-    ]
+    who = ["Ana Souza", None, "Ana Souza", None, "Ana Souza"]
+    loop = [Segment("Pode ser.", i, i + 1, speaker=name) for i, name in enumerate(who)]
+
+    assert texts(*loop) == ["Pode ser."]
+
+
+def test_a_loop_named_after_two_people_by_turns_is_still_a_loop():
+    who = ["Ana Souza", "Ana Souza", "Bruno Lima", "Bruno Lima", "Ana Souza"]
+    loop = [Segment("Pode ser.", i, i + 1, speaker=name) for i, name in enumerate(who)]
 
     assert texts(*loop) == ["Pode ser."]
 

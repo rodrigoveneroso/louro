@@ -12,8 +12,8 @@
 - Loops. On unclear audio Whisper can get stuck on a short phrase and emit it segment
   after segment ("Pode ser." six times in ten seconds, each line starting where the last
   one ended). A short line said three times or more back to back is kept once; said
-  twice, with pauses between, or by different people (the meeting named who said each,
-  as when everyone says "Boa!" in turn), it is real, and stays. Within a line, a word
+  twice, with pauses between, or by people in turn (each line named after someone else
+  than the one before: everyone saying "Boa!"), it is real, and stays. Within a line, a word
   or two said five times or more in a row ("Ana, Ana, Ana, Ana, Ana, Ana") is cut to
   three, which is as much insistence as anyone puts in.
 
@@ -29,6 +29,7 @@ import re
 import unicodedata
 from collections.abc import Sequence
 from dataclasses import replace
+from itertools import pairwise
 
 from .credits import is_credit
 from .incremental import Segment
@@ -78,18 +79,26 @@ def _without_loops(segments: Sequence[Segment]) -> list[Segment]:
             and not segments[end].edited
             and _words(segments[end].text) == words
             and segments[end].start - segments[end - 1].end <= LOOP_MAX_GAP_SEC
-            and not _other_speaker(segments[end - 1], segments[end])
         ):
             end += 1
-        looping = 0 < len(words) <= LOOP_MAX_WORDS and end - index >= LOOP_MIN_REPEATS
+        looping = (
+            0 < len(words) <= LOOP_MAX_WORDS
+            and end - index >= LOOP_MIN_REPEATS
+            and not _in_turns(segments[index:end])
+        )
         result.extend(segments[index : index + 1] if looping else segments[index:end])
         index = end
     return result
 
 
-def _other_speaker(before: Segment, after: Segment) -> bool:
-    """Both lines are named, and not after the same person."""
-    return bool(before.speaker and after.speaker and before.speaker != after.speaker)
+def _in_turns(run: Sequence[Segment]) -> bool:
+    """Each line named after someone else than the line before: people taking turns.
+    A loop can be named after two people too (the meter is noisy over a few seconds of
+    nothing), but then one of them gets two lines in a row."""
+    return all(
+        before.speaker and after.speaker and before.speaker != after.speaker
+        for before, after in pairwise(run)
+    )
 
 
 def _cut_loop(match: re.Match) -> str:
