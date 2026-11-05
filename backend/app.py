@@ -28,6 +28,7 @@ from .retention import should_discard, worth_keeping
 from .speakers import attribute, load_events
 from .store import SessionStore
 from .transcriber import WhisperTranscriber, get_model, is_loaded
+from .turns import turns
 from .vocabulary import clean as clean_terms
 from .vocabulary import configured_terms, hotwords
 
@@ -141,7 +142,9 @@ def list_sessions():
 def get_session(session_id: str):
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="session not found")
-    return sessions[session_id].to_dict()
+    # turns as the export writes them: the count a person can relate to the transcript
+    turn_count = len(turns(_segments_for(session_id)))
+    return {**sessions[session_id].to_dict(), "transcript_turns": turn_count}
 
 
 def _segments_for(session_id: str) -> list[Segment]:

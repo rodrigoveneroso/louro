@@ -34,8 +34,11 @@
       }
     }
   },
+  "popupSegmentsOne": {
+    "message": "1 fala transcrita"
+  },
   "popupSegments": {
-    "message": "$P1$ trechos transcritos",
+    "message": "$P1$ falas transcritas",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -63,13 +66,10 @@
     "message": "✅ Transcrição concluída"
   },
   "popupDoneDetail": {
-    "message": "$P1$ · $P2$ trechos",
+    "message": "$P1$ gravados",
     "placeholders": {
       "p1": {
         "content": "$1"
-      },
-      "p2": {
-        "content": "$2"
       }
     }
   },
@@ -224,8 +224,11 @@
   "panelReconnecting": {
     "message": "backend perdido, reconectando…"
   },
+  "panelSegmentsOne": {
+    "message": "1 fala"
+  },
   "panelSegments": {
-    "message": "$P1$ trechos",
+    "message": "$P1$ falas",
     "placeholders": {
       "p1": {
         "content": "$1"
@@ -233,24 +236,18 @@
     }
   },
   "noteComplete": {
-    "message": "✅ Transcrição concluída: $P1$ trechos, $P2$",
+    "message": "✅ Transcrição concluída: $P1$",
     "placeholders": {
       "p1": {
         "content": "$1"
-      },
-      "p2": {
-        "content": "$2"
       }
     }
   },
   "noteDiscarded": {
-    "message": "🗑️ Não guardada: $P1$ com $P2$ trechos é curto demais para ser uma reunião",
+    "message": "🗑️ Não guardada: $P1$, curta demais ou sem fala para ser uma reunião",
     "placeholders": {
       "p1": {
         "content": "$1"
-      },
-      "p2": {
-        "content": "$2"
       }
     }
   },
@@ -377,13 +374,10 @@
     "message": "Salva"
   },
   "buttonDoneTip": {
-    "message": "Louro: transcrição salva · $P1$ · $P2$ trechos",
+    "message": "Louro: transcrição salva · $P1$",
     "placeholders": {
       "p1": {
         "content": "$1"
-      },
-      "p2": {
-        "content": "$2"
       }
     }
   },

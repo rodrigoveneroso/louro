@@ -39,7 +39,7 @@ test('after Stop: finishing, then saved for a few seconds, then back to not reco
   assert.deepEqual(buttonState({ ...base, lastCapture: last }, t), {
     kind: 'done',
     label: 'buttonDone',
-    tip: 'buttonDoneTip 32:10 572',
+    tip: 'buttonDoneTip 32:10',
   });
 
   const old = { ...last, at: NOW - 60_000 };

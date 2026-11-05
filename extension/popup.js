@@ -59,7 +59,7 @@ async function render() {
     card.className = 'card recording';
     headline.textContent = t('popupRecording', formatClock(elapsed(state.captureStartedAt)));
     detail.textContent = [
-      count === null ? null : t('popupSegments', count),
+      count === null ? null : count === 1 ? t('popupSegmentsOne') : t('popupSegments', count),
       t(state.captureMic ? 'popupMicOn' : 'popupMicOff'),
     ]
       .filter(Boolean)
@@ -118,7 +118,7 @@ function renderLast(last) {
   } else if (last.status === 'stopped') {
     headline.textContent = t('popupDone');
     const length = formatClock(last.durationSec || 0);
-    detail.textContent = t('popupDoneDetail', length, last.segments ?? 0);
+    detail.textContent = t('popupDoneDetail', length);
   } else if (last.status === 'backend_lost') {
     headline.textContent = t('popupLostBackend');
     detail.textContent = '';
@@ -138,14 +138,14 @@ function isRecentCapture(last) {
   return age >= 0 && age < CAPTURE_FEEDBACK_TTL_MS;
 }
 
-/** Segments transcribed so far, refreshed every few seconds rather than every tick. */
+/** Turns transcribed so far, refreshed every few seconds rather than every tick. */
 async function segmentCount(sessionId) {
   if (sessionId !== segmentsFor || Date.now() - segmentsAt > SEGMENTS_EVERY_MS) {
     segmentsFor = sessionId;
     segmentsAt = Date.now();
     try {
       const resp = await fetch(`http://${BACKEND}/api/sessions/${encodeURIComponent(sessionId)}`);
-      segments = resp.ok ? (await resp.json()).transcript_segments : null;
+      segments = resp.ok ? (await resp.json()).transcript_turns : null;
     } catch {
       segments = null; // backend away: the reconnect logic is on it, just show less
     }

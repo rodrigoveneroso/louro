@@ -35,7 +35,7 @@
     const last = input.lastCapture;
     if (last && input.mine && input.now - (last.at || 0) < DONE_VISIBLE_MS) {
       if (last.status === 'stopped') {
-        const tip = t('buttonDoneTip', clock(last.durationSec || 0), last.segments ?? 0);
+        const tip = t('buttonDoneTip', clock(last.durationSec || 0));
         return { kind: 'done', label: t('buttonDone'), tip };
       }
       if (last.status === 'discarded') {

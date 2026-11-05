@@ -146,6 +146,7 @@ await verify(async () => {
       !(await entry(2).evaluate((el) => el.classList.contains('continued'))),
     'a line right after another from the same person joins its turn, without the name again',
   );
+  check((await panel.locator('#segment-count').textContent()) === '3 falas', 'and the header counts turns, not lines');
   await entry(3).locator('.text').dblclick();
   await editor.press('Escape');
   check(await entry(3).evaluate((el) => el.classList.contains('continued')), 'and stays joined after editing');

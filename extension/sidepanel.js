@@ -20,7 +20,6 @@ const usedSpeakerColors = new Set([SELF_COLOR]);
 
 let ws = null;
 let currentSessionId = null;
-let segmentCount = 0;
 let startTime = null;
 let durationTimer = null;
 let nextSequence = 0;
@@ -79,7 +78,6 @@ function clearTimeline() {
   usedSpeakerColors.add(SELF_COLOR);
   nextSequence = 0;
   systemEntrySequence = 0;
-  segmentCount = 0;
   transcriptEl.replaceChildren();
   segmentCountEl.textContent = t('panelSegments', 0);
   emptyStateEl.classList.remove('hidden');
@@ -300,15 +298,34 @@ function makeTimelineElement(item, highlight) {
 
 // Lines said one after another by the same person read as one turn: the name and the
 // card's top edge only on its first line. Each line stays its own entry, to edit alone.
+// The rules are the export's (backend/turns.py), so the count matches the markdown.
+const TURN_MAX_GAP_SEC = 4;
+const TURN_SOFT_SEC = 60;
+const TURN_MAX_SEC = 120;
+
+function continuesTurn(entry, previous, turnStart) {
+  if (entry.kind !== 'segment' || previous?.kind !== 'segment') return false;
+  if (!entry.speaker || entry.speaker !== previous.speaker) return false;
+  if (entry.startSec - previous.endSec > TURN_MAX_GAP_SEC) return false;
+  const length = entry.endSec - turnStart;
+  if (length <= TURN_SOFT_SEC) return true;
+  return length <= TURN_MAX_SEC && !/[.?!…]\s*$/.test(previous.text || '');
+}
+
 function markTurns() {
   let previous = null;
+  let turnStart = 0;
+  let turns = 0;
   for (const entry of [...timelineItems.values()].sort(compareTimeline)) {
-    const continued =
-      entry.kind === 'segment' && previous?.kind === 'segment' &&
-      Boolean(entry.speaker) && entry.speaker === previous.speaker;
+    const continued = continuesTurn(entry, previous, turnStart);
     entry.element.classList.toggle('continued', continued);
+    if (entry.kind === 'segment' && !continued) {
+      turns += 1;
+      turnStart = entry.startSec;
+    }
     previous = entry;
   }
+  segmentCountEl.textContent = turns === 1 ? t('panelSegmentsOne') : t('panelSegments', turns);
 }
 
 function addTimelineItem(item, highlight = true) {
@@ -335,10 +352,6 @@ function addTimelineItem(item, highlight = true) {
   } else {
     entry = { ...item, sequence: nextSequence++, highlight };
     entry.element = makeTimelineElement(entry, highlight);
-    if (entry.kind === 'segment') {
-      segmentCount += 1;
-      segmentCountEl.textContent = t('panelSegments', segmentCount);
-    }
   }
 
   timelineItems.set(entry.id, entry);
@@ -648,12 +661,12 @@ noteInput.addEventListener('keydown', (event) => {
 
 function onBackendMessage(data) {
   if (data.type === 'complete') {
-    const { segment_count: count, duration_sec: duration } = data;
+    const { duration_sec: duration } = data;
     setStatus('disconnected', t('panelFinished'));
     if (data.status === 'discarded') {
-      addSystemEntry(t('noteDiscarded', formatClock(duration), count));
+      addSystemEntry(t('noteDiscarded', formatClock(duration)));
     } else {
-      addSystemEntry(t('noteComplete', count, formatClock(duration)));
+      addSystemEntry(t('noteComplete', formatClock(duration)));
     }
     stopDurationTimer();
   } else if (data.type === 'mic') {

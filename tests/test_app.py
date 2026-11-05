@@ -322,6 +322,8 @@ def test_a_resumed_capture_continues_the_same_session(client, webm):
     assert segments[0]["start"] < 1
     assert segments[-1]["start"] >= 60  # on the session clock, not from zero again
     assert session["transcript_segments"] == len(segments)
+    # nobody named in a test stream: each line is its own turn
+    assert session["transcript_turns"] == len(segments)
 
 
 def test_a_resume_never_goes_back_before_the_existing_transcript(client, webm):

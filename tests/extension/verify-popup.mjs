@@ -54,7 +54,7 @@ await verify(async () => {
   check(await visible('#panelBtn'), 'the live transcript is one click away');
   const detail = await until(async () => {
     const line = await text('#detail');
-    return /trechos transcritos/.test(line) ? line : null;
+    return /falas? transcritas?/.test(line) ? line : null;
   });
   check(Boolean(detail), `and what has been transcribed (${detail})`);
 
@@ -103,7 +103,7 @@ await verify(async () => {
   check(finishing.length > 0 && finishing.every((state) => !state.clickable), 'with nothing to click meanwhile');
   check(Boolean(done), 'it says when the transcription is done');
   const summary = await text('#detail');
-  check(/^00:\d\d · \d+ trechos$/.test(summary), `with the length and the segments (${summary})`);
+  check(/^00:\d\d gravados$/.test(summary), `with how long it was (${summary})`);
   check(await visible('#startBtn'), 'and Start is offered again');
 
   const badge = await worker.evaluate(`chrome.action.getBadgeText({})`);
