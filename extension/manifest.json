@@ -37,6 +37,10 @@
     "type": "module"
   },
   "commands": {
+    "start-recording": {
+      "suggested_key": { "default": "Alt+Shift+G" },
+      "description": "__MSG_commandStart__"
+    },
     "mark-moment": {
       "suggested_key": { "default": "Alt+Shift+M" },
       "description": "__MSG_commandMark__"

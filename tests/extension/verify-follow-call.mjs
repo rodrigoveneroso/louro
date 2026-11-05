@@ -116,6 +116,7 @@ await verify(async () => {
   await button.click();
   const hint = await page.locator('louro-button .idle-view').textContent();
   check(/clique no 🦜/.test(hint), 'clicking it says where to click to record');
+  check(/Alt\+Shift\+G/.test(hint), `or which keys to press (${hint})`);
   await page.mouse.click(5, 5);
 
   console.log('\nrecording, named after the meeting');

@@ -222,7 +222,12 @@ async function startCapture(tabId = null) {
   }
 }
 
-function startCaptureFromJoin(tabId) {
+/**
+ * Starts recording `tabId` in the turn of a user gesture Chrome counts as invoking the
+ * extension there: a click on Meet's join button (only when recording follows the call)
+ * or the start-recording shortcut.
+ */
+function startCaptureFromGesture(tabId, { onlyIfFollowing }) {
   if (captureStartInFlight) {
     return Promise.resolve({
       ok: false,
@@ -238,7 +243,7 @@ function startCaptureFromJoin(tabId) {
   } catch (error) {
     return Promise.all([activeCapture(), followsCall()])
       .then(([running, enabled]) => {
-        if (!enabled) return { ok: false, disabled: true };
+        if (onlyIfFollowing && !enabled) return { ok: false, disabled: true };
         return running
           ? { ok: false, error: t('errorAlreadyCapturing'), alreadyCapturing: true }
           : { ok: false, error: t('errorCannotCapture', error.message) };
@@ -253,12 +258,12 @@ function startCaptureFromJoin(tabId) {
       streamId = await streamRequest;
     } catch (error) {
       const [running, enabled] = await Promise.all([activeCapture(), followsCall()]);
-      if (!enabled) return { ok: false, disabled: true };
+      if (onlyIfFollowing && !enabled) return { ok: false, disabled: true };
       return running
         ? { ok: false, error: t('errorAlreadyCapturing'), alreadyCapturing: true }
         : { ok: false, error: t('errorCannotCapture', error.message) };
     }
-    if (!(await followsCall())) return { ok: false, disabled: true };
+    if (onlyIfFollowing && !(await followsCall())) return { ok: false, disabled: true };
     const running = await activeCapture();
     if (running) {
       return {
@@ -390,6 +395,23 @@ async function addNote(text = '') {
   }
 }
 
+function startCaptureFromJoin(tabId) {
+  return startCaptureFromGesture(tabId, { onlyIfFollowing: true });
+}
+
+// The start shortcut counts as clicking the icon on that tab, the click Chrome requires
+// to record it, so a call can be recorded without reaching for the toolbar. It only
+// starts: stopping by a stray key press would lose the rest of a meeting.
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command !== 'start-recording' || tab?.id === undefined) return;
+  // the stream is requested right away, in the shortcut's own turn
+  startCaptureFromGesture(tab.id, { onlyIfFollowing: false }).then(async (result) => {
+    if (result.ok || result.alreadyCapturing) return;
+    await chrome.action.setBadgeText({ tabId: tab.id, text: '!' }).catch(() => {});
+    await chrome.action.setTitle({ tabId: tab.id, title: result.error || t('badgeAskClick') }).catch(() => {});
+  });
+});
+
 // The shortcut marks without opening anything; the icon confirms it for a moment.
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'mark-moment') return;
@@ -436,7 +458,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       await rememberUserStop();
       sendResponse(await stopCapture());
     } else if (message.action === 'whoami') {
-      sendResponse({ tabId: sender.tab?.id ?? null }); // content scripts cannot ask Chrome
+      // content scripts cannot ask Chrome for their tab, nor for the shortcuts
+      const commands = await chrome.commands.getAll().catch(() => []);
+      const shortcut = commands.find((c) => c.name === 'start-recording')?.shortcut || '';
+      sendResponse({ tabId: sender.tab?.id ?? null, startShortcut: shortcut });
     } else if (message.action === 'add_note') {
       sendResponse(await addNote(message.text));
     } else if (message.action === 'mic_granted') {

@@ -57,7 +57,8 @@ LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" > "${LOURO_TRANSCRIPT%.
 - **No audio kept.** The recording is deleted once transcribed; only text remains.
   Captures under 30 seconds or without speech are dropped.
 - **Hands off, if you want.** Recording can start when you join a call and stop when you
-  leave, and the button in Meet tells you when a call is *not* being recorded.
+  leave, and the button in Meet tells you when a call is *not* being recorded. Chrome
+  still wants one gesture per tab: a click on the icon, or Alt+Shift+G.
 
 ## A transcript
 
@@ -109,15 +110,15 @@ If anything is off, `./doctor.sh` tells you what and how to fix it.
 
 ## Use
 
-1. In the meeting tab, click the 🦜 and **Iniciar gravação** (start recording). The first
-   time, Chrome asks for your microphone.
+1. In the meeting tab, click the 🦜 and **Iniciar gravação** (start recording), or press
+   Alt+Shift+G. The first time, Chrome asks for your microphone.
 2. During the call, the 🦜 button in Meet's control bar shows the recording time and takes
    notes.
 3. Click **Parar gravação** (stop). The transcript is in your folder a few seconds later.
 
 Chrome only lets an extension record a tab after you clicked it in that tab. With
 "start and stop with the call" turned on, open the popup once per meeting tab (the lobby
-is fine); if you forget, the button in Meet tells you.
+is fine) or press Alt+Shift+G; if you forget, the button in Meet tells you.
 
 <p align="center">
   <img src="docs/popup.png" alt="The popup while recording: elapsed time, stop, mark the moment, a note field" width="260">

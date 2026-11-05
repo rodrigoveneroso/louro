@@ -37,6 +37,7 @@
     .sendMessage({ target: 'background', action: 'whoami' })
     .then((reply) => {
       tabId = reply?.tabId ?? null;
+      if (reply?.startShortcut) showHint(t('buttonIdleHintShortcut', reply.startShortcut));
       scheduleRender();
     })
     .catch(() => {});
@@ -161,11 +162,14 @@
   const feedback = root.querySelector('.feedback');
   input.placeholder = t('popupNotePlaceholder');
   const unbindInput = globalThis.louroNoteInput.bind(input);
-  idleText.append(
-    Object.assign(document.createElement('strong'), { textContent: t('buttonIdleTitle') }),
-    document.createElement('br'),
-    t('buttonIdleHint'),
-  );
+  function showHint(hint) {
+    idleText.replaceChildren(
+      Object.assign(document.createElement('strong'), { textContent: t('buttonIdleTitle') }),
+      document.createElement('br'),
+      hint,
+    );
+  }
+  showHint(t('buttonIdleHint'));
 
   function setHidden(element, hidden) {
     if (element.hidden !== hidden) element.hidden = hidden;

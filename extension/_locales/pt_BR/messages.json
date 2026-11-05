@@ -321,6 +321,17 @@
       }
     }
   },
+  "commandStart": {
+    "message": "Gravar esta aba"
+  },
+  "buttonIdleHintShortcut": {
+    "message": "Para gravar, aperte $P1$ ou clique no 🦜 Louro na barra de extensões do Chrome.",
+    "placeholders": {
+      "p1": {
+        "content": "$1"
+      }
+    }
+  },
   "commandMark": {
     "message": "Marcar este momento da reunião"
   },
