@@ -83,7 +83,7 @@ await verify(async () => {
   const button = page.locator('louro-button .button');
   const buttonKind = async () => {
     if (!(await button.isVisible())) return null;
-    return (await button.getAttribute('class')).replace('button', '').trim();
+    return (await button.getAttribute('class')).split(' ')[1]; // after "button", before "nudge"
   };
 
   console.log('joining the call');
@@ -92,13 +92,11 @@ await verify(async () => {
   check((await buttonKind()) === null, 'the lobby has no Louro button');
   await page.click('#join');
   check(Boolean(await until(inCall)), 'joining the call is noticed');
+  const shownAs = await until(async () => (await buttonKind()) === 'idle' && button.getAttribute('class'), 10_000, 50);
+  check(Boolean(shownAs), "Meet's control bar gets a button that says the call is not being recorded");
   check(
     (await until(async () => (await badge()) === '!')) !== null,
     'without the click Chrome requires, the extension asks for it on its icon',
-  );
-  check(
-    (await until(async () => (await buttonKind()) === 'idle')) !== null,
-    "and Meet's control bar gets a button that says the call is not being recorded",
   );
   const slot = await page.evaluate(() => {
     const host = document.querySelector('louro-button');
@@ -107,6 +105,14 @@ await verify(async () => {
     return next && (next.matches(leave) || next.querySelector(leave)) ? 'leave' : null;
   });
   check(slot === 'leave', 'right before the leave button');
+  check(
+    shownAs?.includes('nudge') &&
+      (await page.locator('louro-button .label').textContent()) === 'Não gravando' &&
+      (await page.locator('louro-button .logo').isVisible()),
+    'with the mascot and "Não gravando" written on it, ringing softly on joining',
+  );
+  const settled = await until(async () => !(await button.getAttribute('class')).includes('nudge'), 10_000);
+  check(Boolean(settled), 'then it keeps still');
   await button.click();
   const hint = await page.locator('louro-button .idle-view').textContent();
   check(/clique no 🦜/.test(hint), 'clicking it says where to click to record');

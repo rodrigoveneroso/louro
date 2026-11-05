@@ -42,7 +42,7 @@
         return { kind: 'done', label: t('buttonDiscarded'), tip: t('buttonDiscardedTip') };
       }
     }
-    return { kind: 'idle', label: '', tip: t('buttonIdle') };
+    return { kind: 'idle', label: t('buttonIdleLabel'), tip: t('buttonIdle') };
   }
 
   globalThis.louroOverlay = { buttonState, clock, DONE_VISIBLE_MS };

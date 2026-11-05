@@ -15,8 +15,8 @@ const t = (key, ...values) => [key, ...values].join(' ');
 const NOW = 1_700_000_000_000;
 const base = { inCall: true, mine: true, now: NOW };
 
-test('in a call that is not being recorded, the button is just the logo, and says why', () => {
-  assert.deepEqual(buttonState(base, t), { kind: 'idle', label: '', tip: 'buttonIdle' });
+test('in a call that is not being recorded, the button says so', () => {
+  assert.deepEqual(buttonState(base, t), { kind: 'idle', label: 'buttonIdleLabel', tip: 'buttonIdle' });
 });
 
 test('outside a call there is no button: the lobby has no control bar to put it in', () => {
@@ -32,7 +32,7 @@ test("a capture of another tab is not this meeting's business", () => {
   assert.equal(buttonState({ ...base, mine: false, activeSessionId: 's' }, t), null);
 });
 
-test('after Stop: finishing, then saved for a few seconds, then back to the logo', () => {
+test('after Stop: finishing, then saved for a few seconds, then back to not recording', () => {
   assert.equal(buttonState({ ...base, finishingSessionId: 's' }, t).kind, 'finishing');
 
   const last = { status: 'stopped', durationSec: 1930, segments: 572, at: NOW - 2000 };

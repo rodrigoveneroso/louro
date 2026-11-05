@@ -9,7 +9,7 @@ import { check, launch, sleep, until, verify } from './harness.mjs';
 
 const MEET_URL = 'https://meet.google.com/abc-defg-hij';
 const MEET_PAGE = `<!doctype html><html><head><title>Meet - abc-defg-hij</title></head><body>
-  <div id="toolbar" style="display:grid;grid-template-columns:repeat(10, 72px);gap:12px">
+  <div id="toolbar" style="display:grid;grid-auto-flow:column;grid-auto-columns:auto;gap:12px">
     ${Array.from({ length: 8 }, (_, index) => `<button aria-label="Control ${index}">•</button>`).join('')}
     <button aria-label="Leave call">Leave</button>
   </div>
@@ -65,6 +65,7 @@ await verify(async () => {
     return {
       state: button?.className,
       logoDisplay: logo && getComputedStyle(logo).display,
+      logo: rect(logo),
       label: label?.textContent,
       button: rect(button),
       host: rect(host),
@@ -90,7 +91,10 @@ await verify(async () => {
     toolbarStatus.button?.bottom <= toolbarStatus.host?.bottom + 1 &&
     toolbarStatus.button?.height === 48;
   check(timeFits, `the recording dot and timer fit inside the 48px-high control (${JSON.stringify(toolbarStatus)})`);
-  check(toolbarStatus.logoDisplay === 'none', 'the mascot gives the active timer its own space');
+  check(
+    toolbarStatus.logoDisplay !== 'none' && toolbarStatus.logo?.right <= toolbarStatus.labelRect?.left,
+    'the mascot stays on the control while it records, beside the timer',
+  );
   check(
     toolbarStatus.host?.left >= toolbarStatus.previous?.right &&
       toolbarStatus.host?.right <= toolbarStatus.leave?.left,

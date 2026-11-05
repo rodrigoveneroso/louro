@@ -31,6 +31,7 @@
   let renderFrame = 0;
   let hostWasObserved = false;
   let stopped = false;
+  let wasIdle = false; // false also when no button was shown: a call joined counts as new
 
   chrome.runtime
     .sendMessage({ target: 'background', action: 'whoami' })
@@ -72,27 +73,34 @@
         background: var(--meet-control); color: var(--louro-text);
         transition: background-color 0.15s;
       }
-      .button:not(.idle) .logo { display: none; }
       .button:hover { background: var(--meet-control-hover); }
       .button:focus-visible { outline: 2px solid var(--louro-yellow); outline-offset: 2px; }
-      .logo { position: relative; display: inline-flex; width: 20px; height: 20px; }
+      .logo { position: relative; display: inline-flex; flex: none; width: 20px; height: 20px; }
       .logo img { display: block; width: 20px; height: 20px; image-rendering: auto; }
       .label { font-variant-numeric: tabular-nums; white-space: nowrap; }
       .label:empty { display: none; }
-      .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: none; }
-
-      .idle .logo::after {
-        content: ''; position: absolute; right: -1px; top: -1px; width: 6px; height: 6px;
-        border-radius: 50%; background: var(--louro-yellow); box-shadow: 0 0 0 2px var(--meet-control);
+      /* the state, as a dot on the mascot: yellow idle, red recording, green saved */
+      .dot {
+        position: absolute; right: -2px; top: -2px; width: 8px; height: 8px; border-radius: 50%;
+        background: var(--louro-yellow); box-shadow: 0 0 0 2px var(--meet-control);
       }
+
+      .button:not(:has(.label:empty)) { padding: 0 14px 0 12px; }
+
+      /* not recording: a yellow-tinted pill that says so, which a grey round icon did not */
+      .idle { background: #36321f; color: var(--louro-yellow); }
+      .idle:hover { background: #474026; }
+      .idle .dot { box-shadow: 0 0 0 2px #36321f; }
+      /* on joining the call, a few soft rings, then it keeps still */
+      .idle.nudge { animation: ring 1.8s ease-out 3; }
       .recording { background: #3b2924; }
       .recording:hover { background: #50352d; }
-      .recording .dot, .finishing .dot {
-        display: block; animation: pulse 1.6s ease-in-out infinite;
-      }
-      .recording .dot { background: var(--louro-coral); }
-      .finishing .dot { background: var(--louro-yellow); animation-duration: 1s; }
-      .done .dot { display: block; background: var(--louro-green); }
+      .recording .dot { background: var(--louro-coral); box-shadow: 0 0 0 2px #3b2924; }
+      .recording .dot, .finishing .dot { animation: pulse 1.6s ease-in-out infinite; }
+      .finishing .dot { animation-duration: 1s; }
+      .done .dot { background: var(--louro-green); }
+      /* a narrow window: the mascot and its dot carry the state alone */
+      @media (max-width: 760px) { .idle .label { display: none; } }
 
       .panel {
         position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%);
@@ -122,12 +130,15 @@
       .feedback.error { color: #ffaaa1; }
 
       @keyframes pulse { 50% { opacity: 0.35; transform: scale(0.8); } }
+      @keyframes ring {
+        from { box-shadow: 0 0 0 0 rgba(246, 207, 89, 0.55); }
+        to { box-shadow: 0 0 0 10px rgba(246, 207, 89, 0); }
+      }
       @keyframes rise { from { opacity: 0; transform: translate(-50%, 4px); } }
       @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
     </style>
     <button class="button idle" type="button" aria-haspopup="dialog" aria-expanded="false">
-      <span class="logo" aria-hidden="true"><img alt="" width="20" height="20" /></span>
-      <span class="dot" aria-hidden="true"></span>
+      <span class="logo" aria-hidden="true"><img alt="" width="20" height="20" /><span class="dot"></span></span>
       <span class="label"></span>
     </button>
     <div class="panel" role="dialog" hidden>
@@ -186,6 +197,9 @@
     if (shown?.kind === 'recording') input.focus();
   }
 
+  button.addEventListener('animationend', (event) => {
+    if (event.animationName === 'ring') button.classList.remove('nudge');
+  });
   button.addEventListener('click', (event) => {
     event.stopPropagation();
     if (shown?.kind === 'idle' || shown?.kind === 'recording') openPanel(panel.hidden);
@@ -354,12 +368,17 @@
         t,
       );
     if (!shown) {
+      wasIdle = false;
       if (host.parentElement) host.remove();
       observeToolbar(null, null);
       return;
     }
 
-    if (button.className !== `button ${shown.kind}`) button.className = `button ${shown.kind}`;
+    // the call was just joined, or a capture just ended: draw the eye to "not recording" once
+    const nudge = shown.kind === 'idle' && (wasIdle === false || button.classList.contains('nudge'));
+    wasIdle = shown.kind === 'idle';
+    const className = `button ${shown.kind}${nudge ? ' nudge' : ''}`;
+    if (button.className !== className) button.className = className;
     if (button.title !== shown.tip) button.title = shown.tip;
     if (button.getAttribute('aria-label') !== shown.tip) button.setAttribute('aria-label', shown.tip);
     if (label.textContent !== shown.label) label.textContent = shown.label;

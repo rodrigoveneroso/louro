@@ -339,6 +339,9 @@
   "buttonIdle": {
     "message": "Louro: esta chamada não está sendo gravada"
   },
+  "buttonIdleLabel": {
+    "message": "Não gravando"
+  },
   "buttonIdleTitle": {
     "message": "Esta chamada não está sendo gravada"
   },
