@@ -64,6 +64,14 @@ await verify(async () => {
     /minuto atual/.test(await popup.getAttribute('#noteInput', 'placeholder')),
     'the note field says it marks the current minute',
   );
+  const hintFits = await popup.$eval('#noteInput', (field) => {
+    const shown = field.clientHeight;
+    field.value = field.placeholder;
+    const needed = field.scrollHeight;
+    field.value = '';
+    return needed <= shown + 1;
+  });
+  check(hintFits, 'and that hint is shown whole, not cut after its first line');
   await popup.fill('#noteInput', 'decidir na sexta');
   await popup.press('#noteInput', 'Enter');
   const noted = await until(async () => /^📝 Nota salva em 00:\d\d$/.test(await text('#noteStatus')));
