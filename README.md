@@ -13,6 +13,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <b>English</b> · <a href="README.pt-BR.md">Português</a>
+</p>
+
 Louro is a Chrome extension and a small Python backend that turn your Google Meet calls
 into text files, entirely on your computer. It records the meeting tab and your
 microphone, transcribes them with [Whisper](https://github.com/SYSTRAN/faster-whisper)
@@ -73,7 +77,7 @@ LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" > "${LOURO_TRANSCRIPT%.
 ## A transcript
 
 What lands in your folder (a made-up meeting; the headings are in Portuguese, like the
-interface):
+interface, which is in Portuguese only for now):
 
 ```markdown
 # Weekly sync (05/01/2026 10:00)
