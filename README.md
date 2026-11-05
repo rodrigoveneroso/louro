@@ -22,7 +22,7 @@ Nobody else in the call sees a bot join. Nothing is uploaded. There is no accoun
 API key.
 
 <p align="center">
-  <img src="docs/meet-recording.png" alt="The Louro button in Google Meet's control bar, recording for 12:36, with a panel open to mark the moment or type a note" width="720">
+  <img src="docs/meet-recording.png" alt="The Louro button in Google Meet's control bar, recording for 12:36, with its note field open and a note just saved at 12:34" width="720">
 </p>
 
 ## No AI inside, on purpose
@@ -43,16 +43,25 @@ LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" > "${LOURO_TRANSCRIPT%.
 
 - **One markdown file per meeting**, named after the meeting when it was scheduled.
 - **Who said what**, read from Meet's own "is speaking" indicators, one line per turn:
-  what someone said in a row is one line, cut about every minute in a monologue. A line
-  whose speaker is unclear stays unnamed rather than getting a wrong name.
+  what someone said in a row is one line, cut about every minute in a monologue. Long
+  stretches are split on Whisper's word timings, so a quick exchange is not given to one
+  person. A line whose speaker is unclear stays unnamed rather than getting a wrong name.
+- **Live transcript.** The side panel follows the meeting as it is transcribed, turn by
+  turn, with the chat and your notes on the same timeline.
 - **Your voice too.** The tab only carries the others, so Louro mixes in your microphone,
   with an echo suppressor so you do not need headphones. Muted in Meet means not recorded.
 - **Notes.** Type a note from Meet's control bar, the popup or the side panel; it lands in
   the transcript at the minute you took it. Alt+Shift+M marks the minute without a note.
+- **The meeting chat, if you want.** Turn it on in the popup and Meet's chat messages are
+  saved with the transcript, at the minute they were sent, even with the chat closed.
 - **Fix what Whisper misheard.** Double-click a line in the side panel (or its ✎) and
   type the right words, live or after the meeting; the markdown follows your correction.
 - **Your vocabulary.** Names and jargon you list, plus the participants' names, are handed
   to Whisper so they come out spelled right.
+- **Whisper's habits, tidied.** The markdown leaves out what Whisper is known to make up:
+  words repeated across its windows, a phrase looped over unclear audio, subtitle credits
+  invented in silence. The stored transcript stays as heard, so a re-export applies
+  better rules to old meetings.
 - **Light on your machine.** With the live captions closed, transcription runs in a batch
   every five minutes at low CPU priority, so the call always comes first.
 - **No audio kept.** The recording is deleted once transcribed; only text remains.
@@ -78,15 +87,19 @@ interface):
 
 ## Transcrição
 
-[00:04] Ana Souza: Bom dia, vamos começar pelos números do mês.
-[00:41] Bruno Lima: O relatório novo ainda está atrasado.
+[00:04] Ana Souza: Bom dia, vamos começar pelos números do mês. O relatório de vendas ainda depende da integração nova. Bruno, como ficou o teste?
+[00:21] Bruno Lima: Rodei com os dados de outubro e bateu tudo, só falta o ajuste de fuso.
+[00:27] 💬 Bruno Lima: link do teste: planilha "outubro v2"
+[00:30] Você: Consigo fazer esse ajuste hoje à tarde.
 [01:02] 📌 Momento marcado
-[01:05] Ana Souza: Então a decisão é corrigir a integração antes de sexta.
+[01:05] Ana Souza: Então a decisão é publicar na sexta.
 [01:12] Combinado.
-[01:15] 📝 Nota: Bruno fica com a integração
+[01:15] 📝 Nota: publicar a integração na sexta
 ```
 
-A line without a name means someone spoke but it was not clear who.
+Each line is a turn. "Você" is you, from your microphone; 💬 is the meeting chat, 📌 and
+📝 are your marks and notes. A line without a name means someone spoke but it was not
+clear who.
 
 ## Install
 
@@ -114,7 +127,8 @@ If anything is off, `./doctor.sh` tells you what and how to fix it.
 1. In the meeting tab, click the 🦜 and **Iniciar gravação** (start recording), or press
    Alt+Shift+G. The first time, Chrome asks for your microphone.
 2. During the call, the 🦜 button in Meet's control bar shows the recording time and takes
-   notes.
+   notes. **Ver transcrição completa** opens the live transcript in Chrome's side panel;
+   double-click a line there to correct it.
 3. Click **Parar gravação** (stop). The transcript is in your folder a few seconds later.
 
 Chrome only lets an extension record a tab after you clicked it in that tab. With
@@ -122,9 +136,13 @@ Chrome only lets an extension record a tab after you clicked it in that tab. Wit
 is fine) or press Alt+Shift+G; if you forget, the button in Meet tells you.
 
 <p align="center">
-  <img src="docs/popup.png" alt="The popup while recording: elapsed time, stop, mark the moment, a note field" width="260">
+  <img src="docs/meet-not-recording.png" alt="The Louro button in Meet's control bar reading Não gravando, with a hint: press Alt+Shift+G or click the Louro icon to record" width="720">
+</p>
+
+<p align="center">
+  <img src="docs/popup.png" alt="The popup while recording: elapsed time, turns transcribed so far, stop, a note field" width="300">
   &nbsp;&nbsp;
-  <img src="docs/meet-not-recording.png" alt="The Louro button in Meet saying the call is not being recorded and where to click" width="520">
+  <img src="docs/sidepanel.png" alt="The side panel: the live transcript in turns, a corrected line marked as edited, a chat message and a note" width="300">
 </p>
 
 ## Configuration
@@ -151,7 +169,7 @@ Every option is documented in [`.env.example`](.env.example).
  Microphone ─┘                       (Chrome extension)          │
                                                                  ▼
  Meet page: who is speaking, meeting name,            local backend (FastAPI)
- participants, joined / left / muted  ──────────────►  ├─ Whisper on the newest window
+ participants, chat, joined / left / muted ─────────►  ├─ Whisper on the newest window
                                                        ├─ SQLite + live captions
                                                        └─ on stop: speakers, notes,
                                                           markdown, your command
@@ -184,8 +202,11 @@ npm run verify                      # real-browser checks (port 8877 must be fre
 
 The real-browser checks load the extension in Chromium against a throwaway backend:
 recording, microphone and echo suppression, reconnecting after a backend restart,
-following a stand-in Meet call, the popup, and reloading the extension mid-call. CI runs
-everything on every push.
+following a stand-in Meet call, reading its chat, the popup, correcting the live
+transcript, and reloading the extension mid-call. CI runs everything on every push.
+
+`node tools/screenshots.mjs` takes the screenshots above again, from the real extension
+and a made-up meeting.
 
 ```
 extension/   Chrome MV3 extension: popup, offscreen recorder, echo suppressor,
@@ -193,7 +214,7 @@ extension/   Chrome MV3 extension: popup, offscreen recorder, echo suppressor,
 backend/     FastAPI app, streaming decoder, windowed Whisper, SQLite, speakers,
              vocabulary, markdown export
 tests/       pytest suite, extension unit tests, real-browser checks
-tools/       Whisper benchmark, icon generator
+tools/       Whisper benchmark, icon generator, README screenshots
 ```
 
 ## Credits
