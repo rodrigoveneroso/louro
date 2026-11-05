@@ -255,6 +255,29 @@ body {
   font-style: italic;
 }
 
+.entry.continued {
+  margin-top: -9px; /* the list's gap: one card with the line before */
+  padding-top: 2px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.entry:has(+ .entry.continued) {
+  padding-bottom: 4px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.entry.continued .kind-label,
+.entry.continued .speaker {
+  display: none;
+}
+
+.entry.continued .entry-meta {
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
 .entry.new {
   background-color: #243326;
   animation: entry-arrive 220ms ease-out;

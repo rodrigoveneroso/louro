@@ -2,7 +2,8 @@
  * Verifies, in a real browser, that a line of the live transcript can be corrected from
  * the side panel: by double-clicking its text or with its edit button, saved with Enter
  * or by clicking away, dropped with Esc, kept open while new captions arrive, kept as
- * typed when saving fails, and updated when another panel corrects it.
+ * typed when saving fails, updated when another panel corrects it, and joined into one
+ * turn with the line before when the same person said both.
  *
  *   node tests/extension/verify-transcript-edit.mjs     (port 8877 must be free: ./stop.sh)
  *
@@ -132,6 +133,22 @@ await verify(async () => {
   const synced = await until(async () => (await words(1)) === 'pode ser na terça');
   check(Boolean(synced), 'a correction made in another panel shows up here');
   check((await panel.locator('.entry.segment').count()) === 3, 'without duplicating the line');
+
+  console.log('one turn');
+  const fourth = { id: 4, text: 'até lá', start: 7.2, end: 8, speaker: 'Ana Souza', timestamp: 0, edited: false };
+  segments.set(4, fourth);
+  send({ type: 'transcript', segments: [fourth] });
+  const joined = await until(async () => (await panel.locator('.entry.segment').count()) === 4);
+  check(
+    Boolean(joined) &&
+      (await entry(3).evaluate((el) => el.classList.contains('continued'))) &&
+      !(await entry(3).locator('.speaker').isVisible()) &&
+      !(await entry(2).evaluate((el) => el.classList.contains('continued'))),
+    'a line right after another from the same person joins its turn, without the name again',
+  );
+  await entry(3).locator('.text').dblclick();
+  await editor.press('Escape');
+  check(await entry(3).evaluate((el) => el.classList.contains('continued')), 'and stays joined after editing');
 }, async () => {
   await browser?.close();
   server.close();

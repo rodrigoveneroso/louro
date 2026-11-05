@@ -143,6 +143,7 @@ function addSystemEntry(text) {
     if (timelineItems.get(id) !== entry) return;
     timelineItems.delete(id);
     entry.element.remove();
+    markTurns();
     emptyStateEl.classList.toggle('hidden', timelineItems.size > 0);
     updateLiveButton();
   }, SYSTEM_ENTRY_TTL_MS);
@@ -297,6 +298,19 @@ function makeTimelineElement(item, highlight) {
   return element;
 }
 
+// Lines said one after another by the same person read as one turn: the name and the
+// card's top edge only on its first line. Each line stays its own entry, to edit alone.
+function markTurns() {
+  let previous = null;
+  for (const entry of [...timelineItems.values()].sort(compareTimeline)) {
+    const continued =
+      entry.kind === 'segment' && previous?.kind === 'segment' &&
+      Boolean(entry.speaker) && entry.speaker === previous.speaker;
+    entry.element.classList.toggle('continued', continued);
+    previous = entry;
+  }
+}
+
 function addTimelineItem(item, highlight = true) {
   const shouldScroll = isNearBottom();
   const existing = timelineItems.get(item.id);
@@ -332,6 +346,7 @@ function addTimelineItem(item, highlight = true) {
   const ordered = [...timelineItems.values()].sort(compareTimeline);
   const next = ordered[ordered.indexOf(entry) + 1];
   transcriptEl.insertBefore(entry.element, next?.element || null);
+  markTurns();
   if (shouldScroll) scrollToBottom();
   updateLiveButton();
 }
@@ -384,6 +399,7 @@ function closeEditor(entry) {
   const element = makeTimelineElement(entry, false);
   entry.element.replaceWith(element);
   entry.element = element;
+  markTurns();
 }
 
 async function saveSegmentText(sessionId, segmentId, text) {
