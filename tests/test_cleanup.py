@@ -95,6 +95,21 @@ def test_the_same_short_line_with_pauses_between_is_real():
     assert texts(*cheers) == ["Boa!", "Boa!", "Boa!"]
 
 
+def test_the_same_short_line_from_different_people_is_real():
+    names = ["Ana Souza", "Bruno Lima", "Carla Dias"]
+    cheers = [Segment("Boa!", i, i + 1, speaker=name) for i, name in enumerate(names)]
+
+    assert texts(*cheers) == ["Boa!", "Boa!", "Boa!"]
+
+
+def test_a_loop_named_after_one_person_or_nobody_is_still_a_loop():
+    loop = [
+        Segment("Pode ser.", i, i + 1, speaker="Ana Souza" if i % 2 else None) for i in range(5)
+    ]
+
+    assert texts(*loop) == ["Pode ser."]
+
+
 def test_a_short_line_said_twice_stays_twice():
     assert texts(Segment("Sim.", 0, 1), Segment("Sim.", 1, 2), Segment("Ok.", 2, 3)) == [
         "Sim.",

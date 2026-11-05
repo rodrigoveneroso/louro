@@ -10,6 +10,7 @@ import datetime as dt
 import logging
 import os
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 
 from .cleanup import clean
@@ -17,6 +18,7 @@ from .incremental import Segment
 from .models import ChatMessage, Note, Session
 from .retention import worth_keeping
 from .speakers import attribute, load_events
+from .turns import turns
 
 logger = logging.getLogger(__name__)
 
@@ -58,15 +60,19 @@ def export_session(
     chat_messages: Sequence[ChatMessage] = (),
 ) -> Path | None:
     """Write one session as markdown. With `speaker_events` (the Google Meet log), lines
-    get the name of whoever was speaking when the meeting UI showed it clearly."""
+    get the name of whoever was speaking when the meeting UI showed it clearly, and what
+    one person said in a row is one line (see turns.py)."""
     target = target or export_dir()
+    events = load_events(speaker_events) if speaker_events else []
+    # named before cleaning: telling a loop from people repeating each other needs them
+    speakers = attribute(segments, events, session.started_at) if events else [None] * len(segments)
+    segments = [replace(s, speaker=who) for s, who in zip(segments, speakers, strict=True)]
     segments = clean(segments)
     if target is None or (not segments and not chat_messages):
         return None
     target.mkdir(parents=True, exist_ok=True)
-
-    events = load_events(speaker_events) if speaker_events else []
-    speakers = attribute(segments, events, session.started_at) if events else [None] * len(segments)
+    marks = [n.at_sec for n in notes] + [m.at_sec for m in chat_messages if not m.historical]
+    segments = turns(segments, breaks=marks)
 
     started = dt.datetime.fromisoformat(session.started_at)
     path = export_path(session, target)
@@ -97,8 +103,8 @@ def export_session(
         timeline.append((group, at_sec, priority, order, _chat_line(message)))
     for index, note in enumerate(notes):
         timeline.append((1, note.at_sec, 0, index, _note_line(note)))
-    for index, (segment, speaker) in enumerate(zip(segments, speakers, strict=True)):
-        who = f"{speaker}: " if speaker else ""
+    for index, segment in enumerate(segments):
+        who = f"{segment.speaker}: " if segment.speaker else ""
         text = f"[{_stamp(segment.start)}] {who}{segment.text.strip()}"
         timeline.append((1, segment.start, 2, index, text))
     lines.extend(item[-1] for item in sorted(timeline))

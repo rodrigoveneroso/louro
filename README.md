@@ -42,8 +42,9 @@ LOURO_ON_EXPORT='claude -p "Summarise $LOURO_TRANSCRIPT" > "${LOURO_TRANSCRIPT%.
 ## What you get
 
 - **One markdown file per meeting**, named after the meeting when it was scheduled.
-- **Who said what**, read from Meet's own "is speaking" indicators. A line whose speaker
-  is unclear stays unnamed rather than getting a wrong name.
+- **Who said what**, read from Meet's own "is speaking" indicators, one line per turn:
+  what someone said in a row is one line, cut about every minute in a monologue. A line
+  whose speaker is unclear stays unnamed rather than getting a wrong name.
 - **Your voice too.** The tab only carries the others, so Louro mixes in your microphone,
   with an echo suppressor so you do not need headphones. Muted in Meet means not recorded.
 - **Notes.** Type a note from Meet's control bar, the popup or the side panel; it lands in

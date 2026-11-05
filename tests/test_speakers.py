@@ -94,6 +94,25 @@ def test_export_names_the_speaker_of_each_line(tmp_path):
     assert "falantes:" in text
 
 
+def test_export_writes_what_one_person_said_in_a_row_as_one_line(tmp_path):
+    log = tmp_path / "s.speakers.jsonl"
+    events = meter("tile-a", 1.0, 30) + meter("tile-b", 7.0, 10)
+    log.write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+    session = Session(session_id="s", started_at=STARTED, duration_sec=10)
+    segments = [
+        Segment("Subi a versão nova.", 1.0, 2.5),
+        Segment("Podem testar?", 2.6, 3.5),
+        Segment("Testo já.", 7.0, 8.0),
+    ]
+
+    text = export_session(
+        session, segments, target=tmp_path / "out", speaker_events=log
+    ).read_text()
+
+    assert "[00:01] Ana Souza: Subi a versão nova. Podem testar?" in text
+    assert "[00:07] Bruno Lima: Testo já." in text
+
+
 def test_export_without_a_log_keeps_plain_lines(tmp_path):
     session = Session(session_id="s", started_at=STARTED, duration_sec=10)
 
